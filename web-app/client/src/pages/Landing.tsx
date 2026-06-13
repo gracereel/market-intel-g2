@@ -193,12 +193,20 @@ export default function Landing() {
           </svg>
           <span className="font-bold text-[#fff8e8] tracking-wide">Market Intel G2</span>
         </div>
-        <button
-          onClick={scrollToForm}
-          className="text-xs font-mono font-bold px-4 py-2 rounded-lg bg-[#ffc040]/10 border border-[#ffc040]/30 text-[#ffc040] hover:bg-[#ffc040]/18 transition-all"
-        >
-          Get Early Access
-        </button>
+        <div className="flex items-center gap-3">
+          <a
+            href="/login"
+            className="text-xs font-mono text-[#ffc040]/50 hover:text-[#ffc040] transition-all"
+          >
+            Sign In
+          </a>
+          <button
+            onClick={scrollToForm}
+            className="text-xs font-mono font-bold px-4 py-2 rounded-lg bg-[#ffc040]/10 border border-[#ffc040]/30 text-[#ffc040] hover:bg-[#ffc040]/18 transition-all"
+          >
+            Get Early Access
+          </button>
+        </div>
       </nav>
 
       {/* Hero */}
