@@ -189,6 +189,54 @@ export async function registerRoutes(_: Server, app: Express) {
     res.json({ ok: true });
   });
 
+  // ── Positions (Limit Order Tracker) ──────────────────────────────────────
+  app.get("/api/positions", (_req, res) => {
+    res.json(storage.getPositions());
+  });
+
+  app.post("/api/positions", (req, res) => {
+    const { symbol, name, category, entryPrice, quantity, targetPrice, stopLoss, notes } = req.body;
+    if (!symbol || !name || !entryPrice || !quantity) {
+      return res.status(400).json({ error: "symbol, name, entryPrice, quantity are required" });
+    }
+    const pos = storage.addPosition({
+      symbol: String(symbol).toUpperCase(),
+      name: String(name),
+      category: String(category || "crypto"),
+      entryPrice: parseFloat(entryPrice),
+      quantity: parseFloat(quantity),
+      targetPrice: targetPrice != null ? parseFloat(targetPrice) : null,
+      stopLoss: stopLoss != null ? parseFloat(stopLoss) : null,
+      notes: notes ? String(notes) : "",
+    });
+    res.json(pos);
+  });
+
+  app.patch("/api/positions/:id", (req, res) => {
+    const id = parseInt(req.params.id);
+    const { targetPrice, stopLoss, quantity, notes, status, closePrice } = req.body;
+    const updates: any = {};
+    if (targetPrice !== undefined)  updates.targetPrice  = targetPrice != null ? parseFloat(targetPrice) : null;
+    if (stopLoss !== undefined)     updates.stopLoss     = stopLoss != null ? parseFloat(stopLoss) : null;
+    if (quantity !== undefined)     updates.quantity     = parseFloat(quantity);
+    if (notes !== undefined)        updates.notes        = String(notes);
+    if (status !== undefined)       updates.status       = String(status);
+    if (closePrice !== undefined) {
+      updates.closePrice = parseFloat(closePrice);
+      updates.closedAt   = new Date().toISOString();
+      updates.status     = "closed";
+    }
+    const pos = storage.updatePosition(id, updates);
+    if (!pos) return res.status(404).json({ error: "Position not found" });
+    res.json(pos);
+  });
+
+  app.delete("/api/positions/:id", (req, res) => {
+    const id = parseInt(req.params.id);
+    storage.deletePosition(id);
+    res.json({ success: true });
+  });
+
   // Currency strength endpoints
   app.get("/api/currency/strength", (_req, res) => {
     res.json(getCurrencyStrength());

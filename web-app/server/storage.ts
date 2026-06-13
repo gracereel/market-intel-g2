@@ -53,6 +53,25 @@ sqlite.exec(`
   );
 `);
 
+// Positions table (limit order tracker)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'crypto',
+    entry_price REAL NOT NULL,
+    quantity REAL NOT NULL,
+    target_price REAL,
+    stop_loss REAL,
+    notes TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    closed_at TEXT,
+    close_price REAL
+  );
+`);
+
 // Migration: add missing columns if they don't exist
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN category TEXT NOT NULL DEFAULT 'stocks'`); } catch {}
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`); } catch {}
@@ -63,6 +82,22 @@ export interface Favorite {
   name: string;
   category: string;
   addedAt: string;
+}
+
+export interface Position {
+  id: number;
+  symbol: string;
+  name: string;
+  category: string;
+  entryPrice: number;
+  quantity: number;
+  targetPrice: number | null;
+  stopLoss: number | null;
+  notes: string;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
+  closePrice: number | null;
 }
 
 export interface IStorage {
@@ -77,6 +112,10 @@ export interface IStorage {
   addFavorite(symbol: string, name: string, category: string): Favorite;
   removeFavorite(symbol: string): void;
   isFavorite(symbol: string): boolean;
+  getPositions(): Position[];
+  addPosition(data: { symbol: string; name: string; category: string; entryPrice: number; quantity: number; targetPrice?: number | null; stopLoss?: number | null; notes?: string }): Position;
+  updatePosition(id: number, data: Partial<{ targetPrice: number | null; stopLoss: number | null; quantity: number; notes: string; status: string; closedAt: string; closePrice: number }>): Position | null;
+  deletePosition(id: number): void;
 }
 
 export const storage: IStorage = {
@@ -150,6 +189,47 @@ export const storage: IStorage = {
 
   isFavorite(symbol: string): boolean {
     return !!sqlite.prepare(`SELECT id FROM favorites WHERE symbol = ?`).get(symbol);
+  },
+
+  getPositions(): Position[] {
+    const rows = sqlite.prepare(`SELECT * FROM positions ORDER BY created_at DESC`).all() as any[];
+    return rows.map(r => ({
+      id: r.id, symbol: r.symbol, name: r.name, category: r.category,
+      entryPrice: r.entry_price, quantity: r.quantity,
+      targetPrice: r.target_price ?? null, stopLoss: r.stop_loss ?? null,
+      notes: r.notes || '', status: r.status || 'open',
+      createdAt: r.created_at, closedAt: r.closed_at ?? null, closePrice: r.close_price ?? null,
+    }));
+  },
+
+  addPosition(data: { symbol: string; name: string; category: string; entryPrice: number; quantity: number; targetPrice?: number | null; stopLoss?: number | null; notes?: string }): Position {
+    sqlite.prepare(
+      `INSERT INTO positions (symbol, name, category, entry_price, quantity, target_price, stop_loss, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(data.symbol, data.name, data.category, data.entryPrice, data.quantity, data.targetPrice ?? null, data.stopLoss ?? null, data.notes ?? '');
+    const row = sqlite.prepare(`SELECT * FROM positions WHERE id = last_insert_rowid()`).get() as any;
+    return { id: row.id, symbol: row.symbol, name: row.name, category: row.category, entryPrice: row.entry_price, quantity: row.quantity, targetPrice: row.target_price ?? null, stopLoss: row.stop_loss ?? null, notes: row.notes || '', status: row.status, createdAt: row.created_at, closedAt: row.closed_at ?? null, closePrice: row.close_price ?? null };
+  },
+
+  updatePosition(id: number, data: Partial<{ targetPrice: number | null; stopLoss: number | null; quantity: number; notes: string; status: string; closedAt: string; closePrice: number }>): Position | null {
+    const sets: string[] = [];
+    const vals: any[] = [];
+    if ('targetPrice' in data)  { sets.push('target_price = ?');  vals.push(data.targetPrice ?? null); }
+    if ('stopLoss' in data)     { sets.push('stop_loss = ?');     vals.push(data.stopLoss ?? null); }
+    if ('quantity' in data)     { sets.push('quantity = ?');      vals.push(data.quantity); }
+    if ('notes' in data)        { sets.push('notes = ?');         vals.push(data.notes); }
+    if ('status' in data)       { sets.push('status = ?');        vals.push(data.status); }
+    if ('closedAt' in data)     { sets.push('closed_at = ?');     vals.push(data.closedAt); }
+    if ('closePrice' in data)   { sets.push('close_price = ?');   vals.push(data.closePrice); }
+    if (sets.length === 0) return null;
+    vals.push(id);
+    sqlite.prepare(`UPDATE positions SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+    const row = sqlite.prepare(`SELECT * FROM positions WHERE id = ?`).get(id) as any;
+    if (!row) return null;
+    return { id: row.id, symbol: row.symbol, name: row.name, category: row.category, entryPrice: row.entry_price, quantity: row.quantity, targetPrice: row.target_price ?? null, stopLoss: row.stop_loss ?? null, notes: row.notes || '', status: row.status, createdAt: row.created_at, closedAt: row.closed_at ?? null, closePrice: row.close_price ?? null };
+  },
+
+  deletePosition(id: number): void {
+    sqlite.prepare(`DELETE FROM positions WHERE id = ?`).run(id);
   },
 
   getStats() {

@@ -9,12 +9,13 @@ import {
   Glasses, Zap, Bitcoin, BarChart2, Fuel, RefreshCw,
   AlertTriangle, ExternalLink, Newspaper, Radio,
   ChevronRight, Activity, Command, Star,
-  Bell, Filter, Flame, Clock, ArrowUpRight, Globe
+  Bell, Filter, Flame, Clock, ArrowUpRight, Globe,
+  Target, PlusCircle, Trash2, Edit3, CheckCircle, TrendingUp as TrendUp, ChevronDown
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency" | "favorites";
+type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency" | "favorites" | "positions";
 
 interface Tick {
   symbol: string;
@@ -1327,6 +1328,438 @@ function CoinModal({ tick, onClose, favSet, toggleFav }: { tick: Tick; onClose: 
 // ─── Favorites hook ─────────────────────────────────────────────────────────
 interface FavoriteRecord { id: number; symbol: string; name: string; category: string; addedAt: string; }
 
+// ─── Position Tracker ─────────────────────────────────────────────────────
+interface Position {
+  id: number;
+  symbol: string;
+  name: string;
+  category: string;
+  entryPrice: number;
+  quantity: number;
+  targetPrice: number | null;
+  stopLoss: number | null;
+  notes: string;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
+  closePrice: number | null;
+}
+
+function usePositions() {
+  const { data: positions = [], refetch } = useQuery<Position[]>({
+    queryKey: ["/api/positions"],
+    refetchInterval: false,
+  });
+
+  const add = async (data: Omit<Position, "id" | "status" | "createdAt" | "closedAt" | "closePrice">) => {
+    await apiRequest("POST", "/api/positions", data);
+    queryClient.invalidateQueries({ queryKey: ["/api/positions"] });
+  };
+
+  const update = async (id: number, data: Partial<Position>) => {
+    await apiRequest("PATCH", `/api/positions/${id}`, data);
+    queryClient.invalidateQueries({ queryKey: ["/api/positions"] });
+  };
+
+  const remove = async (id: number) => {
+    await apiRequest("DELETE", `/api/positions/${id}`);
+    queryClient.invalidateQueries({ queryKey: ["/api/positions"] });
+  };
+
+  return { positions, add, update, remove, refetch };
+}
+
+function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
+  const { positions, add, update, remove } = usePositions();
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [showClosed, setShowClosed] = useState(false);
+
+  // Form state
+  const [fSymbol, setFSymbol]   = useState("");
+  const [fQty, setFQty]         = useState("");
+  const [fEntry, setFEntry]     = useState("");
+  const [fTarget, setFTarget]   = useState("");
+  const [fStop, setFStop]       = useState("");
+  const [fNotes, setFNotes]     = useState("");
+
+  const resetForm = () => {
+    setFSymbol(""); setFQty(""); setFEntry(""); setFTarget(""); setFStop(""); setFNotes("");
+    setShowForm(false); setEditId(null);
+  };
+
+  const startEdit = (p: Position) => {
+    setFSymbol(p.symbol); setFQty(String(p.quantity)); setFEntry(String(p.entryPrice));
+    setFTarget(p.targetPrice != null ? String(p.targetPrice) : "");
+    setFStop(p.stopLoss != null ? String(p.stopLoss) : "");
+    setFNotes(p.notes); setEditId(p.id); setShowForm(true);
+  };
+
+  // Resolve live price for a position
+  const livePrice = (p: Position): number | null => {
+    const sym = p.symbol.replace("USDT","");
+    const tick =
+      ticks.get(`crypto:${sym}`) ??
+      ticks.get(`crypto:${p.symbol}`) ??
+      ticks.get(`futures:${p.symbol}USDT`) ??
+      ticks.get(`stocks:${p.symbol}`) ??
+      ticks.get(`oil:${p.symbol}`) ??
+      null;
+    return tick ? tick.price : null;
+  };
+
+  const submitForm = async () => {
+    if (!fSymbol || !fEntry || !fQty) return;
+    const data = {
+      symbol: fSymbol.trim().toUpperCase(),
+      name: fSymbol.trim().toUpperCase(),
+      category: "crypto",
+      entryPrice: parseFloat(fEntry),
+      quantity: parseFloat(fQty),
+      targetPrice: fTarget ? parseFloat(fTarget) : null,
+      stopLoss: fStop ? parseFloat(fStop) : null,
+      notes: fNotes,
+    };
+    if (editId !== null) {
+      await update(editId, { targetPrice: data.targetPrice, stopLoss: data.stopLoss, quantity: data.quantity, notes: data.notes });
+    } else {
+      await add(data);
+    }
+    resetForm();
+  };
+
+  const openPositions = positions.filter(p => p.status === "open");
+  const closedPositions = positions.filter(p => p.status === "closed");
+
+  // Portfolio summary
+  const summary = openPositions.reduce((acc, p) => {
+    const live = livePrice(p);
+    const cost = p.entryPrice * p.quantity;
+    acc.totalCost += cost;
+    if (live !== null) {
+      const currentVal = live * p.quantity;
+      acc.totalValue += currentVal;
+      acc.totalPnl += currentVal - cost;
+      acc.resolved++;
+    }
+    return acc;
+  }, { totalCost: 0, totalValue: 0, totalPnl: 0, resolved: 0 });
+
+  const pnlPct = summary.totalCost > 0 ? (summary.totalPnl / summary.totalCost) * 100 : 0;
+  const pnlUp = summary.totalPnl >= 0;
+
+  return (
+    <div className="p-3 space-y-3">
+      {/* Portfolio Summary Bar */}
+      {openPositions.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white/3 border border-white/8 rounded-xl p-3">
+            <div className="text-[9px] font-mono text-white/30 uppercase mb-1">Total Invested</div>
+            <div className="text-sm font-bold font-mono text-white">${fmtPrice(summary.totalCost)}</div>
+          </div>
+          <div className="bg-white/3 border border-white/8 rounded-xl p-3">
+            <div className="text-[9px] font-mono text-white/30 uppercase mb-1">Current Value</div>
+            <div className="text-sm font-bold font-mono text-white">${summary.resolved > 0 ? fmtPrice(summary.totalValue) : "—"}</div>
+          </div>
+          <div className={`border rounded-xl p-3 ${pnlUp ? "bg-green-500/8 border-green-500/20" : "bg-red-500/8 border-red-500/20"}`}>
+            <div className="text-[9px] font-mono text-white/30 uppercase mb-1">Total P&L</div>
+            <div className={`text-sm font-bold font-mono ${pnlUp ? "text-green-400" : "text-red-400"}`}>
+              {summary.resolved > 0 ? `${pnlUp ? "+" : ""}${fmtPrice(summary.totalPnl)} (${pnlPct.toFixed(2)}%)` : "—"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Form */}
+      {showForm && (
+        <div className="bg-[hsl(224_18%_8%)] border border-white/12 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-white">{editId !== null ? "Edit Position" : "New Position"}</span>
+            <button onClick={resetForm} className="text-white/30 hover:text-white"><X className="w-4 h-4" /></button>
+          </div>
+
+          {/* Symbol + Quantity row */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] font-mono text-white/40 uppercase mb-1 block">Coin / Symbol *</label>
+              <input
+                value={fSymbol}
+                onChange={e => setFSymbol(e.target.value.toUpperCase())}
+                disabled={editId !== null}
+                placeholder="BTC, ETH, SOL..."
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/40 disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-mono text-white/40 uppercase mb-1 block">Quantity *</label>
+              <input
+                type="number" step="any" value={fQty} onChange={e => setFQty(e.target.value)}
+                placeholder="0.5"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/40"
+              />
+            </div>
+          </div>
+
+          {/* Entry + Target + Stop row */}
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[9px] font-mono text-white/40 uppercase mb-1 block">Entry Price *</label>
+              <input
+                type="number" step="any" value={fEntry}
+                onChange={e => setFEntry(e.target.value)}
+                disabled={editId !== null}
+                placeholder="42000"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/40 disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-mono text-green-400/60 uppercase mb-1 block">Take Profit</label>
+              <input
+                type="number" step="any" value={fTarget} onChange={e => setFTarget(e.target.value)}
+                placeholder="50000"
+                className="w-full bg-white/5 border border-green-500/15 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/40"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-mono text-red-400/60 uppercase mb-1 block">Stop Loss</label>
+              <input
+                type="number" step="any" value={fStop} onChange={e => setFStop(e.target.value)}
+                placeholder="38000"
+                className="w-full bg-white/5 border border-red-500/15 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-red-500/40"
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="text-[9px] font-mono text-white/40 uppercase mb-1 block">Notes (optional)</label>
+            <input
+              value={fNotes} onChange={e => setFNotes(e.target.value)}
+              placeholder="Reason for entry, strategy..."
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/40"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={submitForm}
+              className="flex-1 bg-green-500/15 border border-green-500/30 text-green-400 font-mono text-xs font-bold py-2 rounded-lg hover:bg-green-500/25 transition-colors"
+            >
+              {editId !== null ? "Save Changes" : "Add Position"}
+            </button>
+            <button onClick={resetForm} className="px-4 text-xs font-mono text-white/40 border border-white/10 rounded-lg hover:text-white transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Open Positions */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
+          Open Positions ({openPositions.length})
+        </span>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 text-[10px] font-mono text-green-400 border border-green-500/25 px-2.5 py-1 rounded-lg hover:bg-green-500/10 transition-colors"
+          >
+            <PlusCircle className="w-3 h-3" />
+            Add Position
+          </button>
+        )}
+      </div>
+
+      {openPositions.length === 0 && !showForm ? (
+        <div className="flex flex-col items-center justify-center py-12 text-white/20 text-xs font-mono">
+          <Target className="w-10 h-10 mb-3 opacity-20" />
+          <div className="text-sm">No open positions</div>
+          <div className="text-[10px] mt-1 text-white/15">Track your entries, targets, and stops</div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {openPositions.map(p => {
+            const live = livePrice(p);
+            const cost = p.entryPrice * p.quantity;
+            const currentVal = live !== null ? live * p.quantity : null;
+            const pnl = currentVal !== null ? currentVal - cost : null;
+            const pnlPct = pnl !== null ? (pnl / cost) * 100 : null;
+            const isUp = pnl !== null ? pnl >= 0 : null;
+
+            // Distance to target / stop
+            const toTarget = p.targetPrice && live ? ((p.targetPrice - live) / live) * 100 : null;
+            const toStop   = p.stopLoss   && live ? ((live - p.stopLoss)   / live) * 100 : null;
+
+            // Hit detection
+            const hitTarget = p.targetPrice && live && live >= p.targetPrice;
+            const hitStop   = p.stopLoss   && live && live <= p.stopLoss;
+
+            return (
+              <div
+                key={p.id}
+                className={`relative rounded-xl border p-3 transition-all ${
+                  hitTarget ? "border-green-400/50 bg-green-500/8 ring-1 ring-green-500/20" :
+                  hitStop   ? "border-red-400/50 bg-red-500/8 ring-1 ring-red-500/20" :
+                  "border-white/8 bg-white/2 hover:border-white/15"
+                }`}
+              >
+                {/* Hit badge */}
+                {hitTarget && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 text-[9px] font-mono font-bold text-green-400 bg-green-500/15 border border-green-500/30 px-1.5 py-0.5 rounded animate-pulse">
+                    <CheckCircle className="w-2.5 h-2.5" /> TARGET HIT
+                  </div>
+                )}
+                {hitStop && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 text-[9px] font-mono font-bold text-red-400 bg-red-500/15 border border-red-500/30 px-1.5 py-0.5 rounded animate-pulse">
+                    <AlertTriangle className="w-2.5 h-2.5" /> STOP HIT
+                  </div>
+                )}
+
+                {/* Top row: symbol + live price */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-green-500/15 flex items-center justify-center text-[9px] font-bold text-green-400">
+                      {p.symbol.slice(0,2)}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">{p.symbol}</div>
+                      <div className="text-[9px] font-mono text-white/30">{p.quantity} units · ${fmtPrice(cost)} in</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-bold font-mono text-white">{live !== null ? `$${fmtPrice(live)}` : "—"}</div>
+                    <div className={`text-[9px] font-mono font-bold ${isUp === true ? "text-green-400" : isUp === false ? "text-red-400" : "text-white/30"}`}>
+                      {pnl !== null ? `${isUp ? "+" : ""}$${fmtPrice(Math.abs(pnl))} (${pnlPct!.toFixed(2)}%)` : "Loading..."}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Price levels bar */}
+                {(p.stopLoss || p.targetPrice) && live && (
+                  <div className="mb-2">
+                    <div className="flex justify-between text-[8px] font-mono text-white/25 mb-0.5">
+                      <span className="text-red-400/70">{p.stopLoss ? `SL $${fmtPrice(p.stopLoss)}` : ""}</span>
+                      <span className="text-white/40">ENTRY ${fmtPrice(p.entryPrice)}</span>
+                      <span className="text-green-400/70">{p.targetPrice ? `TP $${fmtPrice(p.targetPrice)}` : ""}</span>
+                    </div>
+                    {/* Visual range bar */}
+                    {p.stopLoss && p.targetPrice && (() => {
+                      const lo = Math.min(p.stopLoss, live * 0.95);
+                      const hi = Math.max(p.targetPrice, live * 1.05);
+                      const range = hi - lo;
+                      const entryPct = ((p.entryPrice - lo) / range) * 100;
+                      const livePct  = ((live - lo) / range) * 100;
+                      const stopPct  = ((p.stopLoss - lo) / range) * 100;
+                      const tgtPct   = ((p.targetPrice - lo) / range) * 100;
+                      return (
+                        <div className="relative h-1.5 bg-white/8 rounded-full">
+                          {/* Stop zone */}
+                          <div className="absolute top-0 bottom-0 bg-red-500/25 rounded-l-full" style={{ left: 0, width: `${Math.max(stopPct,0)}%` }} />
+                          {/* Target zone */}
+                          <div className="absolute top-0 bottom-0 bg-green-500/25 rounded-r-full" style={{ left: `${Math.min(tgtPct,100)}%`, right: 0 }} />
+                          {/* Entry marker */}
+                          <div className="absolute top-0 bottom-0 w-0.5 bg-white/40 -translate-x-1/2" style={{ left: `${Math.min(Math.max(entryPct,0),100)}%` }} />
+                          {/* Live price dot */}
+                          <div className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full ring-1 ring-[hsl(224_18%_6%)] ${isUp ? "bg-green-400" : "bg-red-400"}`}
+                            style={{ left: `${Math.min(Math.max(livePct,0),100)}%` }} />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Distance to target/stop */}
+                {(toTarget !== null || toStop !== null) && (
+                  <div className="flex gap-3 mb-2">
+                    {toTarget !== null && (
+                      <span className="text-[8px] font-mono text-green-400/60">
+                        ↑ {Math.abs(toTarget).toFixed(2)}% to TP
+                      </span>
+                    )}
+                    {toStop !== null && (
+                      <span className="text-[8px] font-mono text-red-400/60">
+                        ↓ {Math.abs(toStop).toFixed(2)}% to SL
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes */}
+                {p.notes && (
+                  <div className="text-[9px] font-mono text-white/25 italic mb-2 border-l-2 border-white/10 pl-2">{p.notes}</div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-1.5 pt-1 border-t border-white/5">
+                  <button
+                    onClick={() => startEdit(p)}
+                    className="flex items-center gap-1 text-[9px] font-mono text-white/30 hover:text-white/70 px-2 py-1 rounded border border-white/8 hover:border-white/20 transition-colors"
+                  >
+                    <Edit3 className="w-2.5 h-2.5" /> Edit
+                  </button>
+                  {live && (
+                    <button
+                      onClick={() => update(p.id, { closePrice: live })}
+                      className="flex items-center gap-1 text-[9px] font-mono text-yellow-400/60 hover:text-yellow-400 px-2 py-1 rounded border border-yellow-500/15 hover:border-yellow-500/30 transition-colors"
+                    >
+                      <CheckCircle className="w-2.5 h-2.5" /> Close at ${fmtPrice(live)}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => remove(p.id)}
+                    className="flex items-center gap-1 text-[9px] font-mono text-red-400/40 hover:text-red-400 px-2 py-1 rounded border border-red-500/10 hover:border-red-500/30 transition-colors ml-auto"
+                  >
+                    <Trash2 className="w-2.5 h-2.5" /> Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Closed Positions */}
+      {closedPositions.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowClosed(s => !s)}
+            className="flex items-center gap-1.5 text-[10px] font-mono text-white/30 hover:text-white/60 transition-colors mb-2"
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${showClosed ? "rotate-180" : ""}`} />
+            Closed Positions ({closedPositions.length})
+          </button>
+          {showClosed && (
+            <div className="space-y-1.5">
+              {closedPositions.map(p => {
+                const pnl = p.closePrice && p.closePrice > 0 ? (p.closePrice - p.entryPrice) * p.quantity : null;
+                const pnlPct = pnl !== null ? (pnl / (p.entryPrice * p.quantity)) * 100 : null;
+                const isUp = pnl !== null ? pnl >= 0 : null;
+                return (
+                  <div key={p.id} className="flex items-center justify-between bg-white/2 border border-white/5 rounded-lg px-3 py-2 opacity-60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold font-mono text-white/50">{p.symbol}</span>
+                      <span className="text-[9px] font-mono text-white/20">Entry ${fmtPrice(p.entryPrice)}</span>
+                      <span className="text-[9px] font-mono text-white/20">→ Close ${p.closePrice ? fmtPrice(p.closePrice) : "—"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[9px] font-mono font-bold ${isUp ? "text-green-400" : "text-red-400"}`}>
+                        {pnl !== null ? `${isUp ? "+" : ""}$${fmtPrice(Math.abs(pnl))} (${pnlPct!.toFixed(2)}%)` : "—"}
+                      </span>
+                      <button onClick={() => remove(p.id)} className="text-white/15 hover:text-red-400 transition-colors">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Breaking News Alert Banner ───────────────────────────────────────────
 function useNewsAlert() {
   const [alert, setAlert] = useState<NewsArticle | null>(null);
@@ -1816,6 +2249,7 @@ export default function Dashboard() {
     { id: "stocks",    label: "Stocks",    icon: TrendingUp,  count: stockTicks.length },
     { id: "oil",       label: "Oil",       icon: Fuel,        count: oilTicks.length },
     { id: "currency",  label: "FX",        icon: Activity,    count: 8 },
+    { id: "positions", label: "Positions",  icon: Target,      count: 0 },
   ];
 
   const currentTicks = useMemo(() => {
@@ -1942,9 +2376,16 @@ export default function Dashboard() {
           <kbd className="ml-auto text-[9px] border border-white/10 px-1 rounded text-white/20">⌘K</kbd>
         </button>
         <span className="text-[10px] text-white/20 font-mono shrink-0">
-          {currentTicks.length.toLocaleString()} coins
+          {tab === 'positions' ? '' : `${currentTicks.length.toLocaleString()} coins`}
         </span>
       </div>}
+
+      {/* Positions Panel */}
+      {tab === "positions" && (
+        <main className="pb-8">
+          <PositionsTab ticks={ticks} />
+        </main>
+      )}
 
       {/* Currency Strength Panel */}
       {tab === "currency" && (
@@ -1954,7 +2395,7 @@ export default function Dashboard() {
       )}
 
       {/* Grid */}
-      {tab !== "currency" && <main className="px-4 pb-8">
+      {tab !== "currency" && tab !== "positions" && <main className="px-4 pb-8">
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-2">
             {Array.from({ length: 24 }).map((_, i) => (
