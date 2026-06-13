@@ -605,7 +605,7 @@ function G1Modal({ text, onClose }: { text: string; onClose: () => void }) {
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2 text-green-400 text-xs font-mono">
             <Glasses className="w-3 h-3" />
-            <span>G1 HUD PREVIEW</span>
+            <span>G2 HUD PREVIEW</span>
           </div>
           <button onClick={onClose} className="text-green-400/60 hover:text-green-400"><X className="w-3 h-3" /></button>
         </div>
@@ -617,7 +617,7 @@ function G1Modal({ text, onClose }: { text: string; onClose: () => void }) {
           COPY TO CLIPBOARD
         </button>
         <div className="mt-3 border-t border-green-500/20 pt-3 space-y-1">
-          <div className="text-[9px] font-mono text-green-400/50 uppercase tracking-wider mb-1">G1 Gesture Guide</div>
+          <div className="text-[9px] font-mono text-green-400/50 uppercase tracking-wider mb-1">G2 Gesture Guide</div>
           <div className="text-[9px] font-mono text-green-400/60">TAP LEFT &nbsp;&nbsp;&nbsp;= Scroll UP</div>
           <div className="text-[9px] font-mono text-green-400/60">TAP RIGHT &nbsp;&nbsp;= Scroll DOWN</div>
           <div className="text-[9px] font-mono text-green-400/60">DBL TAP LEFT = EXIT app</div>
@@ -809,7 +809,7 @@ function CoinModal({ tick, onClose }: { tick: Tick; onClose: () => void }) {
                           <button
                             className="text-green-500/40 hover:text-green-400 transition-colors"
                             onClick={() => setG1Text(n.g1Text)}
-                            title="View G1 HUD preview"
+                            title="View G2 HUD preview"
                           >
                             <Glasses className="w-3 h-3" />
                           </button>
@@ -829,7 +829,7 @@ function CoinModal({ tick, onClose }: { tick: Tick; onClose: () => void }) {
             )}
           </div>
 
-          {/* G1 quick preview button */}
+          {/* G2 quick preview button */}
           <Button
             variant="outline"
             size="sm"
@@ -846,7 +846,7 @@ function CoinModal({ tick, onClose }: { tick: Tick; onClose: () => void }) {
             }}
           >
             <Glasses className="w-3 h-3 mr-2" />
-            VIEW G1 HUD PREVIEW
+            VIEW G2 HUD PREVIEW
           </Button>
         </div>
       </div>
@@ -939,14 +939,14 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-white/5 px-4 py-3 flex items-center justify-between sticky top-8 z-30 bg-[hsl(224_18%_6%)]/95 backdrop-blur-md" style={{ top: "32px" }}>
         <div className="flex items-center gap-3">
-          {/* G1 Logo */}
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="G1 Market Intel">
+          {/* Logo */}
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Market Intel">
             <rect width="28" height="28" rx="6" fill="hsl(152 68% 42% / 0.15)" />
             <path d="M8 14a6 6 0 1 1 6 6H8v-3h4a3 3 0 1 0-3-3H8v-3z" fill="hsl(152 68% 42%)" />
             <rect x="18" y="8" width="2.5" height="12" rx="1.25" fill="hsl(152 68% 42%)" />
           </svg>
           <div>
-            <div className="text-sm font-bold text-white leading-none">G1 Market Intel</div>
+            <div className="text-sm font-bold text-white leading-none">Market Intel</div>
             <div className="text-[10px] text-white/30 font-mono leading-none mt-0.5">
               {ticks.size.toLocaleString()} ticks live
             </div>
@@ -975,10 +975,10 @@ export default function Dashboard() {
             <kbd className="hidden sm:inline text-[9px] border border-white/10 px-1 rounded text-white/25">⌘K</kbd>
           </button>
 
-          {/* G1 Glasses icon */}
+          {/* G2 Glasses icon */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono border border-white/10 px-2 py-1 rounded text-white/40">
             <Glasses className="w-3 h-3" />
-            G1
+            G2
           </div>
         </div>
       </header>
