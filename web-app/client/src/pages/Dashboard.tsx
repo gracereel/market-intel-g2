@@ -509,6 +509,73 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
   );
 }
 
+// ─── Semicircle Gauge ────────────────────────────────────────────────────────
+function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
+  const sw = size * 0.10;           // stroke width proportional to size
+  const R  = (size / 2) - sw;       // radius leaving room for stroke
+  const cx = size / 2;
+  const cy = size / 2;
+
+  // Arc goes from 180° (left) to 0° (right) — a perfect semicircle
+  // fill sweeps pct/100 of 180° from left
+  const fillRad = Math.PI - (pct / 100) * Math.PI;
+  const x1 = cx - R;               // left endpoint (180°)
+  const y1 = cy;
+  const x2 = cx + R * Math.cos(fillRad);
+  const y2 = cy - R * Math.sin(fillRad);  // SVG y is inverted so minus
+  const largeArc = pct > 50 ? 1 : 0;
+
+  const isSmall = size <= 90;
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width={size} height={size / 2 + sw} viewBox={`0 0 ${size} ${size / 2 + sw}`} overflow="visible">
+        {/* Track */}
+        <path
+          d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
+          fill="none"
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth={sw}
+          strokeLinecap="round"
+        />
+        {/* Fill arc */}
+        {pct > 1 && (
+          <path
+            d={`M ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2}`}
+            fill="none"
+            stroke={color}
+            strokeWidth={sw}
+            strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 ${sw * 0.8}px ${color}aa)` }}
+          />
+        )}
+        {/* Percentage */}
+        <text
+          x={cx} y={cy - (isSmall ? 6 : 10)}
+          textAnchor="middle"
+          fontSize={isSmall ? 13 : 20}
+          fontWeight="bold"
+          fontFamily="'Satoshi', monospace"
+          fill={color}
+        >
+          {pct}%
+        </text>
+        {/* Label */}
+        <text
+          x={cx} y={cy + (isSmall ? 7 : 10)}
+          textAnchor="middle"
+          fontSize={isSmall ? 7 : 9}
+          fontFamily="'Satoshi', sans-serif"
+          fill="rgba(255,248,232,0.55)"
+        >
+          {label}
+        </text>
+      </svg>
+      <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,192,64,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{tf}</span>
+    </div>
+  );
+}
+
 // ─── Market Sentiment Panel ──────────────────────────────────────────────────
 const TF_SCALE: Record<string, number> = {
   "5M": 5.0, "15M": 2.5, "1H": 1.5, "4H": 1.0, "12H": 0.7, "1D": 0.5, "1W": 0.3,
@@ -678,93 +745,31 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div className="flex items-end gap-4 flex-wrap flex-1">
+          <div className="flex items-center gap-6 flex-wrap flex-1 py-2">
             {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
-              // pct: 0=full bear, 50=neutral, 100=full bull — map score(-1..1) to 0..100
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
-              const marketPct = single ? pct : Math.round((bull / total) * 100);
-              const displayPct = single ? pct : marketPct;
+              const displayPct = single ? pct : Math.round((bull / total) * 100);
               const color = sentColor(label);
-              const short = label === "Strong Bull" ? "S.Bull" : label === "Strong Bear" ? "S.Bear" : label;
-
-              // SVG semicircle gauge
-              // viewBox 0 0 80 44 — arc from bottom-left to bottom-right
-              const R = 32, cx = 40, cy = 40;
-              const startAngle = Math.PI; // left
-              const endAngle = 0;         // right
-              // filled arc = displayPct/100 of 180deg
-              const fillAngle = Math.PI - (displayPct / 100) * Math.PI;
-              const x1 = cx + R * Math.cos(Math.PI);
-              const y1 = cy + R * Math.sin(Math.PI);
-              const x2 = cx + R * Math.cos(fillAngle);
-              const y2 = cy + R * Math.sin(fillAngle);
-              const trackX2 = cx + R * Math.cos(0);
-              const trackY2 = cy + R * Math.sin(0);
-
-              return (
-                <div key={tf} className="flex flex-col items-center" style={{ minWidth: 64 }}>
-                  <svg width="72" height="42" viewBox="0 0 80 46">
-                    {/* Track */}
-                    <path
-                      d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
-                      fill="none"
-                      stroke="rgba(255,255,255,0.07)"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                    />
-                    {/* Fill */}
-                    {displayPct > 0 && (
-                      <path
-                        d={`M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2}`}
-                        fill="none"
-                        stroke={color}
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                        style={{ filter: `drop-shadow(0 0 4px ${color}88)` }}
-                      />
-                    )}
-                    {/* Center text */}
-                    <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fontWeight="bold" fontFamily="monospace" fill={color}>{displayPct}%</text>
-                    <text x={cx} y={cy + 9} textAnchor="middle" fontSize="7" fontFamily="monospace" fill="rgba(255,248,232,0.5)">{short}</text>
-                  </svg>
-                  <span className="text-[8px] font-mono uppercase tracking-wider -mt-1" style={{ color: "rgba(255,192,64,0.35)" }}>{tf}</span>
-                </div>
-              );
+              const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
+              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={80} />;
             })}
-
-            {/* Final verdict gauge — bigger */}
+            {/* Divider */}
+            <div style={{ width:1, height:70, background:"rgba(255,192,64,0.12)" }} className="hidden sm:block" />
+            {/* Final */}
             {(() => {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
               const color = sentColor(verdict);
-              const R = 38, cx = 48, cy = 46;
-              const fillAngle = Math.PI - (pct / 100) * Math.PI;
-              const x1 = cx + R * Math.cos(Math.PI);
-              const y1 = cy + R * Math.sin(Math.PI);
-              const x2 = cx + R * Math.cos(fillAngle);
-              const y2 = cy + R * Math.sin(fillAngle);
-              return (
-                <div className="flex flex-col items-center ml-2" style={{ minWidth: 80 }}>
-                  <svg width="90" height="54" viewBox="0 0 96 54">
-                    <path d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="10" strokeLinecap="round" />
-                    {pct > 0 && (
-                      <path d={`M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2}`} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 6px ${color}99)` }} />
-                    )}
-                    <text x={cx} y={cy - 6} textAnchor="middle" fontSize="14" fontWeight="bold" fontFamily="monospace" fill={color}>{pct}%</text>
-                    <text x={cx} y={cy + 8} textAnchor="middle" fontSize="8" fontFamily="monospace" fill="rgba(255,248,232,0.6)">{verdict}</text>
-                  </svg>
-                  <span className="text-[8px] font-mono uppercase tracking-wider -mt-1" style={{ color: "rgba(255,192,64,0.5)" }}>FINAL</span>
-                </div>
-              );
+              const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
+              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={110} />;
             })()}
-
             {/* Live price */}
             {selectedTick && (
-              <div className="ml-auto flex flex-col items-end justify-center shrink-0 self-center">
-                <span className="text-base font-bold font-mono" style={{ color: "#fff8e8" }}>
+              <div className="ml-auto flex flex-col items-end justify-center shrink-0 self-center gap-1">
+                <span className="text-lg font-bold font-mono" style={{ color: "#fff8e8" }}>
                   ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                 </span>
-                <span className="text-[10px] font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
+                <span className="text-xs font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
                   {(selectedTick.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(selectedTick.changePercent ?? 0).toFixed(2)}%
                 </span>
               </div>
