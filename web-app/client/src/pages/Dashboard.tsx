@@ -686,7 +686,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
                 />
               </div>
               <button
-                onClick={() => selectSymbol(null)}
+                onMouseDown={(e) => { e.preventDefault(); selectSymbol(null); }}
                 className={`w-full text-left px-3 py-2.5 text-[10px] font-mono hover:bg-[#ffc040]/8 transition-all flex items-center gap-2 border-b border-[#ffc040]/8 ${!selectedSymbol ? "text-[#ffc040] bg-[#ffc040]/6" : "text-[#ffc040]/55"}`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ffc040]/40" />
@@ -696,7 +696,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
                 {filtered.map(t => (
                   <button
                     key={t.symbol}
-                    onClick={() => selectSymbol(t.symbol)}
+                    onMouseDown={(e) => { e.preventDefault(); selectSymbol(t.symbol); }}
                     className={`w-full text-left px-3 py-2 text-[10px] font-mono hover:bg-[#ffc040]/8 transition-all flex items-center justify-between gap-2 ${selectedSymbol === t.symbol ? "text-[#ffc040] bg-[#ffc040]/6" : "text-[#fff8e8]/70"}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
