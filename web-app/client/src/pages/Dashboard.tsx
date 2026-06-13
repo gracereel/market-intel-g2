@@ -512,52 +512,52 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
   const isFinal = size >= 110;
-  const sw = size * 0.11;          // stroke width
-  const R  = (size / 2) - sw - 2; // radius — leave room for stroke + glow
-  const cx = size / 2;
-  // cy = R + sw + 2  so the arc top (cx, cy-R) is at y = sw+2 — fully inside viewbox
-  const cy = R + sw + 2;
-  const viewW = size;
-  const viewH = cy + sw / 2 + 4;  // only need top half: from 0 to bottom of arc stroke
+  // Fixed geometry — center at bottom of a square canvas
+  // This guarantees the full semicircle always fits with no clipping
+  const W = size;
+  const sw = W * 0.12;
+  const R = W * 0.38;
+  const cx = W / 2;
+  const cy = W / 2 + sw / 2; // center below midpoint so top of arc has room
+  // ViewBox shows full square so nothing clips
+  const vH = cy + sw / 2 + 2;
 
-  // Full track: left (180°) → right (0°)
-  const trackD = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
+  // Track: full semicircle from left to right across the top (sweep=1 = clockwise in SVG)
+  const trackD = `M ${(cx - R).toFixed(1)} ${cy.toFixed(1)} A ${R.toFixed(1)} ${R.toFixed(1)} 0 0 1 ${(cx + R).toFixed(1)} ${cy.toFixed(1)}`;
 
-  // Fill arc: sweep pct/100 of 180° clockwise from left endpoint
-  // At pct=0 → stays at left point. At pct=100 → reaches right point.
-  const angle = (pct / 100) * Math.PI; // radians swept from left
-  // End point: rotating clockwise from left (180°) by `angle`
-  // In standard math coords: point at angle (180° - angle*180/π) from positive x
-  // In SVG (y down): 
-  const ex = cx - R * Math.cos(angle);
-  const ey = cy - R * Math.sin(angle);
-  const largeArc = pct >= 50 ? 1 : 0;
-  const fillD = `M ${cx - R} ${cy} A ${R} ${R} 0 ${largeArc} 1 ${ex} ${ey}`;
+  // Fill: from left endpoint, sweep (pct/100 * 180deg) clockwise
+  const rad = (pct / 100) * Math.PI;
+  // moving clockwise from left (180deg): new angle = 180 - deg_swept
+  // in SVG coords (y-down, angles CW): 
+  //   left endpoint = (cx-R, cy)
+  //   after sweeping rad radians CW along top:
+  const ex = (cx - R * Math.cos(rad)).toFixed(1);
+  const ey = (cy - R * Math.sin(rad)).toFixed(1);
+  const lg = pct >= 50 ? 1 : 0;
+  const fillD = `M ${(cx - R).toFixed(1)} ${cy.toFixed(1)} A ${R.toFixed(1)} ${R.toFixed(1)} 0 ${lg} 1 ${ex} ${ey}`;
 
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
-      background: "rgba(20,16,8,0.9)",
-      border: "1px solid rgba(255,192,64,0.12)",
-      borderRadius: 14,
-      padding: "10px 10px 8px",
-      minWidth: size + 16,
+      background: "#100d07",
+      border: "1px solid rgba(255,192,64,0.13)",
+      borderRadius: 16,
+      padding: "8px 12px 10px",
+      minWidth: W + 20,
       flexShrink: 0,
     }}>
-      <svg width={viewW} height={viewH} viewBox={`0 0 ${viewW} ${viewH}`} style={{ overflow: "visible" }}>
-        {/* Track */}
-        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={sw} strokeLinecap="round" />
-        {/* Fill */}
-        {pct > 1 && (
+      <svg width={W} height={vH} viewBox={`0 0 ${W} ${vH}`}>
+        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={sw} strokeLinecap="round"/>
+        {pct > 0 && (
           <path d={fillD} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 8px ${color}cc)` }} />
+            style={{ filter: `drop-shadow(0 0 6px ${color}bb)` }}/>
         )}
       </svg>
-      <div style={{ textAlign: "center", marginTop: 8 }}>
-        <div style={{ fontSize: isFinal ? 24 : 17, fontWeight: 800, color, fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
-        <div style={{ fontSize: isFinal ? 11 : 9, color: "rgba(255,248,232,0.55)", marginTop: 3 }}>{label}</div>
+      <div style={{ textAlign:"center", marginTop: 10 }}>
+        <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color, fontFamily:"monospace", lineHeight:1 }}>{pct}%</div>
+        <div style={{ fontSize: isFinal ? 11 : 9, color:"rgba(255,248,232,0.55)", marginTop:3, fontFamily:"sans-serif" }}>{label}</div>
       </div>
-      <div style={{ fontSize: 8, color: "rgba(255,192,64,0.38)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 5, fontFamily: "monospace" }}>{tf}</div>
+      <div style={{ fontSize:8, color:"rgba(255,192,64,0.38)", letterSpacing:"0.12em", textTransform:"uppercase", marginTop:6, fontFamily:"monospace" }}>{tf}</div>
     </div>
   );
 }
