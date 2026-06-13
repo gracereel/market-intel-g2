@@ -72,6 +72,19 @@ sqlite.exec(`
   );
 `);
 
+// Waitlist table
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS waitlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL DEFAULT '',
+    reason TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'landing',
+    status TEXT NOT NULL DEFAULT 'pending',
+    joined_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Migration: add missing columns if they don't exist
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN category TEXT NOT NULL DEFAULT 'stocks'`); } catch {}
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`); } catch {}
@@ -100,6 +113,16 @@ export interface Position {
   closePrice: number | null;
 }
 
+export interface WaitlistEntry {
+  id: number;
+  email: string;
+  name: string;
+  reason: string;
+  source: string;
+  status: string;
+  joinedAt: string;
+}
+
 export interface IStorage {
   getAllNews(opts?: { limit?: number; category?: string; sentiment?: string; search?: string; tag?: string }): NewsItem[];
   upsertNews(item: InsertNewsItem): NewsItem | null;
@@ -112,6 +135,8 @@ export interface IStorage {
   addFavorite(symbol: string, name: string, category: string): Favorite;
   removeFavorite(symbol: string): void;
   isFavorite(symbol: string): boolean;
+  addToWaitlist(email: string, name: string, reason: string): { success: boolean; alreadyExists: boolean };
+  getWaitlist(): WaitlistEntry[];
   getPositions(): Position[];
   addPosition(data: { symbol: string; name: string; category: string; entryPrice: number; quantity: number; targetPrice?: number | null; stopLoss?: number | null; notes?: string }): Position;
   updatePosition(id: number, data: Partial<{ targetPrice: number | null; stopLoss: number | null; quantity: number; notes: string; status: string; closedAt: string; closePrice: number }>): Position | null;
@@ -189,6 +214,18 @@ export const storage: IStorage = {
 
   isFavorite(symbol: string): boolean {
     return !!sqlite.prepare(`SELECT id FROM favorites WHERE symbol = ?`).get(symbol);
+  },
+
+  addToWaitlist(email: string, name: string, reason: string): { success: boolean; alreadyExists: boolean } {
+    const existing = sqlite.prepare(`SELECT id FROM waitlist WHERE email = ?`).get(email.toLowerCase().trim()) as any;
+    if (existing) return { success: false, alreadyExists: true };
+    sqlite.prepare(`INSERT INTO waitlist (email, name, reason) VALUES (?, ?, ?)`).run(email.toLowerCase().trim(), name, reason);
+    return { success: true, alreadyExists: false };
+  },
+
+  getWaitlist(): WaitlistEntry[] {
+    const rows = sqlite.prepare(`SELECT * FROM waitlist ORDER BY joined_at DESC`).all() as any[];
+    return rows.map(r => ({ id: r.id, email: r.email, name: r.name, reason: r.reason, source: r.source, status: r.status, joinedAt: r.joined_at }));
   },
 
   getPositions(): Position[] {

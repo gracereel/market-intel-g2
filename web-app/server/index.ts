@@ -92,9 +92,14 @@ app.get('/auth/logout', (_req: Request, res: Response) => {
   res.redirect('/login');
 });
 
-// Auth middleware — protects all routes except /login and /auth and /api (for G2 plugin)
+// Auth middleware — protects all routes except /login, /auth, /api, and root / (landing page)
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const isPublic = req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path === '/login';
+  const isPublic =
+    req.path.startsWith('/api') ||
+    req.path.startsWith('/auth') ||
+    req.path === '/login' ||
+    req.path === '/' ||
+    req.path === '';
   if (isPublic) return next();
   const cookie = req.cookies?.[AUTH_COOKIE];
   if (cookie === 'ok') return next();

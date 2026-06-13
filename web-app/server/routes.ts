@@ -73,6 +73,22 @@ export async function registerRoutes(_: Server, app: Express) {
     res.json({ success: true, added });
   });
 
+  // ── Waitlist ──────────────────────────────────────────────────────────────
+  app.post("/api/waitlist", (req, res) => {
+    const { email, name = "", reason = "" } = req.body;
+    if (!email || !email.includes("@")) return res.status(400).json({ error: "Valid email required" });
+    const result = storage.addToWaitlist(String(email), String(name), String(reason));
+    if (result.alreadyExists) return res.status(409).json({ error: "already_exists", message: "You're already on the waitlist!" });
+    res.json({ success: true, message: "You're on the list! We'll be in touch soon." });
+  });
+
+  // Admin only — protected by password
+  app.get("/api/waitlist", (req, res) => {
+    const auth = req.headers.authorization;
+    if (auth !== `Bearer ${process.env.APP_PASSWORD}`) return res.status(401).json({ error: "Unauthorized" });
+    res.json(storage.getWaitlist());
+  });
+
   // ── Assets (list) ─────────────────────────────────────────────────────────
   app.get("/api/assets", (req, res) => {
     const { category } = req.query;
