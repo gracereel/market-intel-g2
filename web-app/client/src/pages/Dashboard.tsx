@@ -510,6 +510,120 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 }
 
 // ─── Ticker Tape ──────────────────────────────────────────────────────────────
+// ─── Market Sentiment Bar ───────────────────────────────────────────────────
+function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
+  // Derive sentiment from live price changes across timeframes
+  // We use % change buckets to classify Bull/Bear/Neutral per "timeframe"
+  // H4 ≈ big movers (|change| > 3%), H1 ≈ mid movers (1-3%), M30 ≈ small movers (<1%)
+  const cryptoTicks = Array.from(ticks.values()).filter(t => t.category === "crypto");
+
+  const classify = (threshold: number): { bull: number; bear: number; neut: number; label: string; score: number } => {
+    let bull = 0, bear = 0, neut = 0;
+    cryptoTicks.forEach(t => {
+      const c = t.changePercent ?? 0;
+      if (Math.abs(c) < threshold) neut++;
+      else if (c > 0) bull++;
+      else bear++;
+    });
+    const total = bull + bear + neut || 1;
+    const score = (bull - bear) / total; // -1 to +1
+    let label = "Neutral";
+    if (score > 0.35) label = "Bullish";
+    else if (score > 0.6) label = "Strong Bull";
+    else if (score < -0.35) label = "Bearish";
+    else if (score < -0.6) label = "Strong Bear";
+    return { bull, bear, neut, label, score };
+  };
+
+  const m5  = classify(0.3);
+  const m15 = classify(0.6);
+  const h1  = classify(1.2);
+  const h4  = classify(2.5);
+  const h12 = classify(4.0);
+  const d1  = classify(6.0);
+  const w1  = classify(10.0);
+
+  // Final verdict
+  const avgScore = (m5.score + m15.score + h1.score + h4.score + h12.score + d1.score + w1.score) / 7;
+  let verdict = "Neutral";
+  let verdictColor = "#ffc040";
+  let verdictBg = "rgba(255,192,64,0.12)";
+  let verdictBorder = "rgba(255,192,64,0.3)";
+  if (avgScore > 0.25) { verdict = "Risk-On"; verdictColor = "#4ade80"; verdictBg = "rgba(74,222,128,0.10)"; verdictBorder = "rgba(74,222,128,0.3)"; }
+  else if (avgScore > 0.5) { verdict = "Strong Bull"; verdictColor = "#22c55e"; verdictBg = "rgba(34,197,94,0.12)"; verdictBorder = "rgba(34,197,94,0.35)"; }
+  else if (avgScore < -0.25) { verdict = "Risk-Off"; verdictColor = "#ff5566"; verdictBg = "rgba(255,85,102,0.10)"; verdictBorder = "rgba(255,85,102,0.3)"; }
+  else if (avgScore < -0.5) { verdict = "Strong Bear"; verdictColor = "#ff3344"; verdictBg = "rgba(255,51,68,0.12)"; verdictBorder = "rgba(255,51,68,0.35)"; }
+
+  const slColor = (label: string) => {
+    if (label === "Bullish" || label === "Strong Bull") return "#4ade80";
+    if (label === "Bearish" || label === "Strong Bear") return "#ff5566";
+    return "#ffc040";
+  };
+
+  const barPct = (bull: number, bear: number, neut: number) => {
+    const t = bull + bear + neut || 1;
+    return { bullPct: (bull / t) * 100, bearPct: (bear / t) * 100, neutPct: (neut / t) * 100 };
+  };
+
+  if (cryptoTicks.length === 0) return null;
+
+  return (
+    <div className="px-4 py-2.5 border-b border-[#ffc040]/12 bg-[#080603]">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+        {/* Label */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#ffc040] animate-pulse" />
+          <span className="text-[9px] font-mono text-[#ffc040]/50 uppercase tracking-widest">Market Sentiment</span>
+        </div>
+
+        {/* Timeframe rows */}
+        {([
+          { tf: "5M",  data: m5  },
+          { tf: "15M", data: m15 },
+          { tf: "1H",  data: h1  },
+          { tf: "4H",  data: h4  },
+          { tf: "12H", data: h12 },
+          { tf: "1D",  data: d1  },
+          { tf: "1W",  data: w1  },
+        ] as const).map(({ tf, data }) => {
+          const { bullPct, bearPct } = barPct(data.bull, data.bear, data.neut);
+          return (
+            <div key={tf} className="flex items-center gap-2 shrink-0">
+              <span className="text-[9px] font-mono text-[#ffc040]/35 w-7">{tf}:</span>
+              {/* Mini bar */}
+              <div className="flex h-1 w-14 rounded-full overflow-hidden bg-[#ffc040]/8">
+                <div className="h-full bg-[#4ade80] transition-all duration-700" style={{ width: `${bullPct}%` }} />
+                <div className="h-full bg-[#ff5566] transition-all duration-700" style={{ width: `${bearPct}%` }} />
+              </div>
+              <span className="text-[10px] font-mono font-semibold" style={{ color: slColor(data.label) }}>
+                {data.label}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px h-4 bg-[#ffc040]/15" />
+
+        {/* Final verdict */}
+        <div
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold tracking-wide"
+          style={{ background: verdictBg, border: `1px solid ${verdictBorder}`, color: verdictColor }}
+        >
+          Final: {verdict}
+        </div>
+
+        {/* Bull/Bear count */}
+        <div className="ml-auto hidden sm:flex items-center gap-3 text-[9px] font-mono">
+          <span className="text-[#4ade80]/70">▲ {h4.bull} bull</span>
+          <span className="text-[#ff5566]/70">▼ {h4.bear} bear</span>
+          <span className="text-[#ffc040]/30">{h4.neut} neutral</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TickerTape({ allTicks }: { allTicks: Map<string, Tick> }) {
   // Pick top crypto by volume + all stocks + all futures + all oil
   const items = useMemo(() => {
@@ -2517,6 +2631,9 @@ export default function Dashboard() {
           );
         })}
       </div>
+
+      {/* Market Sentiment Bar */}
+      <MarketSentimentBar ticks={ticks} />
 
       {/* Search bar */}
       {tab !== "currency" && <div className="px-4 pt-3 pb-2 flex items-center gap-2">
