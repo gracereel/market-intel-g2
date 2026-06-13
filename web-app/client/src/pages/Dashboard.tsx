@@ -1079,9 +1079,16 @@ function G1Modal({ text, onClose }: { text: string; onClose: () => void }) {
 }
 
 // ─── Coin Detail Modal ────────────────────────────────────────────────────────
-function CoinModal({ tick, onClose, favSet, toggleFav }: { tick: Tick; onClose: () => void; favSet?: Set<string>; toggleFav?: (t: Tick) => void }) {
+function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: Tick; onClose: () => void; favSet?: Set<string>; toggleFav?: (t: Tick) => void; onAddPosition?: (data: { symbol: string; name: string; category: string; entryPrice: number; quantity: number; targetPrice: number | null; stopLoss: number | null; notes: string }) => void }) {
   const [newsFilter, setNewsFilter] = useState<"all" | "bullish" | "bearish" | "neutral">("all");
   const [g1Text, setG1Text] = useState<string | null>(null);
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [orderQty, setOrderQty] = useState("");
+  const [orderEntry, setOrderEntry] = useState("");
+  const [orderTarget, setOrderTarget] = useState("");
+  const [orderStop, setOrderStop] = useState("");
+  const [orderNotes, setOrderNotes] = useState("");
+  const [orderSaved, setOrderSaved] = useState(false);
   const sym = tick.symbol.replace("USDT", "");
 
   // Single query — prefetched on hover so data is instant on click
@@ -1139,9 +1146,118 @@ function CoinModal({ tick, onClose, favSet, toggleFav }: { tick: Tick; onClose: 
                 </button>
               );
             })()}
+            {onAddPosition && (
+              <button
+                onClick={() => { setShowOrderForm(s => !s); if (!orderEntry) setOrderEntry(String(tick.price)); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
+                  showOrderForm
+                    ? "bg-green-500/20 border-green-500/40 text-green-300"
+                    : "bg-white/5 border-white/10 text-white/40 hover:bg-green-500/10 hover:border-green-500/30 hover:text-green-400"
+                }`}
+              >
+                <Target className="w-3 h-3" />
+                {showOrderForm ? "Cancel" : "Set Order"}
+              </button>
+            )}
             <button onClick={onClose} className="text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
           </div>
         </div>
+
+        {/* Limit Order Form */}
+        {showOrderForm && onAddPosition && (
+          <div className="border-b border-white/8 px-5 py-4 bg-[hsl(224_18%_8%)]">
+            <div className="text-[10px] font-mono text-green-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Target className="w-3 h-3" /> Set Limit Order — {sym}
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label className="text-[9px] font-mono text-white/35 uppercase mb-1 block">Entry Price *</label>
+                <input
+                  type="number" step="any"
+                  value={orderEntry}
+                  onChange={e => setOrderEntry(e.target.value)}
+                  placeholder={String(tick.price)}
+                  className="w-full bg-white/5 border border-white/12 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-white/35 uppercase mb-1 block">Quantity *</label>
+                <input
+                  type="number" step="any"
+                  value={orderQty}
+                  onChange={e => setOrderQty(e.target.value)}
+                  placeholder="0.1"
+                  className="w-full bg-white/5 border border-white/12 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label className="text-[9px] font-mono text-green-400/60 uppercase mb-1 block">Take Profit</label>
+                <input
+                  type="number" step="any"
+                  value={orderTarget}
+                  onChange={e => setOrderTarget(e.target.value)}
+                  placeholder="Target price"
+                  className="w-full bg-white/5 border border-green-500/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-red-400/60 uppercase mb-1 block">Stop Loss</label>
+                <input
+                  type="number" step="any"
+                  value={orderStop}
+                  onChange={e => setOrderStop(e.target.value)}
+                  placeholder="Stop price"
+                  className="w-full bg-white/5 border border-red-500/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-red-500/40"
+                />
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="text-[9px] font-mono text-white/35 uppercase mb-1 block">Notes</label>
+              <input
+                value={orderNotes}
+                onChange={e => setOrderNotes(e.target.value)}
+                placeholder="Reason for trade, strategy..."
+                className="w-full bg-white/5 border border-white/12 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+              />
+            </div>
+            {/* Current price hint */}
+            <div className="flex items-center justify-between mb-3 text-[9px] font-mono text-white/25">
+              <span>Current live price: <span className="text-white/50">${fmtPrice(tick.price)}</span></span>
+              <button
+                onClick={() => setOrderEntry(String(tick.price))}
+                className="text-green-400/50 hover:text-green-400 underline transition-colors"
+              >
+                Use current price
+              </button>
+            </div>
+            <button
+              onClick={async () => {
+                if (!orderEntry || !orderQty) return;
+                await onAddPosition({
+                  symbol: sym,
+                  name: tick.name,
+                  category: tick.category,
+                  entryPrice: parseFloat(orderEntry),
+                  quantity: parseFloat(orderQty),
+                  targetPrice: orderTarget ? parseFloat(orderTarget) : null,
+                  stopLoss: orderStop ? parseFloat(orderStop) : null,
+                  notes: orderNotes,
+                });
+                setOrderSaved(true);
+                setTimeout(() => { setShowOrderForm(false); setOrderSaved(false); setOrderQty(""); setOrderEntry(""); setOrderTarget(""); setOrderStop(""); setOrderNotes(""); }, 1200);
+              }}
+              className={`w-full py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
+                orderSaved
+                  ? "bg-green-500/25 border-green-500/50 text-green-300"
+                  : "bg-green-500/15 border-green-500/30 text-green-400 hover:bg-green-500/25"
+              }`}
+            >
+              {orderSaved ? "✓ Saved to Positions" : `Add to Positions · ${sym}`}
+            </button>
+          </div>
+        )}
 
         <div className="p-5 space-y-5">
           {/* Price + stats */}
@@ -2166,6 +2282,7 @@ export default function Dashboard() {
   const [showNews, setShowNews] = useState(false);
   const { ticks, connected } = useLiveTicks();
   const { favs, favSet, toggle: toggleFav } = useFavorites();
+  const { add: addPosition } = usePositions();
 
   // ATR data — refreshes every 4 hours (ATR is a slow-moving indicator)
   const { data: atrData } = useQuery<Record<string, { atr: number; atrPct: number }>>({ 
@@ -2447,7 +2564,13 @@ export default function Dashboard() {
 
       {/* Coin detail modal */}
       {selectedTick && (
-        <CoinModal tick={selectedTick} onClose={() => setSelectedTick(null)} favSet={favSet} toggleFav={toggleFav} />
+        <CoinModal
+          tick={selectedTick}
+          onClose={() => setSelectedTick(null)}
+          favSet={favSet}
+          toggleFav={toggleFav}
+          onAddPosition={async (data) => { await addPosition(data); }}
+        />
       )}
 
       {/* Global search overlay */}
