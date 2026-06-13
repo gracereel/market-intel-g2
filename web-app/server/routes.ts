@@ -15,6 +15,7 @@ import {
   getForexTicks,
   startForexFeed,
 } from "./liveFeeds";
+import { startATRService, getAllATR, getATR } from "./atrService";
 
 let lastFetch = 0;
 const COOLDOWN = 3 * 60 * 1000;
@@ -31,6 +32,7 @@ setTimeout(() => autoRefresh(), 800);
 // Start live WebSocket feeds immediately
 startLiveFeeds();
 startForexFeed();
+startATRService();
 
 function parseJson(v: string, fb: any) { try { return JSON.parse(v); } catch { return fb; } }
 
@@ -175,6 +177,17 @@ export async function registerRoutes(_: Server, app: Express) {
 
   app.get("/api/currency/forex", (_req, res) => {
     res.json(getForexTicks());
+  });
+
+  // ATR endpoints
+  app.get("/api/atr", (_req, res) => {
+    res.json(getAllATR());
+  });
+
+  app.get("/api/atr/:symbol", (req, res) => {
+    const result = getATR(req.params.symbol);
+    if (!result) return res.status(404).json({ error: "Not found" });
+    res.json(result);
   });
 
   // ── Crypto meta ───────────────────────────────────────────────────────────

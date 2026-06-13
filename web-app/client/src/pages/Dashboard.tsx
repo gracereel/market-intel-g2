@@ -345,7 +345,7 @@ function prefetchAsset(sym: string) {
 }
 
 // ─── Coin Card ────────────────────────────────────────────────────────────────
-function CoinCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
+function CoinCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null }) {
   const flash = useFlash(tick.price, tick.symbol);
   const cc = coinColor(tick.symbol.replace("USDT", ""));
   const isUp = tick.changePercent >= 0;
@@ -385,8 +385,13 @@ function CoinCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
           </div>
         </div>
       </div>
-      <div className="mt-2 text-[10px] text-white/30 font-mono">
-        Vol {fmtVol(tick.quoteVolume || tick.volume)}
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-[10px] text-white/30 font-mono">Vol {fmtVol(tick.quoteVolume || tick.volume)}</span>
+        {atr && (
+          <span className="text-[10px] font-mono text-yellow-400/70" title="ATR-14 (daily expected move)">
+            ATR {atr.atrPct.toFixed(2)}%
+          </span>
+        )}
       </div>
       {/* Flash overlay */}
       {flash && (
@@ -397,7 +402,7 @@ function CoinCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
 }
 
 // ─── Futures Card ─────────────────────────────────────────────────────────────
-function FuturesCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
+function FuturesCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null }) {
   const flash = useFlash(tick.price, tick.symbol);
   const isUp = tick.changePercent >= 0;
   const base = tick.symbol.replace("USDT", "");
@@ -437,6 +442,13 @@ function FuturesCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
           </span>
         )}
       </div>
+      {atr && (
+        <div className="mt-1 text-right">
+          <span className="text-[10px] font-mono text-yellow-400/70" title="ATR-14 (daily expected move)">
+            ATR {atr.atrPct.toFixed(2)}%
+          </span>
+        </div>
+      )}
       {flash && (
         <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-green-500/8" : "bg-red-500/8"}`} />
       )}
@@ -445,7 +457,7 @@ function FuturesCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
 }
 
 // ─── Stock Card ───────────────────────────────────────────────────────────────
-function StockCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
+function StockCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null }) {
   const flash = useFlash(tick.price, tick.symbol);
   const isUp = tick.changePercent >= 0;
 
@@ -477,8 +489,13 @@ function StockCard({ tick, onClick }: { tick: Tick; onClick: () => void }) {
           </div>
         </div>
       </div>
-      <div className="mt-2 text-[10px] text-white/30 font-mono">
-        Vol {fmtVol(tick.volume)}
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-[10px] text-white/30 font-mono">Vol {fmtVol(tick.volume)}</span>
+        {atr && (
+          <span className="text-[10px] font-mono text-yellow-400/70" title="ATR-14 (daily expected move)">
+            ATR {atr.atrPct.toFixed(2)}%
+          </span>
+        )}
       </div>
       {flash && (
         <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-green-500/8" : "bg-red-500/8"}`} />
@@ -954,6 +971,13 @@ export default function Dashboard() {
   const [showSearch, setShowSearch] = useState(false);
   const { ticks, connected } = useLiveTicks();
 
+  // ATR data — refreshes every 4 hours (ATR is a slow-moving indicator)
+  const { data: atrData } = useQuery<Record<string, { atr: number; atrPct: number }>>({ 
+    queryKey: ["/api/atr"],
+    refetchInterval: 4 * 60 * 60 * 1000,
+    staleTime: 60 * 60 * 1000,
+  });
+
   // Cmd/Ctrl+K opens global search
   useEffect(() => {
     function onKey(e: globalThis.KeyboardEvent) {
@@ -1139,11 +1163,16 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-1">
             {currentTicks.map(tick => {
               if (tab === "crypto") {
-                return <CoinCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} />;
+                const base = tick.symbol.replace("USDT", "");
+                return <CoinCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrData?.[`crypto:${base}`]} />;
               } else if (tab === "futures") {
-                return <FuturesCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} />;
+                const base = tick.symbol.replace("USDT", "");
+                // Binance perpetuals share ATR with crypto; Yahoo futures use "other:" prefix
+                const futAtr = atrData?.[`crypto:${base}`] ?? atrData?.[`other:${tick.symbol.replace("=F", "F")}`];
+                return <FuturesCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={futAtr} />;
               } else {
-                return <StockCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} />;
+                // stocks, oil — keyed as "other:SYMBOL"
+                return <StockCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrData?.[`other:${tick.symbol}`]} />;
               }
             })}
           </div>
