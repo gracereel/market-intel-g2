@@ -563,14 +563,27 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
   const [query, setQuery] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
+      if (dropRef.current && !dropRef.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(o => !o);
+  };
 
   const selectedTick = selectedSymbol ? ticks.get(selectedSymbol) : null;
 
@@ -629,7 +642,8 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           <span className="text-[9px] font-mono text-[#ffc040]/45 uppercase tracking-widest shrink-0 hidden sm:block">Sentiment</span>
 
           <button
-            onClick={() => setOpen(o => !o)}
+            ref={btnRef}
+            onClick={handleOpen}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#ffc040]/25 bg-[#181410] hover:border-[#ffc040]/50 hover:bg-[#1e1a0f] transition-all text-[10px] font-mono font-bold text-[#ffc040] max-w-[180px]"
           >
             <span className="truncate">{displayName}</span>
@@ -637,7 +651,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </button>
 
           {open && (
-            <div className="absolute top-full left-0 mt-1 w-64 z-[200] rounded-xl border border-[#ffc040]/25 bg-[#0d0a06] shadow-[0_8px_40px_rgba(0,0,0,0.7)] overflow-hidden">
+            <div ref={dropRef} className="fixed w-64 z-[500] rounded-xl border border-[#ffc040]/25 bg-[#0d0a06] shadow-[0_8px_40px_rgba(0,0,0,0.85)] overflow-hidden" style={{ top: dropPos.top, left: dropPos.left }}>
               <div className="px-3 py-2 border-b border-[#ffc040]/10">
                 <input
                   autoFocus
