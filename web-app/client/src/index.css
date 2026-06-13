@@ -138,3 +138,9 @@
 
 /* Sentiment donut segments (CSS only) */
 .donut-ring { transition: stroke-dashoffset 0.6s ease; }
+
+/* News alert progress bar */
+@keyframes shrink-width {
+  from { width: 100%; }
+  to   { width: 0%; }
+}

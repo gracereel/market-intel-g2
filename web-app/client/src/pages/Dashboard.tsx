@@ -1327,6 +1327,139 @@ function CoinModal({ tick, onClose, favSet, toggleFav }: { tick: Tick; onClose: 
 // ─── Favorites hook ─────────────────────────────────────────────────────────
 interface FavoriteRecord { id: number; symbol: string; name: string; category: string; addedAt: string; }
 
+// ─── Breaking News Alert Banner ───────────────────────────────────────────
+function useNewsAlert() {
+  const [alert, setAlert] = useState<NewsArticle | null>(null);
+  const [visible, setVisible] = useState(false);
+  const seenIds = useRef<Set<string>>(new Set());
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismiss = () => {
+    setVisible(false);
+    setTimeout(() => setAlert(null), 400); // wait for slide-out
+  };
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const r = await apiRequest("GET", "/api/news?limit=10");
+        const articles: NewsArticle[] = await r.json();
+        // Pick first high-impact article not yet seen
+        const fresh = articles.find(
+          a => a.impactLevel === "high" && !seenIds.current.has(a.id)
+        ) || articles.find(a => !seenIds.current.has(a.id));
+        if (fresh) {
+          seenIds.current.add(fresh.id);
+          setAlert(fresh);
+          setVisible(true);
+          if (dismissTimer.current) clearTimeout(dismissTimer.current);
+          dismissTimer.current = setTimeout(dismiss, 8000);
+        }
+      } catch { /* silent */ }
+    };
+
+    // Initial fetch after 3s delay (let dashboard load first)
+    const init = setTimeout(poll, 3000);
+    // Then poll every 2 minutes
+    const interval = setInterval(poll, 2 * 60 * 1000);
+    return () => { clearTimeout(init); clearInterval(interval); if (dismissTimer.current) clearTimeout(dismissTimer.current); };
+  }, []);
+
+  return { alert, visible, dismiss };
+}
+
+function NewsAlertBanner() {
+  const { alert, visible, dismiss } = useNewsAlert();
+  if (!alert) return null;
+
+  const isHigh = alert.impactLevel === "high";
+  const isBull = alert.sentiment === "bullish";
+  const isBear = alert.sentiment === "bearish";
+
+  const borderColor = isHigh
+    ? "border-orange-500/50"
+    : isBull ? "border-green-500/40"
+    : isBear ? "border-red-500/40"
+    : "border-white/15";
+
+  const bgColor = isHigh
+    ? "bg-[hsl(224_18%_7%)]"
+    : isBull ? "bg-[hsl(224_18%_7%)]"
+    : "bg-[hsl(224_18%_7%)]";
+
+  const accentBar = isHigh
+    ? "bg-orange-500"
+    : isBull ? "bg-green-500"
+    : isBear ? "bg-red-500"
+    : "bg-white/20";
+
+  return (
+    <div
+      className={`fixed right-4 z-[90] w-80 transition-all duration-500 ease-out ${
+        visible ? "top-[calc(32px+68px)] opacity-100 translate-y-0" : "top-[calc(32px+40px)] opacity-0 -translate-y-2 pointer-events-none"
+      }`}
+    >
+      <div className={`relative rounded-xl border ${borderColor} ${bgColor} shadow-2xl overflow-hidden`}>
+        {/* Accent left bar */}
+        <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${accentBar}`} />
+
+        {/* Progress bar — 8s timer */}
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/5">
+          <div
+            className={`h-full ${accentBar} opacity-60`}
+            style={{
+              animation: visible ? "shrink-width 8s linear forwards" : "none",
+              width: "100%",
+            }}
+          />
+        </div>
+
+        <div className="px-4 pt-3 pb-4">
+          {/* Top row */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              {isHigh && <Flame className="w-3 h-3 text-orange-400" />}
+              <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-white/40">
+                {isHigh ? "BREAKING" : "MARKET NEWS"} · {alert.source}
+              </span>
+            </div>
+            <button onClick={dismiss} className="text-white/25 hover:text-white/60 transition-colors ml-2">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Headline */}
+          <div className="text-xs font-semibold text-white leading-snug mb-2 pr-1">
+            {alert.title}
+          </div>
+
+          {/* Bottom row: sentiment + pressure + time */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
+                isBull ? "text-green-400 border-green-500/25 bg-green-500/10"
+                : isBear ? "text-red-400 border-red-500/25 bg-red-500/10"
+                : "text-white/35 border-white/10 bg-white/5"
+              }`}>
+                {alert.sentiment}
+              </span>
+              {/* Mini pressure bar */}
+              <div className="flex items-center gap-0.5">
+                <div className="w-8 h-1 bg-white/8 rounded-full overflow-hidden flex">
+                  <div className="h-full bg-green-500/70" style={{ width: `${alert.buyerPressure}%` }} />
+                  <div className="h-full bg-red-500/70" style={{ width: `${alert.sellerPressure}%` }} />
+                </div>
+                <span className="text-[9px] font-mono text-green-400">{alert.buyerPressure}%</span>
+              </div>
+            </div>
+            <span className="text-[9px] font-mono text-white/20">{ago(new Date(alert.publishedAt).getTime())}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── NewsItem types ────────────────────────────────────────────────────────
 interface NewsArticle {
   id: string;
@@ -1704,6 +1837,9 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[hsl(224_18%_6%)] text-white" style={{ fontFamily: "'Satoshi', sans-serif" }}>
       {/* Ticker tape */}
       <TickerTape allTicks={ticks} />
+
+      {/* Breaking News Alert Banner */}
+      <NewsAlertBanner />
 
       {/* Header */}
       <header className="border-b border-white/5 px-4 py-3 flex items-center justify-between sticky top-8 z-30 bg-[hsl(224_18%_6%)]/95 backdrop-blur-md" style={{ top: "32px" }}>
