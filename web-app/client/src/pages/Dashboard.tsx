@@ -677,54 +677,99 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
             </button>
           </div>
 
-          {/* Timeframe pills */}
-          <div className="flex items-end gap-2 flex-wrap">
-            {rows.map(({ tf, label, bull, bear, neut, single }) => {
+          {/* Gauge row */}
+          <div className="flex items-end gap-4 flex-wrap flex-1">
+            {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
+              // pct: 0=full bear, 50=neutral, 100=full bull — map score(-1..1) to 0..100
+              const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
-              const bullPct = (bull / total) * 100;
-              const bearPct = (bear / total) * 100;
+              const marketPct = single ? pct : Math.round((bull / total) * 100);
+              const displayPct = single ? pct : marketPct;
+              const color = sentColor(label);
               const short = label === "Strong Bull" ? "S.Bull" : label === "Strong Bear" ? "S.Bear" : label;
+
+              // SVG semicircle gauge
+              // viewBox 0 0 80 44 — arc from bottom-left to bottom-right
+              const R = 32, cx = 40, cy = 40;
+              const startAngle = Math.PI; // left
+              const endAngle = 0;         // right
+              // filled arc = displayPct/100 of 180deg
+              const fillAngle = Math.PI - (displayPct / 100) * Math.PI;
+              const x1 = cx + R * Math.cos(Math.PI);
+              const y1 = cy + R * Math.sin(Math.PI);
+              const x2 = cx + R * Math.cos(fillAngle);
+              const y2 = cy + R * Math.sin(fillAngle);
+              const trackX2 = cx + R * Math.cos(0);
+              const trackY2 = cy + R * Math.sin(0);
+
               return (
-                <div key={tf} className="flex flex-col items-center gap-1">
-                  <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: "rgba(255,192,64,0.3)" }}>{tf}</span>
-                  {single ? (
-                    <div className="w-14 h-6 rounded-lg flex items-center justify-center text-[9px] font-mono font-bold" style={sentBgStyle(label)}>
-                      {short}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-0.5 w-14">
-                      <div className="flex h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
-                        <div className="h-full transition-all duration-700" style={{ width: `${bullPct}%`, background: "#4ade80" }} />
-                        <div className="h-full transition-all duration-700" style={{ width: `${bearPct}%`, background: "#ff5566" }} />
-                      </div>
-                      <span className="text-[9px] font-mono font-semibold" style={{ color: sentColor(label) }}>{short}</span>
-                    </div>
-                  )}
+                <div key={tf} className="flex flex-col items-center" style={{ minWidth: 64 }}>
+                  <svg width="72" height="42" viewBox="0 0 80 46">
+                    {/* Track */}
+                    <path
+                      d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
+                      fill="none"
+                      stroke="rgba(255,255,255,0.07)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                    />
+                    {/* Fill */}
+                    {displayPct > 0 && (
+                      <path
+                        d={`M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2}`}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        style={{ filter: `drop-shadow(0 0 4px ${color}88)` }}
+                      />
+                    )}
+                    {/* Center text */}
+                    <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fontWeight="bold" fontFamily="monospace" fill={color}>{displayPct}%</text>
+                    <text x={cx} y={cy + 9} textAnchor="middle" fontSize="7" fontFamily="monospace" fill="rgba(255,248,232,0.5)">{short}</text>
+                  </svg>
+                  <span className="text-[8px] font-mono uppercase tracking-wider -mt-1" style={{ color: "rgba(255,192,64,0.35)" }}>{tf}</span>
                 </div>
               );
             })}
+
+            {/* Final verdict gauge — bigger */}
+            {(() => {
+              const pct = Math.round(((avgScore + 1) / 2) * 100);
+              const color = sentColor(verdict);
+              const R = 38, cx = 48, cy = 46;
+              const fillAngle = Math.PI - (pct / 100) * Math.PI;
+              const x1 = cx + R * Math.cos(Math.PI);
+              const y1 = cy + R * Math.sin(Math.PI);
+              const x2 = cx + R * Math.cos(fillAngle);
+              const y2 = cy + R * Math.sin(fillAngle);
+              return (
+                <div className="flex flex-col items-center ml-2" style={{ minWidth: 80 }}>
+                  <svg width="90" height="54" viewBox="0 0 96 54">
+                    <path d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="10" strokeLinecap="round" />
+                    {pct > 0 && (
+                      <path d={`M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2}`} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 6px ${color}99)` }} />
+                    )}
+                    <text x={cx} y={cy - 6} textAnchor="middle" fontSize="14" fontWeight="bold" fontFamily="monospace" fill={color}>{pct}%</text>
+                    <text x={cx} y={cy + 8} textAnchor="middle" fontSize="8" fontFamily="monospace" fill="rgba(255,248,232,0.6)">{verdict}</text>
+                  </svg>
+                  <span className="text-[8px] font-mono uppercase tracking-wider -mt-1" style={{ color: "rgba(255,192,64,0.5)" }}>FINAL</span>
+                </div>
+              );
+            })()}
+
+            {/* Live price */}
+            {selectedTick && (
+              <div className="ml-auto flex flex-col items-end justify-center shrink-0 self-center">
+                <span className="text-base font-bold font-mono" style={{ color: "#fff8e8" }}>
+                  ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                </span>
+                <span className="text-[10px] font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
+                  {(selectedTick.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(selectedTick.changePercent ?? 0).toFixed(2)}%
+                </span>
+              </div>
+            )}
           </div>
-
-          {/* Divider */}
-          <div className="hidden sm:block w-px h-8 mx-1" style={{ background: "rgba(255,192,64,0.1)" }} />
-
-          {/* Final verdict */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold shrink-0" style={sentBgStyle(verdict)}>
-            <span className="text-[8px] font-normal opacity-50">FINAL</span>
-            {verdict.toUpperCase()}
-          </div>
-
-          {/* Live price */}
-          {selectedTick && (
-            <div className="ml-auto flex items-center gap-2 shrink-0">
-              <span className="text-sm font-bold font-mono" style={{ color: "#fff8e8" }}>
-                ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
-              </span>
-              <span className="text-[10px] font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
-                {(selectedTick.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(selectedTick.changePercent ?? 0).toFixed(2)}%
-              </span>
-            </div>
-          )}
         </div>
       </div>
     </>
