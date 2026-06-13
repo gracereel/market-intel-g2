@@ -81,7 +81,7 @@ app.post('/auth/login', (req: Request, res: Response) => {
   const isInvite = !isMaster && storage.checkInvitePassword(password);
   if (isMaster || isInvite) {
     res.cookie(AUTH_COOKIE, 'ok', { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
-    res.redirect('/');
+    res.redirect('/#/dashboard');
   } else {
     res.redirect('/login?error=1');
   }
