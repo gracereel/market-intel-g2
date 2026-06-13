@@ -385,34 +385,54 @@ const SUBCAT_MAP: Record<string, "stocks"|"futures"|"oil"> = {
   "futures":"futures","oil":"oil",
 };
 
-// Fetch single symbol via Yahoo chart API (v8) which is accessible
+// Fetch single symbol via Yahoo Finance v7 (different endpoint, less rate-limited)
 async function fetchYahooChart(sym: string): Promise<any> {
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`;
-  const r = await axios.get(url, { timeout: 6000, headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } });
-  const meta = r.data?.chart?.result?.[0]?.meta;
-  if (!meta) return null;
-  return {
-    symbol: sym,
-    regularMarketPrice: meta.regularMarketPrice,
-    regularMarketChange: meta.regularMarketPrice - (meta.chartPreviousClose || meta.regularMarketPrice),
-    regularMarketChangePercent: meta.chartPreviousClose
-      ? ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100
-      : 0,
-    regularMarketVolume: meta.regularMarketVolume || 0,
-    regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-    regularMarketDayLow:  meta.regularMarketDayLow  || meta.regularMarketPrice,
-    regularMarketOpen:    meta.regularMarketOpen     || meta.chartPreviousClose || meta.regularMarketPrice,
+  // Try multiple Yahoo endpoints to avoid rate limiting
+  const endpoints = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`,
+  ];
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://finance.yahoo.com/",
+    "Origin": "https://finance.yahoo.com",
   };
+  for (const url of endpoints) {
+    try {
+      const r = await axios.get(url, { timeout: 8000, headers });
+      const meta = r.data?.chart?.result?.[0]?.meta;
+      if (!meta) continue;
+      return {
+        symbol: sym,
+        regularMarketPrice: meta.regularMarketPrice,
+        regularMarketChange: meta.regularMarketPrice - (meta.chartPreviousClose || meta.regularMarketPrice),
+        regularMarketChangePercent: meta.chartPreviousClose
+          ? ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100
+          : 0,
+        regularMarketVolume: meta.regularMarketVolume || 0,
+        regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
+        regularMarketDayLow:  meta.regularMarketDayLow  || meta.regularMarketPrice,
+        regularMarketOpen:    meta.regularMarketOpen     || meta.chartPreviousClose || meta.regularMarketPrice,
+      };
+    } catch (e: any) {
+      console.warn(`[Stocks] ${url} failed: ${e.message}`);
+    }
+  }
+  return null;
 }
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function pollStocks() {
   const now = Date.now();
   const changed: string[] = [];
 
-  await Promise.allSettled(STOCK_TICKERS.map(async (meta) => {
+  for (const meta of STOCK_TICKERS) {
     try {
       const q = await fetchYahooChart(meta.sym);
-      if (!q) return;
+      if (!q) { await sleep(500); continue; }
       const displaySym = DISPLAY_MAP[meta.sym] || meta.sym;
       const cat = SUBCAT_MAP[meta.subcat] || "stocks";
       const key = `${cat}:${displaySym}`;
@@ -433,7 +453,8 @@ async function pollStocks() {
       });
       changed.push(key);
     } catch {}
-  }));
+    await sleep(800); // stagger requests to avoid rate limiting
+  }
 
   if (changed.length) {
     tickEmitter.emit("batch", changed);
@@ -460,7 +481,7 @@ export function startLiveFeeds() {
 
   // Poll stocks/oil every 5 seconds (Yahoo chart API - one call per ticker)
   pollStocks();
-  stockPoller = setInterval(pollStocks, 3000);
+  stockPoller = setInterval(pollStocks, 30000);
 
   console.log("[LiveFeeds] All feeds started");
 }
