@@ -1976,7 +1976,13 @@ function NewsAlertBanner() {
         visible ? "top-[calc(32px+68px)] opacity-100 translate-y-0" : "top-[calc(32px+40px)] opacity-0 -translate-y-2 pointer-events-none"
       }`}
     >
-      <div className={`relative rounded-xl border ${borderColor} ${bgColor} shadow-2xl overflow-hidden`}>
+      <a
+        href={alert.url || "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => dismiss()}
+        className={`relative rounded-xl border ${borderColor} ${bgColor} shadow-2xl overflow-hidden block cursor-pointer group hover:brightness-110 transition-all`}
+      >
         {/* Accent left bar */}
         <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${accentBar}`} />
 
@@ -2000,7 +2006,7 @@ function NewsAlertBanner() {
                 {isHigh ? "BREAKING" : "MARKET NEWS"} · {alert.source}
               </span>
             </div>
-            <button onClick={dismiss} className="text-[#ffc040]/38 hover:text-[#ffc040]/78 transition-colors ml-2">
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss(); }} className="text-[#ffc040]/38 hover:text-[#ffc040]/78 transition-colors ml-2">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2029,10 +2035,13 @@ function NewsAlertBanner() {
                 <span className="text-[9px] font-mono text-[#ffc040]">{alert.buyerPressure}%</span>
               </div>
             </div>
-            <span className="text-[9px] font-mono text-[#ffc040]/30">{ago(new Date(alert.publishedAt).getTime())}</span>
+            <div className="flex items-center gap-1 text-[#ffc040]/30 group-hover:text-[#ffc040]/60 transition-colors">
+              <span className="text-[9px] font-mono">{ago(new Date(alert.publishedAt).getTime())}</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </div>
           </div>
         </div>
-      </div>
+      </a>
     </div>
   );
 }
