@@ -512,66 +512,77 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
   const isFinal = size >= 110;
-  // Geometry: place cx,cy at centre of a square canvas.
-  // The arc sweeps the TOP half of the circle.
-  // We pad the viewBox by sw/2 on every side so rounded caps never clip.
+  // ── Bulletproof semicircle gauge ──
+  // The SVG canvas is W wide and W tall (square).
+  // cx = W/2, cy = W/2 (dead center of square).
+  // The semicircle arc goes LEFT → TOP → RIGHT over the upper half.
+  // We only DISPLAY the top half: viewBox clips at y=0 (top of square).
+  // Key: sw/2 inner margin ensures caps never reach y=0.
   const W = size;
-  const sw = Math.round(W * 0.11);          // stroke width
-  const R  = (W - sw) / 2 - 2;              // radius — fits inside padded square
+  const sw = Math.round(W * 0.10);  // stroke width = 10% of W
+  const R = W / 2 - sw / 2 - 2;    // radius: arc outer edge = W/2 - 2px from canvas edge
   const cx = W / 2;
-  const cy = W / 2;                          // true center of square canvas
-  const pad = Math.ceil(sw / 2) + 2;        // padding = half stroke + safety
-  // ViewBox expands upward & sideways by pad so caps never hit the edge
-  const vbX = -pad;
-  const vbY = -(pad);                        // expands UP so top cap fits
-  const vbW = W + pad * 2;
-  const vbH = cy + pad;                      // only show top half + bottom padding
+  const cy = W / 2;                 // center at middle of square canvas
+  // The topmost point of the arc stroke is at: cy - R - sw/2
+  // With R = W/2 - sw/2 - 2: topmost = W/2 - (W/2 - sw/2 - 2) - sw/2 = 2px from top
+  // So 2px of canvas space above the arc stroke — it will NOT clip.
 
-  // Track arc: left (180°) → right (0°) sweeping CW over the top
-  const trackD = `M ${(cx - R).toFixed(2)} ${cy.toFixed(2)} A ${R.toFixed(2)} ${R.toFixed(2)} 0 0 1 ${(cx + R).toFixed(2)} ${cy.toFixed(2)}`;
+  // ViewBox: show full square (arc center at W/2, full arc fits in 0..W)
+  // Height: only show top half + a tiny bit below center for the bottom endpoints
+  const vH = cy + sw / 2 + 4;
 
-  // Fill arc: from left, sweep pct% of 180° clockwise
-  // SVG angle convention (y-down, CW positive):
-  //   angle 180° = left = (cx-R, cy)
-  //   sweeping CW by θ rad → new point = (cx + R·cos(π-θ), cy - R·sin(π-θ))
-  //                                     = (cx - R·cos(θ),   cy - R·sin(θ))
-  const theta = (pct / 100) * Math.PI;      // 0 → π
-  const ex = (cx - R * Math.cos(theta)).toFixed(2);
-  const ey = (cy - R * Math.sin(theta)).toFixed(2);
-  const lg = pct > 50 ? 1 : 0;             // large-arc flag
-  const fillD = pct >= 100
-    ? trackD                                 // full semicircle
-    : `M ${(cx - R).toFixed(2)} ${cy.toFixed(2)} A ${R.toFixed(2)} ${R.toFixed(2)} 0 ${lg} 1 ${ex} ${ey}`;
+  const lx = (cx - R).toFixed(1);
+  const rx = (cx + R).toFixed(1);
+  const cyS = cy.toFixed(1);
+  const RS = R.toFixed(1);
 
-  const svgH = cy + pad;                    // rendered height = half circle + bottom pad
+  // Track: full semicircle left → right sweeping clockwise over top
+  const trackD = `M ${lx} ${cyS} A ${RS} ${RS} 0 0 1 ${rx} ${cyS}`;
+
+  // Fill: sweep pct% of 180° CW from left
+  // At angle θ from left: point = (cx - R·cosθ, cy - R·sinθ)
+  const theta = (Math.min(pct, 99.9) / 100) * Math.PI;
+  const ex = (cx - R * Math.cos(theta)).toFixed(1);
+  const ey = (cy - R * Math.sin(theta)).toFixed(1);
+  const lg = pct > 50 ? 1 : 0;
+  const fillD = `M ${lx} ${cyS} A ${RS} ${RS} 0 ${lg} 1 ${ex} ${ey}`;
 
   return (
     <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
       background: "#100d07",
       border: "1px solid rgba(255,192,64,0.13)",
       borderRadius: 16,
-      padding: "8px 12px 10px",
-      minWidth: W + 20,
+      padding: "10px 12px 10px",
+      minWidth: W + 16,
       flexShrink: 0,
+      overflow: "visible",
     }}>
       <svg
-        width={W + pad * 2}
-        height={svgH + pad}
-        viewBox={`${vbX} ${vbY} ${vbW} ${vbH + pad}`}
-        style={{ overflow: "visible", display: "block" }}
+        width={W}
+        height={vH}
+        viewBox={`0 0 ${W} ${vH}`}
+        style={{ display: "block", overflow: "visible" }}
       >
-        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={sw} strokeLinecap="round"/>
+        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={sw} strokeLinecap="round" />
         {pct > 0 && (
-          <path d={fillD} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 5px ${color}cc)` }}/>
+          <path
+            d={fillD}
+            fill="none"
+            stroke={color}
+            strokeWidth={sw}
+            strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 6px ${color}aa)` }}
+          />
         )}
       </svg>
-      <div style={{ textAlign:"center", marginTop: 6 }}>
-        <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color, fontFamily:"monospace", lineHeight:1 }}>{pct}%</div>
-        <div style={{ fontSize: isFinal ? 11 : 9, color:"rgba(255,248,232,0.55)", marginTop:3, fontFamily:"sans-serif" }}>{label}</div>
+      <div style={{ textAlign: "center", marginTop: 8 }}>
+        <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color, fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
+        <div style={{ fontSize: isFinal ? 11 : 9, color: "rgba(255,248,232,0.55)", marginTop: 3, fontFamily: "sans-serif" }}>{label}</div>
       </div>
-      <div style={{ fontSize:8, color:"rgba(255,192,64,0.38)", letterSpacing:"0.12em", textTransform:"uppercase", marginTop:6, fontFamily:"monospace" }}>{tf}</div>
+      <div style={{ fontSize: 8, color: "rgba(255,192,64,0.38)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 6, fontFamily: "monospace" }}>{tf}</div>
     </div>
   );
 }
