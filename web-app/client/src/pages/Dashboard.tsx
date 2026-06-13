@@ -616,7 +616,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
   const [query, setQuery] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
-  const selectedTick = selectedSymbol ? ticks.get(selectedSymbol) ?? null : null;
+  const selectedTick = selectedSymbol ? (allTicks.find(t => t.symbol === selectedSymbol) ?? null) : null;
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
