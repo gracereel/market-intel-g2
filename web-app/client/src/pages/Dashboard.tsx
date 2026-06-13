@@ -511,52 +511,53 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
-  // Reference design: large semicircle arc on top, text BELOW the arc center inside the card
-  // ViewBox: width=size, height=size (full square), arc drawn in top half, text in lower portion
-  const W = size;
-  const H = size;
-  const cx = W / 2;
-  const cy = H / 2 + H * 0.08; // push center down slightly so text fits under arc
-  const R = W * 0.38;
-  const sw = W * 0.10;
+  const isFinal = size >= 110;
+  const sw = size * 0.11;          // stroke width
+  const R  = (size / 2) - sw - 2; // radius — leave room for stroke + glow
+  const cx = size / 2;
+  // cy = R + sw + 2  so the arc top (cx, cy-R) is at y = sw+2 — fully inside viewbox
+  const cy = R + sw + 2;
+  const viewW = size;
+  const viewH = cy + sw / 2 + 4;  // only need top half: from 0 to bottom of arc stroke
 
-  // Track: full semicircle left to right across the top
+  // Full track: left (180°) → right (0°)
   const trackD = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
 
-  // Fill: sweep pct% of 180deg from left endpoint clockwise
-  const sweepRad = (pct / 100) * Math.PI; // 0=no fill, PI=full
-  const ex = cx + R * Math.cos(Math.PI - sweepRad); // x
-  const ey = cy - R * Math.sin(sweepRad);            // y (SVG y inverted)
+  // Fill arc: sweep pct/100 of 180° clockwise from left endpoint
+  // At pct=0 → stays at left point. At pct=100 → reaches right point.
+  const angle = (pct / 100) * Math.PI; // radians swept from left
+  // End point: rotating clockwise from left (180°) by `angle`
+  // In standard math coords: point at angle (180° - angle*180/π) from positive x
+  // In SVG (y down): 
+  const ex = cx - R * Math.cos(angle);
+  const ey = cy - R * Math.sin(angle);
   const largeArc = pct >= 50 ? 1 : 0;
   const fillD = `M ${cx - R} ${cy} A ${R} ${R} 0 ${largeArc} 1 ${ex} ${ey}`;
-
-  const isFinal = size >= 110;
 
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,192,64,0.10)",
-      borderRadius: 16,
-      padding: "12px 8px 10px",
-      minWidth: size + 8,
+      background: "rgba(20,16,8,0.9)",
+      border: "1px solid rgba(255,192,64,0.12)",
+      borderRadius: 14,
+      padding: "10px 10px 8px",
+      minWidth: size + 16,
+      flexShrink: 0,
     }}>
-      <svg width={W} height={cy + sw / 2 + 2} viewBox={`0 0 ${W} ${cy + sw / 2 + 2}`}>
+      <svg width={viewW} height={viewH} viewBox={`0 0 ${viewW} ${viewH}`} style={{ overflow: "visible" }}>
         {/* Track */}
-        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={sw} strokeLinecap="round" />
+        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={sw} strokeLinecap="round" />
         {/* Fill */}
         {pct > 1 && (
           <path d={fillD} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 ${sw * 0.9}px ${color}bb)` }} />
+            style={{ filter: `drop-shadow(0 0 8px ${color}cc)` }} />
         )}
       </svg>
-      {/* Text below arc inside card */}
-      <div style={{ textAlign: "center", marginTop: 6 }}>
-        <div style={{ fontSize: isFinal ? 22 : 16, fontWeight: 800, color, fontFamily: "monospace", lineHeight: 1.1 }}>{pct}%</div>
-        <div style={{ fontSize: isFinal ? 11 : 9, color: "rgba(255,248,232,0.6)", marginTop: 2, fontFamily: "sans-serif" }}>{label}</div>
+      <div style={{ textAlign: "center", marginTop: 8 }}>
+        <div style={{ fontSize: isFinal ? 24 : 17, fontWeight: 800, color, fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
+        <div style={{ fontSize: isFinal ? 11 : 9, color: "rgba(255,248,232,0.55)", marginTop: 3 }}>{label}</div>
       </div>
-      {/* Timeframe label */}
-      <div style={{ fontSize: 8, color: "rgba(255,192,64,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, fontFamily: "monospace" }}>{tf}</div>
+      <div style={{ fontSize: 8, color: "rgba(255,192,64,0.38)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 5, fontFamily: "monospace" }}>{tf}</div>
     </div>
   );
 }
