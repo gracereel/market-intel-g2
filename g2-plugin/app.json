@@ -1,0 +1,27 @@
+{
+  "package_id": "com.nurwears.market",
+  "edition": "202601",
+  "name": "Market Intel",
+  "tagline": "Live crypto & market news on G2",
+  "description": "Real-time crypto prices, futures, stocks, and oil with AI-powered market sentiment. Breaking news alerts pop directly onto your G2 display. Tap to scroll coins, hold for news feed, double-tap to exit.",
+  "author": "Grace Reel",
+  "version": "1.1.0",
+  "min_app_version": "2.0.0",
+  "min_sdk_version": "0.0.10",
+  "entrypoint": "index.html",
+  "permissions": [
+    {
+      "name": "network",
+      "desc": "Fetches live crypto prices, futures, and market news from the Market Intel server",
+      "whitelist": [
+        "https://g1-market-intel-6dny4XALTBK4o2tuYJD.PQ.pplx.app",
+        "https://*.pplx.app",
+        "https://data-stream.binance.vision",
+        "https://fstream.binance.com"
+      ]
+    }
+  ],
+  "supported_languages": [
+    "en"
+  ]
+}

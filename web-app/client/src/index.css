@@ -1,0 +1,140 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@700,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 224 18% 6%;
+    --foreground: 210 14% 88%;
+    --card: 224 16% 9%;
+    --card-foreground: 210 14% 88%;
+    --popover: 224 16% 11%;
+    --popover-foreground: 210 14% 88%;
+    --primary: 152 68% 42%;
+    --primary-foreground: 224 18% 6%;
+    --secondary: 224 14% 14%;
+    --secondary-foreground: 210 10% 68%;
+    --muted: 224 14% 12%;
+    --muted-foreground: 210 8% 50%;
+    --accent: 152 68% 42%;
+    --accent-foreground: 224 18% 6%;
+    --destructive: 0 68% 52%;
+    --destructive-foreground: 210 14% 88%;
+    --border: 224 12% 16%;
+    --input: 224 12% 14%;
+    --ring: 152 68% 42%;
+    --radius: 0.5rem;
+  }
+
+  * { @apply border-border; }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Satoshi', 'Inter', sans-serif;
+    min-height: 100dvh;
+  }
+
+  h1, h2, h3 { font-family: 'Cabinet Grotesk', 'Satoshi', sans-serif; font-weight: 800; }
+}
+
+/* ── G1 terminal ──────────────────────────────────────────────────── */
+.g1-screen {
+  background: #030a05;
+  border: 1px solid hsl(152 80% 28% / 0.6);
+  box-shadow: 0 0 24px hsl(152 80% 50% / 0.1), inset 0 0 40px hsl(0 0% 0% / 0.7);
+  position: relative; overflow: hidden;
+}
+.g1-screen::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, hsl(152 80% 50% / 0.02) 2px, hsl(152 80% 50% / 0.02) 4px);
+  pointer-events: none; z-index: 1;
+}
+.g1-text {
+  color: #00e87a;
+  font-family: 'JetBrains Mono', monospace;
+  text-shadow: 0 0 8px hsl(152 80% 50% / 0.9), 0 0 22px hsl(152 80% 50% / 0.4);
+  position: relative; z-index: 2;
+  font-size: 11px; line-height: 1.65; letter-spacing: 0.04em;
+}
+.g1-scanline {
+  position: absolute; top: -100%; left: 0; right: 0; height: 28%;
+  background: linear-gradient(transparent, hsl(152 80% 50% / 0.06), transparent);
+  animation: scanline 5s linear infinite; pointer-events: none; z-index: 3;
+}
+@keyframes scanline { to { top: 200%; } }
+
+/* ── Sentiment badges ─────────────────────────────────────────────── */
+.bull { background: hsl(152 68% 42% / 0.12); border: 1px solid hsl(152 68% 42% / 0.38); color: hsl(152 65% 60%); }
+.bear { background: hsl(0 68% 52% / 0.12); border: 1px solid hsl(0 68% 52% / 0.38); color: hsl(0 75% 68%); }
+.neut { background: hsl(224 10% 24% / 0.6); border: 1px solid hsl(224 10% 34% / 0.4); color: hsl(224 8% 60%); }
+.imp-high { background: hsl(38 88% 50% / 0.12); border: 1px solid hsl(38 88% 50% / 0.38); color: hsl(38 88% 65%); }
+.imp-med  { background: hsl(200 50% 45% / 0.12); border: 1px solid hsl(200 50% 45% / 0.38); color: hsl(200 58% 65%); }
+.imp-low  { background: hsl(224 10% 20% / 0.5); border: 1px solid hsl(224 10% 30% / 0.4); color: hsl(224 8% 55%); }
+
+/* ── Pressure bars ────────────────────────────────────────────────── */
+.pbar { height: 5px; border-radius: 3px; background: hsl(224 14% 14%); overflow: hidden; }
+.pbar-buy { height: 100%; background: linear-gradient(90deg, hsl(152 68% 30%), hsl(152 68% 48%)); border-radius: 3px; box-shadow: 0 0 5px hsl(152 68% 42% / 0.5); transition: width 0.5s ease; }
+.pbar-sell { height: 100%; background: linear-gradient(90deg, hsl(0 68% 38%), hsl(0 68% 54%)); border-radius: 3px; box-shadow: 0 0 5px hsl(0 68% 52% / 0.5); transition: width 0.5s ease; }
+
+/* ── Coin card ────────────────────────────────────────────────────── */
+.coin-card {
+  border: 1px solid hsl(224 12% 16%);
+  border-radius: 14px;
+  background: hsl(224 16% 9%);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  position: relative;
+  overflow: hidden;
+}
+.coin-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at top right, hsl(var(--coin-accent, 152 68% 42%) / 0.06) 0%, transparent 65%);
+  pointer-events: none;
+}
+.coin-card:hover {
+  border-color: hsl(var(--coin-accent, 152 68% 42%) / 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px hsl(0 0% 0% / 0.35), 0 0 0 1px hsl(var(--coin-accent, 152 68% 42%) / 0.12);
+}
+
+/* ── Nav tabs ─────────────────────────────────────────────────────── */
+.nav-tab { transition: all 0.15s ease; }
+.nav-tab.active {
+  background: hsl(var(--tab-hsl) / 0.1);
+  color: hsl(var(--tab-hsl));
+  border-color: hsl(var(--tab-hsl) / 0.4);
+}
+
+/* ── Ticker ───────────────────────────────────────────────────────── */
+@keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-run { animation: tick 40s linear infinite; }
+.ticker-run:hover { animation-play-state: paused; }
+@keyframes scroll-left { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ── Modal ────────────────────────────────────────────────────────── */
+.overlay { background: hsl(224 22% 3% / 0.88); backdrop-filter: blur(10px); }
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(224 12% 22%); border-radius: 2px; }
+
+/* ── Misc ─────────────────────────────────────────────────────────── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; } }
+.fadein { animation: fadeUp 0.22s ease forwards; }
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+.section-title {
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Sentiment donut segments (CSS only) */
+.donut-ring { transition: stroke-dashoffset 0.6s ease; }

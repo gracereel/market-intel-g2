@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Even G2 Glasses Simulator — Market Intel</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d14;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      padding: 24px;
+      gap: 32px;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #888;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* ── GLASSES FRAME ── */
+    .glasses-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .glasses-frame {
+      position: relative;
+      width: 720px;
+    }
+
+    /* Glasses SVG frame */
+    .glasses-svg {
+      width: 100%;
+      display: block;
+    }
+
+    /* The G2 display sits inside the right lens area */
+    .g2-display-wrap {
+      position: absolute;
+      top: 38px;
+      right: 72px;
+      width: 320px;
+      height: 100px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* Actual G2 canvas — matches 576×288 aspect ratio */
+    .g2-canvas {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Green phosphor glow effect */
+    .g2-canvas::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 40%, rgba(34,197,94,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Scan lines */
+    .g2-canvas::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    .g2-text {
+      position: absolute;
+      inset: 0;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 5;
+    }
+
+    .g2-line {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 400;
+      color: #22c55e;
+      white-space: pre;
+      overflow: hidden;
+      line-height: 1.45;
+      text-shadow: 0 0 6px rgba(34,197,94,0.7), 0 0 12px rgba(34,197,94,0.3);
+      letter-spacing: 0.02em;
+    }
+
+    .g2-line.alert { color: #ff4444; text-shadow: 0 0 6px rgba(255,68,68,0.8), 0 0 14px rgba(255,68,68,0.4); }
+    .g2-line.warn  { color: #f59e0b; text-shadow: 0 0 6px rgba(245,158,11,0.8); }
+    .g2-line.dim   { color: #16a34a; text-shadow: none; }
+
+    /* ── STANDALONE DISPLAY (large preview) ── */
+    .display-large {
+      width: 576px;
+      height: 200px;
+      background: #000;
+      border-radius: 8px;
+      border: 1px solid #22c55e33;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(34,197,94,0.15), 0 0 0 1px #22c55e22;
+    }
+
+    .display-large::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 30%, rgba(34,197,94,0.1) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .display-large::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 5px,
+        rgba(0,0,0,0.15) 5px,
+        rgba(0,0,0,0.15) 6px
+      );
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    .display-large .g2-text {
+      padding: 14px 16px;
+      gap: 4px;
+    }
+
+    .display-large .g2-line {
+      font-size: 15.5px;
+      line-height: 1.5;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── CONTROLS ── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .tab-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tab {
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid #333;
+      background: transparent;
+      color: #888;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .tab:hover { border-color: #22c55e55; color: #22c55e; }
+    .tab.active { border-color: #22c55e; background: #22c55e15; color: #22c55e; }
+
+    .gesture-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .gesture-btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid #222;
+      background: #111;
+      color: #ccc;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      min-width: 80px;
+    }
+    .gesture-btn:hover { border-color: #22c55e66; background: #22c55e10; color: #22c55e; }
+    .gesture-btn:active { transform: scale(0.96); }
+    .gesture-btn .icon { font-size: 18px; }
+    .gesture-btn .label { font-size: 10px; color: #666; }
+    .gesture-btn:hover .label { color: #22c55e99; }
+
+    /* ── ALERT FLASH ── */
+    @keyframes alertFlash {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .flash { animation: alertFlash 0.6s ease 3; }
+
+    /* ── STATUS ── */
+    .status-bar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-size: 11px;
+      color: #444;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .legend {
+      display: flex; gap: 20px; font-size: 11px; color: #555;
+    }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .dot { width:8px;height:8px;border-radius:50%; }
+  </style>
+</head>
+<body>
+
+  <h1>Even G2 Glasses — Market Intel Simulator</h1>
+
+  <!-- ── LARGE DISPLAY PREVIEW ── -->
+  <div class="display-large" id="mainDisplay">
+    <div class="g2-text" id="displayText">
+      <div class="g2-line" id="L0">BTC     $67,432.00   +2.14%</div>
+      <div class="g2-line dim" id="L1">BULL  [████████████░░░░░░░░] 61%</div>
+      <div class="g2-line dim" id="L2">[1/10] TAP=NEXT  HOLD=NEWS  DBL=EXIT</div>
+      <div class="g2-line dim" id="L3">Fed signals strong jobs data, BTC reacts</div>
+      <div class="g2-line dim" id="L4">MARKET INTEL       6:41:22 AM  LIVE</div>
+    </div>
+  </div>
+
+  <!-- ── TABS ── -->
+  <div class="controls">
+    <div class="tab-row">
+      <button class="tab active" onclick="switchView('prices')">PRICES</button>
+      <button class="tab" onclick="switchView('news')">NEWS FEED</button>
+      <button class="tab" onclick="switchView('alert')">BREAKING ALERT</button>
+    </div>
+
+    <!-- Gesture simulation buttons -->
+    <div class="gesture-row">
+      <button class="gesture-btn" onclick="gesture('tap')">
+        <span class="icon">👆</span>
+        <span>TAP</span>
+        <span class="label">next coin</span>
+      </button>
+      <button class="gesture-btn" onclick="gesture('hold')">
+        <span class="icon">✋</span>
+        <span>HOLD</span>
+        <span class="label">news feed</span>
+      </button>
+      <button class="gesture-btn" onclick="gesture('double')">
+        <span class="icon">👆👆</span>
+        <span>DOUBLE TAP</span>
+        <span class="label">exit / back</span>
+      </button>
+      <button class="gesture-btn" onclick="gesture('swipe_up')">
+        <span class="icon">⬆️</span>
+        <span>RING UP</span>
+        <span class="label">prev coin</span>
+      </button>
+      <button class="gesture-btn" onclick="gesture('swipe_dn')">
+        <span class="icon">⬇️</span>
+        <span>RING DOWN</span>
+        <span class="label">next coin</span>
+      </button>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot"></div>
+      <span id="statusText">Connected to live feed · 576×288px · Green monochrome</span>
+    </div>
+
+    <div class="legend">
+      <span><div class="dot" style="background:#22c55e"></div> Bullish</span>
+      <span><div class="dot" style="background:#ef4444"></div> Bearish</span>
+      <span><div class="dot" style="background:#f59e0b"></div> Neutral</span>
+    </div>
+  </div>
+
+  <script>
+  // ── DATA ─────────────────────────────────────────────────────────────────
+  const coins = [
+    { symbol:'BTC',  price:'67,432.00', chg:'+2.14%', sent:'BULL', buyers:61, news:'Fed signals strong jobs data, BTC reacts bullish' },
+    { symbol:'ETH',  price:'3,541.22',  chg:'+1.87%', sent:'BULL', buyers:58, news:'Ethereum Layer 2 TVL hits all-time high' },
+    { symbol:'SOL',  price:'178.44',    chg:'+3.22%', sent:'BULL', buyers:67, news:'Solana DEX volume surges past $4B daily' },
+    { symbol:'BNB',  price:'612.80',    chg:'-0.44%', sent:'NEUT', buyers:49, news:'Binance reports record institutional inflows' },
+    { symbol:'XRP',  price:'0.6831',    chg:'+0.91%', sent:'NEUT', buyers:52, news:'XRP court ruling delayed to Q3 2026' },
+    { symbol:'POL',  price:'0.4421',    chg:'-1.33%', sent:'BEAR', buyers:38, news:'Polygon 2.0 migration causes short-term selling' },
+    { symbol:'ADA',  price:'0.4887',    chg:'+0.66%', sent:'NEUT', buyers:51, news:'Cardano Hydra upgrade boosts network speed' },
+    { symbol:'DOGE', price:'0.1742',    chg:'+4.11%', sent:'BULL', buyers:72, news:'Musk tweets rocket emoji, DOGE spikes 4%' },
+    { symbol:'AVAX', price:'38.21',     chg:'-0.88%', sent:'BEAR', buyers:41, news:'Avalanche subnet congestion during memecoin rush' },
+    { symbol:'LINK', price:'16.34',     chg:'+1.55%', sent:'BULL', buyers:59, news:'Chainlink CCIP reaches 1M cross-chain messages' },
+  ];
+
+  const newsItems = [
+    { title:'Fed signals strong jobs data — markets react bullish across risk assets', sent:'BULL', source:'Reuters', time:'6:38 AM' },
+    { title:'Bitcoin ETF inflows hit $800M single day record as institutional demand surges', sent:'BULL', source:'Bloomberg', time:'6:22 AM' },
+    { title:'Crude oil drops 2% on surprise inventory build, OPEC+ tensions rise', sent:'BEAR', source:'FT', time:'6:10 AM' },
+    { title:'Ethereum gas fees spike 40% amid NFT mint frenzy on Base Layer 2', sent:'NEUT', source:'CoinDesk', time:'5:54 AM' },
+    { title:'China PBoC cuts reserve requirements, Asian equities rally sharply', sent:'BULL', source:'WSJ', time:'5:30 AM' },
+  ];
+
+  const sentColors = { BULL:'#22c55e', BEAR:'#ef4444', NEUT:'#f59e0b' };
+
+  let coinIdx    = 0;
+  let newsIdx    = 0;
+  let mode       = 'prices';
+
+  function pad(s, n)  { s=String(s??''); return s.length>=n?s.slice(0,n):s+' '.repeat(n-s.length); }
+  function rpad(s, n) { s=String(s??''); return s.length>=n?s.slice(0,n):' '.repeat(n-s.length)+s; }
+  function sentBar(b) {
+    const f = Math.round(b/5);
+    return '[' + '█'.repeat(f) + '░'.repeat(20-f) + '] ' + b + '%';
+  }
+  function ts() {
+    return new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+
+  function setLines(lines, sentKey) {
+    const col = sentColors[sentKey] || '#22c55e';
+    for (let i=0;i<5;i++) {
+      const el = document.getElementById('L'+i);
+      el.textContent = lines[i] || '';
+      el.className   = 'g2-line' + (i===0?'':' dim');
+      el.style.color = i===0 ? col : (sentKey==='BEAR'?'#fa7070':sentKey==='NEUT'?'#fbbf24':'#22c55e');
+      el.style.textShadow = i===0
+        ? `0 0 8px ${col}cc, 0 0 16px ${col}55`
+        : '0 0 6px rgba(34,197,94,0.5)';
+    }
+    document.getElementById('statusText').textContent =
+      (mode==='prices' ? `Coin ${coinIdx+1}/${coins.length}` :
+       mode==='news'   ? `News ${newsIdx+1}/${newsItems.length}` :
+       '⚡ BREAKING ALERT') + ' · 576×288px · Green monochrome · LIVE';
+  }
+
+  function renderPrices() {
+    mode = 'prices';
+    const c = coins[coinIdx];
+    const line0 = pad(c.symbol,7) + ' $' + rpad(c.price,13) + ' ' + rpad(c.chg,8);
+    const line1 = pad(c.sent,5)   + ' ' + sentBar(c.buyers);
+    const line2 = '['+String(coinIdx+1)+'/'+coins.length+'] TAP=NEXT  HOLD=NEWS  DBL=EXIT';
+    const line3 = c.news.length>40 ? c.news.slice(0,39)+'…' : c.news;
+    const line4 = 'MARKET INTEL  ' + rpad(ts(),12) + '  LIVE';
+    setLines([line0,line1,line2,line3,line4], c.sent);
+    setActiveTabs('prices');
+  }
+
+  function renderNews() {
+    mode = 'news';
+    const n = newsItems[newsIdx];
+    const words = (n.title||'').split(' ');
+    let l1='',l2='';
+    for (const w of words) {
+      if ((l1+' '+w).trim().length<=42) l1=(l1+' '+w).trim();
+      else if ((l2+' '+w).trim().length<=42) l2=(l2+' '+w).trim();
+    }
+    const line0 = '── NEWS ['+String(newsIdx+1)+'/'+newsItems.length+'] '+pad(n.sent,4)+' ──────────────';
+    const line1 = pad(l1,42);
+    const line2 = pad(l2,42);
+    const line3 = pad(n.source,18)+'  '+n.time+'  TAP=NEXT';
+    const line4 = 'DBL=BACK  HOLD=PRICES  '+ts();
+    setLines([line0,line1,line2,line3,line4], n.sent);
+    setActiveTabs('news');
+  }
+
+  function renderAlert() {
+    mode = 'alert';
+    const n = newsItems[0]; // latest
+    const words = (n.title||'').split(' ');
+    let l1='',l2='';
+    for (const w of words) {
+      if ((l1+' '+w).trim().length<=42) l1=(l1+' '+w).trim();
+      else if ((l2+' '+w).trim().length<=42) l2=(l2+' '+w).trim();
+    }
+    const impact = n.sent==='BULL'?'▲ BULLISH ALERT':n.sent==='BEAR'?'▼ BEARISH ALERT':'◆ MARKET ALERT';
+    const line0 = '⚡ BREAKING  '+impact;
+    const line1 = pad(l1,42);
+    const line2 = pad(l2,42);
+    const line3 = '[MARKET]  TAP=DISMISS  DBL=EXIT';
+    const line4 = 'AUTO-DISMISS 10s  '+ts();
+    setLines([line0,line1,line2,line3,line4], n.sent);
+
+    // Flash animation
+    const disp = document.getElementById('mainDisplay');
+    disp.classList.remove('flash');
+    void disp.offsetWidth;
+    disp.classList.add('flash');
+    setActiveTabs('alert');
+  }
+
+  function setActiveTabs(active) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+      t.classList.toggle('active', ['prices','news','alert'][i]===active);
+    });
+  }
+
+  function switchView(v) {
+    if (v==='prices') renderPrices();
+    else if (v==='news') renderNews();
+    else renderAlert();
+  }
+
+  function gesture(type) {
+    if (type==='tap') {
+      if (mode==='alert') { renderPrices(); return; }
+      if (mode==='news')  { newsIdx=(newsIdx+1)%newsItems.length; renderNews(); return; }
+      coinIdx=(coinIdx+1)%coins.length; renderPrices();
+    } else if (type==='hold') {
+      if (mode==='news') renderPrices(); else { newsIdx=0; renderNews(); }
+    } else if (type==='double') {
+      if (mode==='alert'||mode==='news') renderPrices();
+      else { setLines(['','','  [ APP CLOSED ]','',''], 'NEUT'); setTimeout(renderPrices,1000); }
+    } else if (type==='swipe_up') {
+      if (mode==='news') { newsIdx=(newsIdx-1+newsItems.length)%newsItems.length; renderNews(); }
+      else { coinIdx=(coinIdx-1+coins.length)%coins.length; renderPrices(); }
+    } else if (type==='swipe_dn') {
+      if (mode==='news') { newsIdx=(newsIdx+1)%newsItems.length; renderNews(); }
+      else { coinIdx=(coinIdx+1)%coins.length; renderPrices(); }
+    }
+  }
+
+  // Auto-update timestamp every second
+  setInterval(() => { if (mode==='prices') renderPrices(); }, 2000);
+
+  // Simulate a breaking news alert after 5 seconds
+  setTimeout(() => {
+    if (mode==='prices') renderAlert();
+  }, 5000);
+
+  renderPrices();
+  </script>
+</body>
+</html>

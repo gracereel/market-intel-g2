@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>G1 Market Intel — G2</title>
+  <style>
+    /* Debug view — only visible in browser, not on glasses */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0f;
+      color: #22c55e;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 13px;
+      padding: 16px;
+    }
+    #debug {
+      border: 1px solid #22c55e33;
+      border-radius: 8px;
+      padding: 12px;
+      max-width: 700px;
+    }
+    #debug h2 { color: #22c55e; margin-bottom: 8px; font-size: 14px; }
+    #status { color: #888; margin-bottom: 8px; }
+    #preview {
+      background: #000;
+      width: 640px;
+      height: 200px;
+      border: 1px solid #22c55e44;
+      border-radius: 4px;
+      margin: 12px 0;
+      padding: 8px;
+      color: #22c55e;
+      font-family: monospace;
+      font-size: 11px;
+      overflow: hidden;
+      position: relative;
+    }
+    #preview .g2-line {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #22c55e22;
+      padding: 0 4px;
+      white-space: pre;
+      overflow: hidden;
+    }
+    #log { color: #666; font-size: 11px; height: 100px; overflow-y: auto; margin-top: 8px; }
+    .bull { color: #22c55e; }
+    .bear { color: #ef4444; }
+    .neut { color: #f59e0b; }
+  </style>
+</head>
+<body>
+  <div id="debug">
+    <h2>G1 Market Intel — Even G2 Plugin (Debug View)</h2>
+    <div id="status">Initializing bridge...</div>
+    <div id="preview">
+      <div class="g2-line" id="line0">Loading market data...</div>
+      <div class="g2-line" id="line1"></div>
+      <div class="g2-line" id="line2"></div>
+      <div class="g2-line" id="line3"></div>
+      <div class="g2-line" id="line4"></div>
+    </div>
+    <div id="log"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
