@@ -385,75 +385,62 @@ const SUBCAT_MAP: Record<string, "stocks"|"futures"|"oil"> = {
   "futures":"futures","oil":"oil",
 };
 
-// Fetch single symbol via Yahoo Finance v7 (different endpoint, less rate-limited)
-async function fetchYahooChart(sym: string): Promise<any> {
-  // Try multiple Yahoo endpoints to avoid rate limiting
-  const endpoints = [
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`,
-  ];
+// Fetch ALL symbols in one batch call using Yahoo v7 quote endpoint
+async function fetchYahooBatch(syms: string[]): Promise<Record<string, any>> {
+  const symbols = syms.join(',');
   const headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json",
     "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://finance.yahoo.com/",
-    "Origin": "https://finance.yahoo.com",
+    "Referer": "https://finance.yahoo.com",
   };
-  for (const url of endpoints) {
+  const urls = [
+    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,regularMarketDayHigh,regularMarketDayLow,regularMarketOpen`,
+    `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,regularMarketDayHigh,regularMarketDayLow,regularMarketOpen`,
+  ];
+  for (const url of urls) {
     try {
-      const r = await axios.get(url, { timeout: 8000, headers });
-      const meta = r.data?.chart?.result?.[0]?.meta;
-      if (!meta) continue;
-      return {
-        symbol: sym,
-        regularMarketPrice: meta.regularMarketPrice,
-        regularMarketChange: meta.regularMarketPrice - (meta.chartPreviousClose || meta.regularMarketPrice),
-        regularMarketChangePercent: meta.chartPreviousClose
-          ? ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100
-          : 0,
-        regularMarketVolume: meta.regularMarketVolume || 0,
-        regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-        regularMarketDayLow:  meta.regularMarketDayLow  || meta.regularMarketPrice,
-        regularMarketOpen:    meta.regularMarketOpen     || meta.chartPreviousClose || meta.regularMarketPrice,
-      };
+      const r = await axios.get(url, { timeout: 10000, headers });
+      const results: any[] = r.data?.quoteResponse?.result || [];
+      const map: Record<string, any> = {};
+      for (const q of results) map[q.symbol] = q;
+      return map;
     } catch (e: any) {
-      console.warn(`[Stocks] ${url} failed: ${e.message}`);
+      console.warn(`[Stocks] batch fetch failed: ${e.message}`);
     }
   }
-  return null;
+  return {};
 }
-
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function pollStocks() {
   const now = Date.now();
   const changed: string[] = [];
 
+  const syms = STOCK_TICKERS.map(m => m.sym);
+  const quotes = await fetchYahooBatch(syms);
+
   for (const meta of STOCK_TICKERS) {
-    try {
-      const q = await fetchYahooChart(meta.sym);
-      if (!q) { await sleep(500); continue; }
-      const displaySym = DISPLAY_MAP[meta.sym] || meta.sym;
-      const cat = SUBCAT_MAP[meta.subcat] || "stocks";
-      const key = `${cat}:${displaySym}`;
-      const price = q.regularMarketPrice ?? 0;
-      tickStore.set(key, {
-        symbol: displaySym,
-        name: meta.name,
-        category: cat,
-        price,
-        change: Math.round((q.regularMarketChange ?? 0) * 100) / 100,
-        changePercent: Math.round((q.regularMarketChangePercent ?? 0) * 100) / 100,
-        volume: q.regularMarketVolume ?? 0,
-        quoteVolume: 0,
-        high: q.regularMarketDayHigh ?? price,
-        low:  q.regularMarketDayLow  ?? price,
-        open: q.regularMarketOpen    ?? price,
-        updatedAt: now,
-      });
-      changed.push(key);
-    } catch {}
-    await sleep(300); // stagger requests to avoid rate limiting
+    const q = quotes[meta.sym];
+    if (!q) continue;
+    const displaySym = DISPLAY_MAP[meta.sym] || meta.sym;
+    const cat = SUBCAT_MAP[meta.subcat] || "stocks";
+    const key = `${cat}:${displaySym}`;
+    const price = q.regularMarketPrice ?? 0;
+    tickStore.set(key, {
+      symbol: displaySym,
+      name: meta.name,
+      category: cat,
+      price,
+      change: Math.round((q.regularMarketChange ?? 0) * 100) / 100,
+      changePercent: Math.round((q.regularMarketChangePercent ?? 0) * 100) / 100,
+      volume: q.regularMarketVolume ?? 0,
+      quoteVolume: 0,
+      high: q.regularMarketDayHigh ?? price,
+      low:  q.regularMarketDayLow  ?? price,
+      open: q.regularMarketOpen    ?? price,
+      updatedAt: now,
+    });
+    changed.push(key);
   }
 
   if (changed.length) {
@@ -481,7 +468,7 @@ export function startLiveFeeds() {
 
   // Poll stocks/oil every 5 seconds (Yahoo chart API - one call per ticker)
   pollStocks();
-  stockPoller = setInterval(pollStocks, 10000);
+  stockPoller = setInterval(pollStocks, 5000);
 
   console.log("[LiveFeeds] All feeds started");
 }
