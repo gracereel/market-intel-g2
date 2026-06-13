@@ -70,10 +70,13 @@ const loginPage = `<!DOCTYPE html>
 </html>`;
 
 // Auth routes — must be before the auth middleware
-app.post('/auth/login', express.urlencoded({ extended: false }), (req: Request, res: Response) => {
-  const { password } = req.body;
-  if (password === APP_PASSWORD) {
-    res.cookie(AUTH_COOKIE, APP_PASSWORD, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+app.post('/auth/login', (req: Request, res: Response) => {
+  const body = req.body || {};
+  const password = (body.password || '').trim();
+  const expected = (APP_PASSWORD || '').trim();
+  console.log('[auth] login attempt, password length:', password.length, 'expected length:', expected.length);
+  if (expected && password === expected) {
+    res.cookie(AUTH_COOKIE, 'ok', { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
     res.redirect('/');
   } else {
     res.redirect('/login?error=1');
@@ -94,7 +97,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const isPublic = req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path === '/login';
   if (isPublic) return next();
   const cookie = req.cookies?.[AUTH_COOKIE];
-  if (cookie === APP_PASSWORD) return next();
+  if (cookie === 'ok') return next();
   res.redirect('/login');
 });
 
