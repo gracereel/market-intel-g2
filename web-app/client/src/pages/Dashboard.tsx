@@ -511,57 +511,52 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
-  // Canvas: full circle coords, we only show top half
-  // Center is at bottom-center of viewBox so arc opens upward like reference image
-  const pad = size * 0.12;
-  const R = size / 2 - pad;
-  const cx = size / 2;
-  const cy = size / 2;          // center is at mid-height
-  const sw = size * 0.11;
-  const viewH = size / 2 + pad; // only show top half + a bit of padding
+  // Reference design: large semicircle arc on top, text BELOW the arc center inside the card
+  // ViewBox: width=size, height=size (full square), arc drawn in top half, text in lower portion
+  const W = size;
+  const H = size;
+  const cx = W / 2;
+  const cy = H / 2 + H * 0.08; // push center down slightly so text fits under arc
+  const R = W * 0.38;
+  const sw = W * 0.10;
 
-  // Arc: starts at left (180deg) sweeps clockwise to right (0deg)
-  // SVG angles: 0deg = right, angles go clockwise
-  // We sweep from angle=180 to angle=0 going counterclockwise (sweep-flag=0 means counter)
-  // Actually for SVG: to go LEFT to RIGHT along the TOP we use sweep=1 (clockwise in screen coords)
-  // Start: left point  (cx - R, cy)
-  // End:   right point (cx + R, cy)
-  // The track is always the full half circle
+  // Track: full semicircle left to right across the top
   const trackD = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
 
-  // Fill: sweep from left, covering pct% of 180deg
-  // angle in radians from left: 0 = left endpoint, PI = right endpoint
-  const sweepRad = (pct / 100) * Math.PI;
-  // end point on circle going clockwise from left
-  const ex = cx - R * Math.cos(sweepRad);
-  const ey = cy - R * Math.sin(sweepRad);
+  // Fill: sweep pct% of 180deg from left endpoint clockwise
+  const sweepRad = (pct / 100) * Math.PI; // 0=no fill, PI=full
+  const ex = cx + R * Math.cos(Math.PI - sweepRad); // x
+  const ey = cy - R * Math.sin(sweepRad);            // y (SVG y inverted)
   const largeArc = pct >= 50 ? 1 : 0;
   const fillD = `M ${cx - R} ${cy} A ${R} ${R} 0 ${largeArc} 1 ${ex} ${ey}`;
 
-  const isSmall = size < 100;
-  const pctFontSize = isSmall ? size * 0.20 : size * 0.19;
-  const labelFontSize = isSmall ? size * 0.10 : size * 0.09;
-  const textY1 = cy - R * 0.22;
-  const textY2 = cy - R * 0.02;
+  const isFinal = size >= 110;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-      <svg width={size} height={viewH} viewBox={`0 0 ${size} ${viewH}`} style={{ overflow: "visible" }}>
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,192,64,0.10)",
+      borderRadius: 16,
+      padding: "12px 8px 10px",
+      minWidth: size + 8,
+    }}>
+      <svg width={W} height={cy + sw / 2 + 2} viewBox={`0 0 ${W} ${cy + sw / 2 + 2}`}>
         {/* Track */}
-        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={sw} strokeLinecap="round" />
+        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={sw} strokeLinecap="round" />
         {/* Fill */}
         {pct > 1 && (
-          <path
-            d={fillD} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 ${sw * 0.7}px ${color}cc)` }}
-          />
+          <path d={fillD} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 ${sw * 0.9}px ${color}bb)` }} />
         )}
-        {/* % */}
-        <text x={cx} y={textY1} textAnchor="middle" fontSize={pctFontSize} fontWeight="800" fill={color} fontFamily="monospace">{pct}%</text>
-        {/* label */}
-        <text x={cx} y={textY2} textAnchor="middle" fontSize={labelFontSize} fill="rgba(255,248,232,0.55)" fontFamily="sans-serif">{label}</text>
       </svg>
-      <span style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(255,192,64,0.4)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{tf}</span>
+      {/* Text below arc inside card */}
+      <div style={{ textAlign: "center", marginTop: 6 }}>
+        <div style={{ fontSize: isFinal ? 22 : 16, fontWeight: 800, color, fontFamily: "monospace", lineHeight: 1.1 }}>{pct}%</div>
+        <div style={{ fontSize: isFinal ? 11 : 9, color: "rgba(255,248,232,0.6)", marginTop: 2, fontFamily: "sans-serif" }}>{label}</div>
+      </div>
+      {/* Timeframe label */}
+      <div style={{ fontSize: 8, color: "rgba(255,192,64,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, fontFamily: "monospace" }}>{tf}</div>
     </div>
   );
 }
@@ -717,8 +712,8 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
       )}
 
       {/* Bar */}
-      <div style={{ background: "#07050200", borderTop: "1px solid rgba(255,192,64,0.10)", borderBottom: "1px solid rgba(255,192,64,0.10)", marginTop: 8 }}>
-        <div className="px-4 pt-5 pb-4 flex flex-wrap items-center gap-4">
+      <div style={{ background: "#060401", borderTop: "1px solid rgba(255,192,64,0.12)", borderBottom: "1px solid rgba(255,192,64,0.12)" }}>
+        <div style={{ padding: "12px 16px", display:"flex", alignItems:"center", gap:12 }}>
 
           {/* Selector button */}
           <div className="flex items-center gap-2 shrink-0">
@@ -735,23 +730,23 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div className="flex items-center gap-5 flex-wrap flex-1">
+          <div style={{ display:"flex", alignItems:"flex-end", gap:8, overflowX:"auto", flex:1, paddingBottom:4 }}>
             {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
               const displayPct = single ? pct : Math.round((bull / total) * 100);
               const color = sentColor(label);
               const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
-              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={90} />;
+              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={100} />;
             })}
             {/* Divider */}
-            <div style={{ width:1, height:70, background:"rgba(255,192,64,0.12)" }} className="hidden sm:block" />
+            <div style={{ width:1, height:80, background:"rgba(255,192,64,0.12)", flexShrink:0 }} />
             {/* Final */}
             {(() => {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
               const color = sentColor(verdict);
               const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
-              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={120} />;
+              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={130} />;
             })()}
             {/* Live price */}
             {selectedTick && (
