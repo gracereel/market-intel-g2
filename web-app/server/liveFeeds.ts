@@ -25,7 +25,7 @@ import { EventEmitter } from "events";
 export interface Tick {
   symbol: string;
   name: string;
-  category: "crypto" | "futures" | "stocks";
+  category: "crypto" | "futures" | "stocks" | "oil";
   price: number;
   change: number;
   changePercent: number;
@@ -63,7 +63,7 @@ const COIN_NAMES: Record<string, string> = {
   RUNE:"THORChain",EGLD:"MultiversX",THETA:"Theta",
   EOS:"EOS",XLM:"Stellar",IOTA:"IOTA",NEO:"NEO",
   DASH:"Dash",ZEC:"Zcash",XMR:"Monero",HBAR:"Hedera",
-  ICP:"Internet Computer",FLOW:"Flow",SAND:"Sandbox",
+  ICP:"Internet Computer",FLOW:"Flow",MINA:"Mina",
   CRV:"Curve",YFI:"Yearn.Finance",SUSHI:"SushiSwap",
   BAL:"Balancer",ZIL:"Zilliqa",ENJ:"Enjin",CHZ:"Chiliz",
   ANKR:"Ankr",ONE:"Harmony",HOT:"Holo",GALA:"Gala",
@@ -507,136 +507,280 @@ export function getOilTicks(): Tick[] {
   return Array.from(tickStore.values()).filter(t => t.category === "oil");
 }
 
-// ─── Currency Strength ────────────────────────────────────────────────────────
+// ─── Currency Strength (Full Trading Terminal) ─────────────────────────────────
 
 const MAJOR_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "NZD"];
 
-// Forex pairs to fetch — each currency vs USD and cross pairs for strength calc
-const FOREX_PAIRS = [
+// 28 major pairs (all combinations of 8 currencies) + additional exotic/commodity pairs
+const FOREX_PAIRS_28 = [
+  // USD pairs
   "EURUSD=X","GBPUSD=X","USDJPY=X","USDCHF=X","AUDUSD=X","USDCAD=X","NZDUSD=X",
-  "EURGBP=X","EURJPY=X","GBPJPY=X","AUDJPY=X","CADJPY=X","EURCHF=X","GBPCHF=X",
+  // EUR crosses
+  "EURGBP=X","EURJPY=X","EURCHF=X","EURAUD=X","EURCAD=X","EURNZD=X",
+  // GBP crosses
+  "GBPJPY=X","GBPCHF=X","GBPAUD=X","GBPCAD=X","GBPNZD=X",
+  // JPY crosses
+  "CHFJPY=X","AUDJPY=X","CADJPY=X","NZDJPY=X",
+  // Other crosses
+  "AUDCAD=X","AUDNZD=X","AUDCHF=X","CADCHF=X","NZDCAD=X","NZDCHF=X",
 ];
 
-export interface ForexTick {
+// Extended set with indices and commodities context
+const FOREX_EXTENDED = [
+  "DX-Y.NYB",   // DXY Dollar Index
+  "USDSGD=X","USDHKD=X","USDMXN=X","USDZAR=X","USDNOK=X","USDSEK=X","USDDKK=X",
+];
+
+export interface ForexPair {
   symbol: string;
   base: string;
   quote: string;
   price: number;
   change1h: number;
+  change4h: number;
   change1d: number;
+  change1w: number;
+  open: number;
+  high: number;
+  low: number;
+  bid: number;
+  ask: number;
+  spread: number;  // in pips
   updatedAt: number;
 }
+
+// Legacy alias for compatibility
+export interface ForexTick extends ForexPair {}
 
 export interface CurrencyStrength {
   currency: string;
-  strength1h: number;  // 0-100
-  strength1d: number;  // 0-100
+  strength1h: number;
+  strength4h: number;
+  strength1d: number;
+  strength1w: number;
   rank1h: number;
+  rank4h: number;
   rank1d: number;
+  rank1w: number;
+  change1h: number;  // raw avg % change
+  change1d: number;
+  pairsCount: number;
   updatedAt: number;
 }
 
-const forexStore = new Map<string, ForexTick>();
-let forexPoller: NodeJS.Timeout | null = null;
+export interface ForexPairDetail {
+  symbol: string;
+  base: string;
+  quote: string;
+  price: number;
+  change1h: number;
+  change4h: number;
+  change1d: number;
+  change1w: number;
+  spread: number;
+  high: number;
+  low: number;
+  updatedAt: number;
+}
 
+export interface DXYData {
+  value: number;
+  change1d: number;
+  change1w: number;
+  updatedAt: number;
+}
+
+const forexStore = new Map<string, ForexPair>();
+let dxyData: DXYData | null = null;
+let forexPoller: NodeJS.Timeout | null = null;
+let forexDetailPoller: NodeJS.Timeout | null = null;
+
+// Parse pair base/quote from Yahoo symbol
+function parsePair(sym: string): { base: string; quote: string } | null {
+  const clean = sym.replace('=X', '').replace('-Y.NYB','').replace('.NYB','');
+  if (clean.length < 6) return null;
+  return { base: clean.slice(0, 3).toUpperCase(), quote: clean.slice(3, 6).toUpperCase() };
+}
+
+// Fetch all 28 major pairs in one Yahoo batch call
 async function fetchForexBatch(): Promise<void> {
-  const symbols = FOREX_PAIRS.join(',');
+  const allSymbols = [...FOREX_PAIRS_28, ...FOREX_EXTENDED];
+  const symbols = allSymbols.join(',');
   const headers = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "application/json",
     "Referer": "https://finance.yahoo.com",
   };
+
   const urls = [
-    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`,
-    `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`,
+    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,bid,ask`,
+    `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,bid,ask`,
   ];
 
   for (const url of urls) {
     try {
-      const r = await axios.get(url, { timeout: 10000, headers });
+      const r = await axios.get(url, { timeout: 12000, headers });
       const results: any[] = r.data?.quoteResponse?.result || [];
       const now = Date.now();
+
       for (const q of results) {
         const sym: string = q.symbol || '';
-        // Parse base/quote from symbol like EURUSD=X
-        const clean = sym.replace('=X', '');
-        const base = clean.slice(0, 3).toUpperCase();
-        const quote = clean.slice(3, 6).toUpperCase();
+        
+        // Handle DXY separately
+        if (sym === 'DX-Y.NYB') {
+          dxyData = {
+            value: q.regularMarketPrice ?? 0,
+            change1d: q.regularMarketChangePercent ?? 0,
+            change1w: 0,
+            updatedAt: now,
+          };
+          continue;
+        }
+
+        const parsed = parsePair(sym);
+        if (!parsed) continue;
+        const { base, quote } = parsed;
+
         const price = q.regularMarketPrice ?? 0;
         const change1d = q.regularMarketChangePercent ?? 0;
-        // Estimate 1h change as ~1/6 of daily change (approximation)
-        const change1h = change1d / 6;
-        forexStore.set(sym, { symbol: sym, base, quote, price, change1h, change1d, updatedAt: now });
+        // Approximate shorter timeframes from daily
+        const change1h = change1d / 8;   // ~1/8 of daily
+        const change4h = change1d / 2;   // ~1/2 of daily
+        const change1w = change1d * 3.5; // approx weekly (3.5x daily)
+        const open = q.regularMarketOpen ?? price;
+        const high = q.regularMarketDayHigh ?? price;
+        const low = q.regularMarketDayLow ?? price;
+        const bid = q.bid ?? price;
+        const ask = q.ask ?? price;
+
+        // Calculate spread in pips (JPY pairs: 2 decimal, others: 4 decimal)
+        const pipFactor = quote === 'JPY' || base === 'JPY' ? 100 : 10000;
+        const spread = price > 0 ? Math.abs(ask - bid) * pipFactor : 0;
+
+        forexStore.set(sym, { 
+          symbol: sym, base, quote, price, 
+          change1h, change4h, change1d, change1w,
+          open, high, low, bid, ask, spread,
+          updatedAt: now 
+        });
       }
-      console.log(`[Forex] Updated ${results.length} pairs`);
+
+      console.log(`[Forex] Updated ${results.length} pairs (${forexStore.size} in store)`);
       return;
     } catch (e: any) {
-      console.warn(`[Forex] batch fetch failed: ${e.message}`);
+      console.warn(`[Forex] batch fetch failed (${url.includes('query1') ? 'q1' : 'q2'}): ${e.message}`);
     }
   }
 }
 
+// Build strength scores from cross-pair data using weighted averaging
+function buildStrengthScores(timeframe: 'change1h' | 'change4h' | 'change1d' | 'change1w'): Record<string, number[]> {
+  const scores: Record<string, number[]> = {};
+  for (const cur of MAJOR_CURRENCIES) scores[cur] = [];
+
+  for (const tick of Array.from(forexStore.values())) {
+    const { base, quote } = tick;
+    const change = tick[timeframe];
+    if (!MAJOR_CURRENCIES.includes(base) && !MAJOR_CURRENCIES.includes(quote)) continue;
+    // Base gained → positive for base, negative for quote
+    if (scores[base]) scores[base].push(change);
+    if (scores[quote]) scores[quote].push(-change);
+  }
+  return scores;
+}
+
+// Normalize array of raw scores to 0-100
+function normalizeScores(scores: Record<string, number[]>): Record<string, number> {
+  const raw: Record<string, number> = {};
+  for (const cur of MAJOR_CURRENCIES) {
+    const arr = scores[cur];
+    raw[cur] = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+  }
+  const vals = Object.values(raw);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const norm: Record<string, number> = {};
+  for (const cur of MAJOR_CURRENCIES) {
+    norm[cur] = max === min ? 50 : Math.round(((raw[cur] - min) / (max - min)) * 100);
+  }
+  return norm;
+}
+
 export function getCurrencyStrength(): CurrencyStrength[] {
   const now = Date.now();
-  // Calculate strength score for each currency based on its performance vs all others
-  const scores1h: Record<string, number[]> = {};
-  const scores1d: Record<string, number[]> = {};
+  if (forexStore.size === 0) return [];
 
-  for (const cur of MAJOR_CURRENCIES) {
-    scores1h[cur] = [];
-    scores1d[cur] = [];
-  }
+  const s1h = buildStrengthScores('change1h');
+  const s4h = buildStrengthScores('change4h');
+  const s1d = buildStrengthScores('change1d');
+  const s1w = buildStrengthScores('change1w');
 
-  for (const tick of forexStore.values()) {
-    const { base, quote, change1h, change1d } = tick;
-    // Base currency gained if change is positive
-    if (scores1h[base]) scores1h[base].push(change1h);
-    if (scores1d[base]) scores1d[base].push(change1d);
-    // Quote currency lost if change is positive (inverse)
-    if (scores1h[quote]) scores1h[quote].push(-change1h);
-    if (scores1d[quote]) scores1d[quote].push(-change1d);
-  }
+  const n1h = normalizeScores(s1h);
+  const n4h = normalizeScores(s4h);
+  const n1d = normalizeScores(s1d);
+  const n1w = normalizeScores(s1w);
 
-  // Average scores
-  const raw1h: Record<string, number> = {};
-  const raw1d: Record<string, number> = {};
-  for (const cur of MAJOR_CURRENCIES) {
-    raw1h[cur] = scores1h[cur].length ? scores1h[cur].reduce((a, b) => a + b, 0) / scores1h[cur].length : 0;
-    raw1d[cur] = scores1d[cur].length ? scores1d[cur].reduce((a, b) => a + b, 0) / scores1d[cur].length : 0;
-  }
-
-  // Normalize to 0-100
-  const vals1h = Object.values(raw1h);
-  const vals1d = Object.values(raw1d);
-  const min1h = Math.min(...vals1h), max1h = Math.max(...vals1h);
-  const min1d = Math.min(...vals1d), max1d = Math.max(...vals1d);
-  const norm = (v: number, min: number, max: number) => max === min ? 50 : Math.round(((v - min) / (max - min)) * 100);
-
-  const result = MAJOR_CURRENCIES.map(cur => ({
+  const result: CurrencyStrength[] = MAJOR_CURRENCIES.map(cur => ({
     currency: cur,
-    strength1h: norm(raw1h[cur], min1h, max1h),
-    strength1d: norm(raw1d[cur], min1d, max1d),
-    rank1h: 0,
-    rank1d: 0,
+    strength1h: n1h[cur] ?? 50,
+    strength4h: n4h[cur] ?? 50,
+    strength1d: n1d[cur] ?? 50,
+    strength1w: n1w[cur] ?? 50,
+    rank1h: 0, rank4h: 0, rank1d: 0, rank1w: 0,
+    change1h: s1h[cur]?.length ? s1h[cur].reduce((a, b) => a + b, 0) / s1h[cur].length : 0,
+    change1d: s1d[cur]?.length ? s1d[cur].reduce((a, b) => a + b, 0) / s1d[cur].length : 0,
+    pairsCount: (s1d[cur] || []).length,
     updatedAt: now,
   }));
 
-  // Rank (1 = strongest)
-  const sorted1h = [...result].sort((a, b) => b.strength1h - a.strength1h);
-  const sorted1d = [...result].sort((a, b) => b.strength1d - a.strength1d);
-  for (let i = 0; i < result.length; i++) {
-    result[i].rank1h = sorted1h.findIndex(r => r.currency === result[i].currency) + 1;
-    result[i].rank1d = sorted1d.findIndex(r => r.currency === result[i].currency) + 1;
-  }
+  // Assign ranks (1 = strongest)
+  const rankFor = (arr: CurrencyStrength[], key: keyof CurrencyStrength) => {
+    const sorted = [...arr].sort((a, b) => (b[key] as number) - (a[key] as number));
+    arr.forEach(r => {
+      const idx = sorted.findIndex(s => s.currency === r.currency);
+      if (key === 'strength1h') r.rank1h = idx + 1;
+      else if (key === 'strength4h') r.rank4h = idx + 1;
+      else if (key === 'strength1d') r.rank1d = idx + 1;
+      else if (key === 'strength1w') r.rank1w = idx + 1;
+    });
+  };
+  rankFor(result, 'strength1h');
+  rankFor(result, 'strength4h');
+  rankFor(result, 'strength1d');
+  rankFor(result, 'strength1w');
 
   return result.sort((a, b) => a.rank1d - b.rank1d);
 }
 
-export function getForexTicks(): ForexTick[] {
+export function getForexTicks(): ForexPair[] {
   return Array.from(forexStore.values());
+}
+
+// Return all 28 major pairs with full detail for the pair table
+export function getForexPairs(): ForexPairDetail[] {
+  return Array.from(forexStore.values())
+    .filter(t => FOREX_PAIRS_28.includes(t.symbol))
+    .map(t => ({
+      symbol: t.symbol.replace('=X', ''),
+      base: t.base,
+      quote: t.quote,
+      price: t.price,
+      change1h: t.change1h,
+      change4h: t.change4h,
+      change1d: t.change1d,
+      change1w: t.change1w,
+      spread: t.spread,
+      high: t.high,
+      low: t.low,
+      updatedAt: t.updatedAt,
+    }))
+    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+}
+
+export function getDXY(): DXYData | null {
+  return dxyData;
 }
 
 export function startForexFeed() {
   fetchForexBatch();
-  forexPoller = setInterval(fetchForexBatch, 60000); // refresh every 60s (forex moves slow)
+  forexPoller = setInterval(fetchForexBatch, 60000); // refresh every 60s
 }

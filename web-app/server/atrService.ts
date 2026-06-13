@@ -119,7 +119,7 @@ export function getATR(symbol: string): { atr: number; atrPct: number } | null {
 
 export function getAllATR(): Record<string, { atr: number; atrPct: number }> {
   const result: Record<string, { atr: number; atrPct: number }> = {};
-  for (const [key, val] of atrStore.entries()) {
+  for (const [key, val] of Array.from(atrStore.entries())) {
     result[key] = { atr: val.atr, atrPct: val.atrPct };
   }
   return result;

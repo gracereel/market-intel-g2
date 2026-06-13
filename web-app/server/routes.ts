@@ -13,6 +13,8 @@ import {
   tickStore,
   getCurrencyStrength,
   getForexTicks,
+  getForexPairs,
+  getDXY,
   startForexFeed,
 } from "./liveFeeds";
 import { startATRService, getAllATR, getATR } from "./atrService";
@@ -177,6 +179,16 @@ export async function registerRoutes(_: Server, app: Express) {
 
   app.get("/api/currency/forex", (_req, res) => {
     res.json(getForexTicks());
+  });
+
+  app.get("/api/currency/pairs", (_req, res) => {
+    res.json(getForexPairs());
+  });
+
+  app.get("/api/currency/dxy", (_req, res) => {
+    const dxy = getDXY();
+    if (!dxy) return res.status(503).json({ error: "DXY not yet loaded" });
+    res.json(dxy);
   });
 
   // ATR endpoints

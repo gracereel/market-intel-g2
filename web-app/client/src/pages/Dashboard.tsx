@@ -18,7 +18,7 @@ type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency";
 interface Tick {
   symbol: string;
   name: string;
-  category: "crypto" | "futures" | "stocks";
+  category: "crypto" | "futures" | "stocks" | "oil";
   price: number;
   change: number;
   changePercent: number;
@@ -614,54 +614,202 @@ function SentimentDonut({ bull, bear, neut }: { bull: number; bear: number; neut
   );
 }
 
-// ─── Currency Strength Panel ────────────────────────────────────────────────
+
+// ─── Currency Strength Panel (Full FX Terminal) ───────────────────────────────
 interface CurrencyStrength {
   currency: string;
   strength1h: number;
+  strength4h: number;
   strength1d: number;
+  strength1w: number;
   rank1h: number;
+  rank4h: number;
   rank1d: number;
+  rank1w: number;
+  change1h: number;
+  change1d: number;
+  pairsCount: number;
   updatedAt: number;
 }
 
+interface ForexPairDetail {
+  symbol: string;
+  base: string;
+  quote: string;
+  price: number;
+  change1h: number;
+  change4h: number;
+  change1d: number;
+  change1w: number;
+  spread: number;
+  high: number;
+  low: number;
+  updatedAt: number;
+}
+
+interface DXYData {
+  value: number;
+  change1d: number;
+  change1w: number;
+  updatedAt: number;
+}
+
+const FLAGS: Record<string, string> = {
+  USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵",
+  CHF: "🇨🇭", AUD: "🇦🇺", CAD: "🇨🇦", NZD: "🇳🇿",
+};
+
+const CUR_COLORS: Record<string, string> = {
+  USD: "#3b82f6", EUR: "#a78bfa", GBP: "#f59e0b", JPY: "#ef4444",
+  CHF: "#10b981", AUD: "#f97316", CAD: "#ec4899", NZD: "#06b6d4",
+};
+
+function sColor(s: number) {
+  if (s >= 72) return "#22c55e";
+  if (s >= 55) return "#86efac";
+  if (s >= 45) return "#eab308";
+  if (s >= 28) return "#f97316";
+  return "#ef4444";
+}
+function sLabel(s: number) {
+  if (s >= 72) return "Very Strong";
+  if (s >= 55) return "Strong";
+  if (s >= 45) return "Neutral";
+  if (s >= 28) return "Weak";
+  return "Very Weak";
+}
+
+function StrengthBar({ value, currency }: { value: number; currency: string }) {
+  const color = sColor(value);
+  const accent = CUR_COLORS[currency] || color;
+  return (
+    <div className="relative h-3 w-full bg-white/5 rounded-full overflow-hidden">
+      <div
+        className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+        style={{ width: `${value}%`, background: `linear-gradient(90deg, ${accent}60, ${color})` }}
+      />
+      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/15" />
+    </div>
+  );
+}
+
 function CurrencyStrengthPanel() {
-  const [timeframe, setTimeframe] = useState<"1h" | "1d">("1d");
-  const { data, isLoading } = useQuery<CurrencyStrength[]>({
+  const [timeframe, setTimeframe] = useState<"1h" | "4h" | "1d" | "1w">("1d");
+  const [view, setView] = useState<"strength" | "pairs" | "heatmap">("strength");
+  const [selectedCur, setSelectedCur] = useState<string | null>(null);
+
+  const { data: strengthData, isLoading } = useQuery<CurrencyStrength[]>({
     queryKey: ["/api/currency/strength"],
     refetchInterval: 60000,
   });
 
-  const FLAGS: Record<string, string> = {
-    USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵",
-    CHF: "🇨🇭", AUD: "🇦🇺", CAD: "🇨🇦", NZD: "🇳🇿",
+  const { data: pairsData } = useQuery<ForexPairDetail[]>({
+    queryKey: ["/api/currency/pairs"],
+    refetchInterval: 60000,
+  });
+
+  const { data: dxyData } = useQuery<DXYData>({
+    queryKey: ["/api/currency/dxy"],
+    refetchInterval: 120000,
+  });
+
+  const getStrength = (c: CurrencyStrength) => {
+    if (timeframe === "1h") return c.strength1h;
+    if (timeframe === "4h") return c.strength4h;
+    if (timeframe === "1w") return c.strength1w;
+    return c.strength1d;
+  };
+  const getRank = (c: CurrencyStrength) => {
+    if (timeframe === "1h") return c.rank1h;
+    if (timeframe === "4h") return c.rank4h;
+    if (timeframe === "1w") return c.rank1w;
+    return c.rank1d;
   };
 
+  const sorted = strengthData ? [...strengthData].sort((a, b) => getStrength(b) - getStrength(a)) : [];
+
+  const getPairChange = (p: ForexPairDetail) => {
+    if (timeframe === "1h") return p.change1h;
+    if (timeframe === "4h") return p.change4h;
+    if (timeframe === "1w") return p.change1w;
+    return p.change1d;
+  };
+
+  const filteredPairs = useMemo(() => {
+    if (!pairsData) return [];
+    const list = selectedCur ? pairsData.filter(p => p.base === selectedCur || p.quote === selectedCur) : pairsData;
+    return [...list].sort((a, b) => Math.abs(getPairChange(b)) - Math.abs(getPairChange(a)));
+  }, [pairsData, selectedCur, timeframe]);
+
+  // Simple correlation: for each pair of currencies, find direct pair change
+  const corrMatrix = useMemo(() => {
+    if (!pairsData) return null;
+    const curs = ["USD","EUR","GBP","JPY","CHF","AUD","CAD","NZD"];
+    const m: Record<string, Record<string, number>> = {};
+    for (const a of curs) {
+      m[a] = {};
+      for (const b of curs) {
+        if (a === b) { m[a][b] = 1; continue; }
+        const direct = pairsData.find(p => p.base === a && p.quote === b);
+        const inverse = pairsData.find(p => p.base === b && p.quote === a);
+        const chg = direct ? direct.change1d : inverse ? -inverse.change1d : 0;
+        m[a][b] = parseFloat(Math.max(-1, Math.min(1, chg / 1.5)).toFixed(2));
+      }
+    }
+    return m;
+  }, [pairsData]);
+
+  const fmtPx = (n: number, isJPY: boolean) => isJPY ? n.toFixed(3) : n.toFixed(5);
+  const fmtChg = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(3)}%`;
+
   if (isLoading) return (
-    <div className="flex items-center justify-center h-48 text-white/30 font-mono text-sm">
-      Loading currency data...
+    <div className="flex flex-col items-center justify-center h-64 gap-3 text-white/30 font-mono text-sm">
+      <div className="w-7 h-7 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin" />
+      Loading FX data...
     </div>
   );
 
-  if (!data || data.length === 0) return (
-    <div className="flex items-center justify-center h-48 text-white/30 font-mono text-sm">
+  if (!strengthData || strengthData.length === 0) return (
+    <div className="flex items-center justify-center h-64 text-white/30 font-mono text-sm">
       Waiting for forex data...
     </div>
   );
 
-  const sorted = [...data].sort((a, b) =>
-    timeframe === "1h" ? b.strength1h - a.strength1h : b.strength1d - a.strength1d
-  );
+  const strongest = sorted[0];
+  const weakest = sorted[sorted.length - 1];
 
   return (
-    <div className="p-4 space-y-3">
-      {/* Timeframe toggle */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-white/40 font-mono text-xs uppercase tracking-wider">Currency Strength</span>
+    <div className="flex flex-col">
+
+      {/* ── DXY Banner ── */}
+      {dxyData && dxyData.value > 0 && (
+        <div className="mx-4 mt-3 flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-500/8 border border-blue-500/20">
+          <span className="text-blue-400 font-mono font-bold text-xs tracking-widest">DXY</span>
+          <span className="text-white font-mono font-bold text-base">{dxyData.value.toFixed(2)}</span>
+          <span className={`text-xs font-mono font-bold ${dxyData.change1d >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {fmtChg(dxyData.change1d)}
+          </span>
+          <span className="text-white/20 text-[10px] font-mono ml-auto">US Dollar Index · 1D</span>
+        </div>
+      )}
+
+      {/* ── View + Timeframe controls ── */}
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-white/5">
         <div className="flex gap-1">
-          {(["1h", "1d"] as const).map(tf => (
+          {(["strength", "pairs", "heatmap"] as const).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-colors ${
+                view === v ? "bg-green-500 text-black" : "bg-white/5 text-white/40 hover:bg-white/10"
+              }`}>
+              {v === "strength" ? "Strength" : v === "pairs" ? "28 Pairs" : "Heatmap"}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {(["1h", "4h", "1d", "1w"] as const).map(tf => (
             <button key={tf} onClick={() => setTimeframe(tf)}
-              className={`px-3 py-1 rounded text-xs font-mono font-bold transition-colors ${
-                timeframe === tf ? "bg-green-500 text-black" : "bg-white/5 text-white/40 hover:bg-white/10"
+              className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-colors ${
+                timeframe === tf ? "bg-white/25 text-white" : "bg-white/4 text-white/30 hover:bg-white/10"
               }`}>
               {tf.toUpperCase()}
             </button>
@@ -669,36 +817,228 @@ function CurrencyStrengthPanel() {
         </div>
       </div>
 
-      {/* Strength bars */}
-      {sorted.map((c, i) => {
-        const strength = timeframe === "1h" ? c.strength1h : c.strength1d;
-        const rank = timeframe === "1h" ? c.rank1h : c.rank1d;
-        const color = strength >= 70 ? "#22c55e" : strength >= 40 ? "#eab308" : "#ef4444";
-        const label = strength >= 70 ? "Strong" : strength >= 40 ? "Neutral" : "Weak";
-        return (
-          <div key={c.currency} className="space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{FLAGS[c.currency] || "🏳️"}</span>
-                <span className="font-mono font-bold text-white text-sm">{c.currency}</span>
-                <span className="text-white/30 font-mono text-xs">#{rank}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs" style={{ color }}>{label}</span>
-                <span className="font-mono font-bold text-sm" style={{ color }}>{strength}</span>
-              </div>
-            </div>
-            <div className="w-full bg-white/5 rounded-full h-2">
-              <div className="h-2 rounded-full transition-all duration-500"
-                style={{ width: `${strength}%`, backgroundColor: color }} />
-            </div>
-          </div>
-        );
-      })}
+      {/* ══ STRENGTH VIEW ══ */}
+      {view === "strength" && (
+        <div className="px-4 py-3 space-y-2">
 
-      <div className="text-white/20 font-mono text-[10px] text-center pt-2">
-        Based on 14 major forex pairs · Updates every 60s
-      </div>
+          {/* Top Signal Card */}
+          {strongest && weakest && strongest.currency !== weakest.currency && (
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="rounded-lg bg-green-500/8 border border-green-500/20 p-2.5">
+                <div className="text-[9px] text-green-400/50 font-mono uppercase mb-1">Strongest</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{FLAGS[strongest.currency]}</span>
+                  <span className="font-mono font-bold text-green-400 text-sm">{strongest.currency}</span>
+                </div>
+                <div className="font-mono text-[10px] text-green-400/60 mt-0.5">{sLabel(getStrength(strongest))}</div>
+              </div>
+              <div className="rounded-lg bg-yellow-500/5 border border-yellow-500/20 p-2.5 flex flex-col justify-center">
+                <div className="text-[9px] text-yellow-400/50 font-mono uppercase mb-1">Top Signal</div>
+                <div className="font-mono text-white text-[11px] font-bold">
+                  {strongest.currency}/{weakest.currency}
+                </div>
+                <div className="text-[9px] font-mono text-white/30 mt-0.5">
+                  {getStrength(strongest) - getStrength(weakest)} pt spread
+                </div>
+              </div>
+              <div className="rounded-lg bg-red-500/8 border border-red-500/20 p-2.5">
+                <div className="text-[9px] text-red-400/50 font-mono uppercase mb-1">Weakest</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{FLAGS[weakest.currency]}</span>
+                  <span className="font-mono font-bold text-red-400 text-sm">{weakest.currency}</span>
+                </div>
+                <div className="font-mono text-[10px] text-red-400/60 mt-0.5">{sLabel(getStrength(weakest))}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Strength bars for all 8 currencies */}
+          {sorted.map(c => {
+            const strength = getStrength(c);
+            const rank = getRank(c);
+            const color = sColor(strength);
+            return (
+              <div key={c.currency} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base w-6">{FLAGS[c.currency]}</span>
+                    <span className="font-mono font-bold text-white text-xs w-8">{c.currency}</span>
+                    <span className="text-white/20 font-mono text-[10px]">#{rank}</span>
+                    <span className="font-mono text-[10px]" style={{ color }}>{sLabel(strength)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className={`text-[10px] font-mono mr-2 ${c.change1h >= 0 ? "text-green-400/60" : "text-red-400/60"}`}>
+                        {fmtChg(c.change1h)} 1H
+                      </span>
+                      <span className={`text-[10px] font-mono ${c.change1d >= 0 ? "text-green-400/60" : "text-red-400/60"}`}>
+                        {fmtChg(c.change1d)} 1D
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-sm w-7 text-right" style={{ color }}>
+                      {strength}
+                    </span>
+                  </div>
+                </div>
+                <StrengthBar value={strength} currency={c.currency} />
+              </div>
+            );
+          })}
+
+          <div className="text-white/15 font-mono text-[9px] text-center pt-2">
+            28 major forex pairs · {pairsData?.length ?? 0} loaded · refreshes every 60s
+          </div>
+        </div>
+      )}
+
+      {/* ══ PAIRS VIEW ══ */}
+      {view === "pairs" && (
+        <div className="flex flex-col">
+          {/* Currency filter pills */}
+          <div className="px-4 py-2 flex gap-1.5 flex-wrap border-b border-white/5">
+            <button onClick={() => setSelectedCur(null)}
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                !selectedCur ? "bg-white/20 text-white" : "bg-white/5 text-white/30 hover:bg-white/10"
+              }`}>ALL</button>
+            {["USD","EUR","GBP","JPY","CHF","AUD","CAD","NZD"].map(cur => (
+              <button key={cur} onClick={() => setSelectedCur(cur === selectedCur ? null : cur)}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                  selectedCur === cur ? "text-black" : "bg-white/5 text-white/40 hover:bg-white/10"
+                }`}
+                style={selectedCur === cur ? { backgroundColor: CUR_COLORS[cur] } : {}}>
+                {FLAGS[cur]} {cur}
+              </button>
+            ))}
+          </div>
+
+          {/* Pairs table */}
+          <div className="px-2 py-1 overflow-x-auto">
+            {!pairsData ? (
+              <div className="text-white/30 font-mono text-xs text-center py-8">Loading pairs...</div>
+            ) : (
+              <table className="w-full text-[11px] font-mono">
+                <thead>
+                  <tr className="text-white/25 text-[9px] uppercase border-b border-white/5">
+                    <th className="text-left pl-2 py-2">Pair</th>
+                    <th className="text-right py-2">Price</th>
+                    <th className="text-right py-2">1H%</th>
+                    <th className="text-right py-2">4H%</th>
+                    <th className="text-right py-2">1D%</th>
+                    <th className="text-right py-2">1W%</th>
+                    <th className="text-right pr-2 py-2">Spread</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPairs.map(p => {
+                    const isJPY = p.quote === "JPY" || p.base === "JPY";
+                    const baseColor = CUR_COLORS[p.base] || "#fff";
+                    return (
+                      <tr key={p.symbol} className="border-b border-white/3 hover:bg-white/3 transition-colors">
+                        <td className="pl-2 py-2">
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: baseColor }} className="font-bold">{p.base}</span>
+                            <span className="text-white/20">/</span>
+                            <span className="text-white/60">{p.quote}</span>
+                          </div>
+                        </td>
+                        <td className="text-right text-white/80">{fmtPx(p.price, isJPY)}</td>
+                        <td className={`text-right ${p.change1h >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {fmtChg(p.change1h)}
+                        </td>
+                        <td className={`text-right ${p.change4h >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {fmtChg(p.change4h)}
+                        </td>
+                        <td className={`text-right ${p.change1d >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {fmtChg(p.change1d)}
+                        </td>
+                        <td className={`text-right ${p.change1w >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {fmtChg(p.change1w)}
+                        </td>
+                        <td className={`text-right pr-2 ${
+                          p.spread < 1.5 ? "text-green-400/60" : p.spread < 4 ? "text-yellow-400/60" : "text-red-400/60"
+                        }`}>{p.spread.toFixed(1)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ HEATMAP VIEW ══ */}
+      {view === "heatmap" && (
+        <div className="px-4 py-3">
+          <div className="text-white/25 font-mono text-[10px] mb-3">
+            Currency correlation matrix · green = positive · red = inverse
+          </div>
+          {!corrMatrix ? (
+            <div className="text-white/30 font-mono text-xs text-center py-8">Loading...</div>
+          ) : (() => {
+            const curs = ["USD","EUR","GBP","JPY","CHF","AUD","CAD","NZD"];
+            return (
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="font-mono border-collapse text-[10px]">
+                    <thead>
+                      <tr>
+                        <th className="w-8 pb-1" />
+                        {curs.map(c => (
+                          <th key={c} className="text-center font-bold pb-1 px-1 text-[9px]"
+                            style={{ color: CUR_COLORS[c] }}>{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {curs.map(row => (
+                        <tr key={row}>
+                          <td className="font-bold pr-1 text-[9px] text-right py-0.5"
+                            style={{ color: CUR_COLORS[row] }}>{row}</td>
+                          {curs.map(col => {
+                            const val = corrMatrix[row]?.[col] ?? 0;
+                            const abs = Math.abs(val);
+                            const bg = row === col
+                              ? "rgba(255,255,255,0.08)"
+                              : val > 0
+                                ? `rgba(34,197,94,${abs * 0.65})`
+                                : `rgba(239,68,68,${abs * 0.65})`;
+                            return (
+                              <td key={col} className="text-center px-1 py-0.5 rounded-sm"
+                                style={{ backgroundColor: bg, minWidth: "32px" }}>
+                                {row === col ? "—" : (val * 100).toFixed(0)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Rank grid below */}
+                <div className="mt-5 grid grid-cols-4 gap-2">
+                  {sorted.map((c, i) => {
+                    const s = getStrength(c);
+                    const col = sColor(s);
+                    return (
+                      <div key={c.currency} className="rounded-lg border p-2 text-center"
+                        style={{ borderColor: col + "50" }}>
+                        <div className="text-lg">{FLAGS[c.currency]}</div>
+                        <div className="font-mono font-bold text-xs text-white">{c.currency}</div>
+                        <div className="font-mono text-[10px] font-bold" style={{ color: col }}>
+                          #{i+1} · {s}
+                        </div>
+                        <div className="font-mono text-[9px] text-white/30">{sLabel(s)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }
