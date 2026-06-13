@@ -8,12 +8,12 @@ import {
   Search, X, TrendingUp, TrendingDown, Minus,
   Glasses, Zap, Bitcoin, BarChart2, Fuel, RefreshCw,
   AlertTriangle, ExternalLink, Newspaper, Radio,
-  ChevronRight, Activity, Command
+  ChevronRight, Activity, Command, Star
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency";
+type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency" | "favorites";
 
 interface Tick {
   symbol: string;
@@ -345,7 +345,7 @@ function prefetchAsset(sym: string) {
 }
 
 // ─── Coin Card ────────────────────────────────────────────────────────────────
-function CoinCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null }) {
+function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null; starBtn?: React.ReactNode }) {
   const flash = useFlash(tick.price, tick.symbol);
   const cc = coinColor(tick.symbol.replace("USDT", ""));
   const isUp = tick.changePercent >= 0;
@@ -356,7 +356,7 @@ function CoinCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr
       onClick={onClick}
       onMouseEnter={() => prefetchAsset(tick.symbol)}
       className={`
-        relative w-full text-left rounded-lg border p-3 transition-all duration-200
+        group relative w-full text-left rounded-lg border p-3 transition-all duration-200
         hover:scale-[1.02] hover:shadow-lg cursor-pointer
         ${flash === "up" ? "bg-green-500/10 border-green-500/40" :
           flash === "down" ? "bg-red-500/10 border-red-500/40" :
@@ -393,6 +393,7 @@ function CoinCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr
           </span>
         )}
       </div>
+      {starBtn}
       {/* Flash overlay */}
       {flash && (
         <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-green-500/8" : "bg-red-500/8"}`} />
@@ -402,7 +403,7 @@ function CoinCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr
 }
 
 // ─── Futures Card ─────────────────────────────────────────────────────────────
-function FuturesCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null }) {
+function FuturesCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null; starBtn?: React.ReactNode }) {
   const flash = useFlash(tick.price, tick.symbol);
   const isUp = tick.changePercent >= 0;
   const base = tick.symbol.replace("USDT", "");
@@ -414,7 +415,7 @@ function FuturesCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; 
       onClick={onClick}
       onMouseEnter={() => prefetchAsset(tick.symbol)}
       className={`
-        relative w-full text-left rounded-lg border p-3 transition-all duration-200
+        group relative w-full text-left rounded-lg border p-3 transition-all duration-200
         hover:scale-[1.02] cursor-pointer
         ${flash === "up" ? "bg-green-500/10 border-green-500/40" :
           flash === "down" ? "bg-red-500/10 border-red-500/40" :
@@ -449,6 +450,7 @@ function FuturesCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; 
           </span>
         </div>
       )}
+      {starBtn}
       {flash && (
         <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-green-500/8" : "bg-red-500/8"}`} />
       )}
@@ -457,7 +459,7 @@ function FuturesCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; 
 }
 
 // ─── Stock Card ───────────────────────────────────────────────────────────────
-function StockCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null }) {
+function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null; starBtn?: React.ReactNode }) {
   const flash = useFlash(tick.price, tick.symbol);
   const isUp = tick.changePercent >= 0;
 
@@ -469,7 +471,7 @@ function StockCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; at
       onClick={onClick}
       onMouseEnter={() => prefetchAsset(tick.symbol)}
       className={`
-        relative w-full text-left rounded-lg border p-3 transition-all duration-200
+        group relative w-full text-left rounded-lg border p-3 transition-all duration-200
         hover:scale-[1.02] cursor-pointer
         ${flash === "up" ? "bg-green-500/10 border-green-500/40" :
           flash === "down" ? "bg-red-500/10 border-red-500/40" :
@@ -497,6 +499,7 @@ function StockCard({ tick, onClick, atr }: { tick: Tick; onClick: () => void; at
           </span>
         )}
       </div>
+      {starBtn}
       {flash && (
         <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-green-500/8" : "bg-red-500/8"}`} />
       )}
@@ -1302,6 +1305,52 @@ function CoinModal({ tick, onClose }: { tick: Tick; onClose: () => void }) {
   );
 }
 
+// ─── Favorites hook ─────────────────────────────────────────────────────────
+interface FavoriteRecord { id: number; symbol: string; name: string; category: string; addedAt: string; }
+
+function useFavorites() {
+  const { data: favs = [], refetch } = useQuery<FavoriteRecord[]>({
+    queryKey: ["/api/favorites"],
+    refetchInterval: false,
+  });
+
+  const favSet = useMemo(() => new Set(favs.map(f => f.symbol)), [favs]);
+
+  const toggle = async (tick: Tick) => {
+    if (favSet.has(tick.symbol)) {
+      await apiRequest("DELETE", `/api/favorites/${encodeURIComponent(tick.symbol)}`);
+    } else {
+      await apiRequest("POST", "/api/favorites", {
+        symbol: tick.symbol,
+        name: tick.name,
+        category: tick.category,
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
+  };
+
+  return { favs, favSet, toggle };
+}
+
+// ─── Star Button ─────────────────────────────────────────────────────────────
+function StarBtn({ tick, favSet, toggle }: { tick: Tick; favSet: Set<string>; toggle: (t: Tick) => void }) {
+  const isFav = favSet.has(tick.symbol);
+  return (
+    <button
+      data-testid={`star-${tick.symbol}`}
+      onClick={e => { e.stopPropagation(); toggle(tick); }}
+      className={`absolute top-1.5 right-1.5 p-0.5 rounded transition-all ${
+        isFav
+          ? "text-yellow-400 opacity-100"
+          : "text-white/20 opacity-0 group-hover:opacity-100 hover:text-yellow-400"
+      }`}
+      title={isFav ? "Remove from Watchlist" : "Add to Watchlist"}
+    >
+      <Star className="w-3 h-3" fill={isFav ? "currentColor" : "none"} />
+    </button>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -1310,6 +1359,7 @@ export default function Dashboard() {
   const [selectedTick, setSelectedTick] = useState<Tick | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const { ticks, connected } = useLiveTicks();
+  const { favs, favSet, toggle: toggleFav } = useFavorites();
 
   // ATR data — refreshes every 4 hours (ATR is a slow-moving indicator)
   const { data: atrData } = useQuery<Record<string, { atr: number; atrPct: number }>>({ 
@@ -1353,6 +1403,13 @@ export default function Dashboard() {
     return arr;
   }, [ticks]);
 
+  // Favorite ticks — matched from live tickStore so they get real-time prices
+  const favoriteTicks = useMemo(() => {
+    return favs
+      .map(f => ticks.get(`${f.category}:${f.symbol}`) ?? ticks.get(f.symbol))
+      .filter((t): t is Tick => !!t);
+  }, [favs, ticks]);
+
   // All ticks merged for global search (crypto sorted by volume first)
   const allTicksForSearch = useMemo(() => {
     return [...cryptoTicks, ...futuresTicks, ...stockTicks, ...oilTicks];
@@ -1369,18 +1426,25 @@ export default function Dashboard() {
   };
 
   const tabs: { id: Tab; label: string; icon: any; count: number }[] = [
-    { id: "crypto",   label: "Crypto",   icon: Bitcoin,   count: cryptoTicks.length },
-    { id: "futures",  label: "Futures",  icon: BarChart2,  count: futuresTicks.length },
-    { id: "stocks",   label: "Stocks",   icon: TrendingUp, count: stockTicks.length },
-    { id: "oil",      label: "Oil",      icon: Fuel,       count: oilTicks.length },
-    { id: "currency", label: "FX",       icon: Activity,   count: 8 },
+    { id: "favorites", label: "Watchlist", icon: Star,        count: favs.length },
+    { id: "crypto",    label: "Crypto",    icon: Bitcoin,     count: Math.min(10, cryptoTicks.length) },
+    { id: "futures",   label: "Futures",   icon: BarChart2,   count: futuresTicks.length },
+    { id: "stocks",    label: "Stocks",    icon: TrendingUp,  count: stockTicks.length },
+    { id: "oil",       label: "Oil",       icon: Fuel,        count: oilTicks.length },
+    { id: "currency",  label: "FX",        icon: Activity,    count: 8 },
   ];
 
-  const currentTicks = filterTicks(
-    tab === "crypto" ? cryptoTicks :
-    tab === "futures" ? futuresTicks :
-    tab === "stocks" ? stockTicks : oilTicks
-  );
+  const currentTicks = useMemo(() => {
+    const base =
+      tab === "favorites" ? favoriteTicks :
+      tab === "crypto"    ? cryptoTicks :
+      tab === "futures"   ? futuresTicks :
+      tab === "stocks"    ? stockTicks : oilTicks;
+
+    // Crypto tab: show only top 10 by volume unless user is searching
+    const pool = (tab === "crypto" && !search) ? base.slice(0, 10) : base;
+    return filterTicks(pool);
+  }, [tab, cryptoTicks, futuresTicks, stockTicks, oilTicks, favoriteTicks, search]);
 
   // Loading state (waiting for SSE snapshot)
   const isLoading = ticks.size === 0;
@@ -1496,23 +1560,32 @@ export default function Dashboard() {
             ))}
           </div>
         ) : currentTicks.length === 0 ? (
-          <div className="text-center text-white/30 text-sm py-16 font-mono">
-            {search ? `No results for "${search}"` : `Waiting for ${tab} data...`}
-          </div>
+          tab === "favorites" ? (
+            <div className="text-center py-20">
+              <Star className="w-10 h-10 text-white/10 mx-auto mb-4" />
+              <div className="text-white/30 text-sm font-mono mb-2">Your watchlist is empty</div>
+              <div className="text-white/15 text-xs font-mono">Hover any coin card and click the ★ to add it here</div>
+            </div>
+          ) : (
+            <div className="text-center text-white/30 text-sm py-16 font-mono">
+              {search ? `No results for "${search}"` : `Waiting for ${tab} data...`}
+            </div>
+          )
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-1">
             {currentTicks.map(tick => {
-              if (tab === "crypto") {
-                const base = tick.symbol.replace("USDT", "");
-                return <CoinCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrData?.[`crypto:${base}`]} />;
-              } else if (tab === "futures") {
-                const base = tick.symbol.replace("USDT", "");
-                // Binance perpetuals share ATR with crypto; Yahoo futures use "other:" prefix
-                const futAtr = atrData?.[`crypto:${base}`] ?? atrData?.[`other:${tick.symbol.replace("=F", "F")}`];
-                return <FuturesCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={futAtr} />;
+              const cat = tick.category;
+              const base = tick.symbol.replace("USDT", "");
+              const atrKey = (cat === "crypto" || cat === "futures")
+                ? (atrData?.[`crypto:${base}`] ?? atrData?.[`other:${tick.symbol.replace("=F","F")}`])
+                : atrData?.[`other:${tick.symbol}`];
+              const starBtn = <StarBtn tick={tick} favSet={favSet} toggle={toggleFav} />;
+              if (cat === "crypto") {
+                return <CoinCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrKey} starBtn={starBtn} />;
+              } else if (cat === "futures") {
+                return <FuturesCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrKey} starBtn={starBtn} />;
               } else {
-                // stocks, oil — keyed as "other:SYMBOL"
-                return <StockCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrData?.[`other:${tick.symbol}`]} />;
+                return <StockCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrKey} starBtn={starBtn} />;
               }
             })}
           </div>

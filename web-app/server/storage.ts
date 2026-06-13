@@ -42,9 +42,28 @@ sqlite.exec(`
   );
 `);
 
+// Favorites table
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    added_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Migration: add missing columns if they don't exist
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN category TEXT NOT NULL DEFAULT 'stocks'`); } catch {}
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`); } catch {}
+
+export interface Favorite {
+  id: number;
+  symbol: string;
+  name: string;
+  category: string;
+  addedAt: string;
+}
 
 export interface IStorage {
   getAllNews(opts?: { limit?: number; category?: string; sentiment?: string; search?: string; tag?: string }): NewsItem[];
@@ -54,6 +73,10 @@ export interface IStorage {
   getAsset(symbol: string): AssetSnapshot | undefined;
   upsertAsset(snap: InsertAssetSnapshot): AssetSnapshot;
   getStats(): { total: number; bullish: number; bearish: number; neutral: number; highImpact: number; avgBuyerPressure: number; avgSellerPressure: number };
+  getFavorites(): Favorite[];
+  addFavorite(symbol: string, name: string, category: string): Favorite;
+  removeFavorite(symbol: string): void;
+  isFavorite(symbol: string): boolean;
 }
 
 export const storage: IStorage = {
@@ -103,6 +126,30 @@ export const storage: IStorage = {
       db.delete(assetSnapshot).where(eq(assetSnapshot.symbol, snap.symbol)).run();
     }
     return db.insert(assetSnapshot).values(snap).returning().get();
+  },
+
+  getFavorites(): Favorite[] {
+    const rows = sqlite.prepare(`SELECT id, symbol, name, category, added_at FROM favorites ORDER BY added_at DESC`).all() as any[];
+    return rows.map(r => ({ id: r.id, symbol: r.symbol, name: r.name, category: r.category, addedAt: r.added_at }));
+  },
+
+  addFavorite(symbol: string, name: string, category: string): Favorite {
+    const existing = sqlite.prepare(`SELECT id FROM favorites WHERE symbol = ?`).get(symbol) as any;
+    if (existing) {
+      const row = sqlite.prepare(`SELECT id, symbol, name, category, added_at FROM favorites WHERE symbol = ?`).get(symbol) as any;
+      return { id: row.id, symbol: row.symbol, name: row.name, category: row.category, addedAt: row.added_at };
+    }
+    sqlite.prepare(`INSERT INTO favorites (symbol, name, category) VALUES (?, ?, ?)`).run(symbol, name, category);
+    const row = sqlite.prepare(`SELECT id, symbol, name, category, added_at FROM favorites WHERE symbol = ?`).get(symbol) as any;
+    return { id: row.id, symbol: row.symbol, name: row.name, category: row.category, addedAt: row.added_at };
+  },
+
+  removeFavorite(symbol: string): void {
+    sqlite.prepare(`DELETE FROM favorites WHERE symbol = ?`).run(symbol);
+  },
+
+  isFavorite(symbol: string): boolean {
+    return !!sqlite.prepare(`SELECT id FROM favorites WHERE symbol = ?`).get(symbol);
   },
 
   getStats() {

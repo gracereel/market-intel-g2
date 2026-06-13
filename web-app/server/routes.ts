@@ -172,6 +172,23 @@ export async function registerRoutes(_: Server, app: Express) {
   // ── Stats ─────────────────────────────────────────────────────────────────
   app.get("/api/stats", (req, res) => res.json(storage.getStats()));
 
+  // ── Favorites ─────────────────────────────────────────────────────────────
+  app.get("/api/favorites", (_req, res) => {
+    res.json(storage.getFavorites());
+  });
+
+  app.post("/api/favorites", (req, res) => {
+    const { symbol, name, category } = req.body;
+    if (!symbol || !name || !category) return res.status(400).json({ error: "symbol, name, category required" });
+    const fav = storage.addFavorite(symbol, name, category);
+    res.json(fav);
+  });
+
+  app.delete("/api/favorites/:symbol", (req, res) => {
+    storage.removeFavorite(req.params.symbol);
+    res.json({ ok: true });
+  });
+
   // Currency strength endpoints
   app.get("/api/currency/strength", (_req, res) => {
     res.json(getCurrencyStrength());
