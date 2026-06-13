@@ -510,268 +510,224 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 }
 
 // ─── Market Sentiment Panel ──────────────────────────────────────────────────
-const TIMEFRAMES = [
-  { tf: "5M"  },
-  { tf: "15M" },
-  { tf: "1H"  },
-  { tf: "4H"  },
-  { tf: "12H" },
-  { tf: "1D"  },
-  { tf: "1W"  },
-];
-
-// Timeframe decay multipliers — shorter TF reacts faster, longer TF needs bigger moves
-// We scale the actual % change so each timeframe has its own sensitivity
 const TF_SCALE: Record<string, number> = {
-  "5M":  5.0,   // very sensitive — small moves count
-  "15M": 2.5,
-  "1H":  1.5,
-  "4H":  1.0,   // baseline
-  "12H": 0.7,
-  "1D":  0.5,
-  "1W":  0.3,   // needs huge move to register
+  "5M": 5.0, "15M": 2.5, "1H": 1.5, "4H": 1.0, "12H": 0.7, "1D": 0.5, "1W": 0.3,
 };
+const TIMEFRAMES = ["5M","15M","1H","4H","12H","1D","1W"];
 
 function getSentimentForTick(change: number, tf: string) {
-  // Scale the change by timeframe sensitivity
-  const scale = TF_SCALE[tf] ?? 1.0;
-  const scaled = change * scale;
+  const scaled = change * (TF_SCALE[tf] ?? 1.0);
   const abs = Math.abs(scaled);
-
-  if (abs < 0.4)  return { label: "Neutral",     score: 0 };
+  if (abs < 0.4) return { label: "Neutral", score: 0 };
   if (scaled > 0) {
     if (abs >= 6.0) return { label: "Strong Bull", score: 1.0 };
-    if (abs >= 2.5) return { label: "Bullish",     score: 0.7 };
-    return           { label: "Bullish",            score: 0.4 };
+    if (abs >= 2.5) return { label: "Bullish", score: 0.7 };
+    return { label: "Bullish", score: 0.4 };
   } else {
     if (abs >= 6.0) return { label: "Strong Bear", score: -1.0 };
-    if (abs >= 2.5) return { label: "Bearish",     score: -0.7 };
-    return           { label: "Bearish",            score: -0.4 };
+    if (abs >= 2.5) return { label: "Bearish", score: -0.7 };
+    return { label: "Bearish", score: -0.4 };
   }
 }
 
-function sentLabelColor(label: string) {
+function sentColor(label: string) {
   if (label === "Strong Bull") return "#22c55e";
-  if (label === "Bullish")     return "#4ade80";
+  if (label === "Bullish") return "#4ade80";
   if (label === "Strong Bear") return "#ff3344";
-  if (label === "Bearish")     return "#ff5566";
+  if (label === "Bearish") return "#ff5566";
   return "#ffc040";
 }
-function sentLabelBg(label: string) {
-  if (label === "Strong Bull") return "rgba(34,197,94,0.15)";
-  if (label === "Bullish")     return "rgba(74,222,128,0.10)";
-  if (label === "Strong Bear") return "rgba(255,51,68,0.15)";
-  if (label === "Bearish")     return "rgba(255,85,102,0.10)";
-  return "rgba(255,192,64,0.10)";
-}
-function sentLabelBorder(label: string) {
-  if (label === "Strong Bull") return "rgba(34,197,94,0.4)";
-  if (label === "Bullish")     return "rgba(74,222,128,0.3)";
-  if (label === "Strong Bear") return "rgba(255,51,68,0.4)";
-  if (label === "Bearish")     return "rgba(255,85,102,0.3)";
-  return "rgba(255,192,64,0.3)";
+function sentBgStyle(label: string): React.CSSProperties {
+  if (label === "Strong Bull") return { background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.4)", color: "#22c55e" };
+  if (label === "Bullish")     return { background: "rgba(74,222,128,0.10)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" };
+  if (label === "Strong Bear") return { background: "rgba(255,51,68,0.15)", border: "1px solid rgba(255,51,68,0.4)", color: "#ff3344" };
+  if (label === "Bearish")     return { background: "rgba(255,85,102,0.10)", border: "1px solid rgba(255,85,102,0.3)", color: "#ff5566" };
+  return { background: "rgba(255,192,64,0.10)", border: "1px solid rgba(255,192,64,0.3)", color: "#ffc040" };
 }
 
 function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
   const allTicks = Array.from(ticks.values());
-  const [open, setOpen] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest("[data-sentdrop]") && !target.closest("[data-sentbtn]")) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + 6, left: rect.left });
-    }
-    setOpen(o => !o);
-  };
-
-  const selectSymbol = (sym: string | null) => {
-    setSelectedSymbol(sym);
-    setOpen(false);
-    setQuery("");
-  };
-
-  const selectedTick = selectedSymbol ? ticks.get(selectedSymbol) : null;
+  const selectedTick = selectedSymbol ? ticks.get(selectedSymbol) ?? null : null;
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return allTicks.slice(0, 25);
-    const q = query.toLowerCase();
+    const q = query.toLowerCase().trim();
+    if (!q) return allTicks.slice(0, 30);
     return allTicks.filter(t =>
       t.symbol.toLowerCase().includes(q) || (t.name || "").toLowerCase().includes(q)
-    ).slice(0, 25);
+    ).slice(0, 30);
   }, [allTicks, query]);
 
-  const sentimentRows = useMemo(() => {
-    return TIMEFRAMES.map(({ tf }) => {
-      if (selectedTick) {
-        // Per-coin: scale the single % change differently for each timeframe
-        const { label, score } = getSentimentForTick(selectedTick.changePercent ?? 0, tf);
-        return { tf, label, score, bull: 0, bear: 0, neut: 0, single: true };
-      }
-      // All-market: count each coin's sentiment at this timeframe
-      let bull = 0, bear = 0, neut = 0;
-      allTicks.forEach(t => {
-        const s = getSentimentForTick(t.changePercent ?? 0, tf);
-        if (s.score > 0) bull++;
-        else if (s.score < 0) bear++;
-        else neut++;
-      });
-      const total = bull + bear + neut || 1;
-      const score = (bull - bear) / total;
-      let label = "Neutral";
-      if (score > 0.5)       label = "Strong Bull";
-      else if (score > 0.2)  label = "Bullish";
-      else if (score < -0.5) label = "Strong Bear";
-      else if (score < -0.2) label = "Bearish";
-      return { tf, label, score, bull, bear, neut, single: false };
+  const rows = useMemo(() => TIMEFRAMES.map(tf => {
+    if (selectedTick) {
+      return { tf, ...getSentimentForTick(selectedTick.changePercent ?? 0, tf), bull: 0, bear: 0, neut: 0, single: true };
+    }
+    let bull = 0, bear = 0, neut = 0;
+    allTicks.forEach(t => {
+      const s = getSentimentForTick(t.changePercent ?? 0, tf);
+      if (s.score > 0) bull++; else if (s.score < 0) bear++; else neut++;
     });
-  }, [selectedTick, allTicks]);
+    const total = bull + bear + neut || 1;
+    const score = (bull - bear) / total;
+    let label = "Neutral";
+    if (score > 0.5) label = "Strong Bull";
+    else if (score > 0.2) label = "Bullish";
+    else if (score < -0.5) label = "Strong Bear";
+    else if (score < -0.2) label = "Bearish";
+    return { tf, label, score, bull, bear, neut, single: false };
+  }), [selectedTick, allTicks]);
 
-  const avgScore = sentimentRows.reduce((a, r) => a + r.score, 0) / sentimentRows.length;
+  const avgScore = rows.reduce((a, r) => a + r.score, 0) / rows.length;
   let verdict = "Neutral";
-  if (avgScore > 0.5)       verdict = "Strong Bull";
-  else if (avgScore > 0.2)  verdict = "Bullish";
+  if (avgScore > 0.5) verdict = "Strong Bull";
+  else if (avgScore > 0.2) verdict = "Bullish";
   else if (avgScore < -0.5) verdict = "Strong Bear";
   else if (avgScore < -0.2) verdict = "Bearish";
 
   if (allTicks.length === 0) return null;
 
-  const displayName = selectedTick
-    ? `${selectedTick.symbol} · ${selectedTick.name || selectedTick.symbol}`
-    : "All Markets";
+  const displayName = selectedTick ? `${selectedTick.symbol}` : "All Markets";
 
   return (
-    <div className="border-b border-[#ffc040]/12 bg-[#060401]">
-      <div className="px-4 py-3 flex flex-wrap items-center gap-3 relative">
-
-        {/* Header + Pair Selector */}
-        <div className="flex items-center gap-2 shrink-0 relative">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#ffc040] animate-pulse shrink-0" />
-          <span className="text-[9px] font-mono text-[#ffc040]/45 uppercase tracking-widest shrink-0 hidden sm:block">Sentiment</span>
-
-          <button
-            ref={btnRef}
-            data-sentbtn="1"
-            onClick={handleOpen}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#ffc040]/25 bg-[#181410] hover:border-[#ffc040]/50 hover:bg-[#1e1a0f] transition-all text-[10px] font-mono font-bold text-[#ffc040] max-w-[180px]"
+    <>
+      {/* Modal overlay */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-start justify-start pt-20 pl-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={() => { setShowModal(false); setQuery(""); }}
+        >
+          <div
+            className="w-72 rounded-2xl overflow-hidden shadow-2xl"
+            style={{ background: "#0d0a06", border: "1px solid rgba(255,192,64,0.3)" }}
+            onClick={e => e.stopPropagation()}
           >
-            <span className="truncate">{displayName}</span>
-            <ChevronDown className="w-3 h-3 shrink-0 text-[#ffc040]/40" />
-          </button>
+            {/* Search */}
+            <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(255,192,64,0.12)" }}>
+              <div className="text-[10px] font-mono mb-2" style={{ color: "rgba(255,192,64,0.5)" }}>SELECT PAIR OR COIN</div>
+              <input
+                autoFocus
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search BTC, ETH, EUR/USD..."
+                className="w-full rounded-lg px-3 py-2 text-xs font-mono outline-none"
+                style={{ background: "#060402", border: "1px solid rgba(255,192,64,0.2)", color: "#fff8e8" }}
+              />
+            </div>
 
-          {open && (
-            <div data-sentdrop="1" className="fixed w-72 z-[9999] rounded-xl border border-[#ffc040]/25 bg-[#0d0a06] shadow-[0_8px_40px_rgba(0,0,0,0.9)]" style={{ top: dropPos.top, left: dropPos.left }}>
-              <div className="px-3 py-2 border-b border-[#ffc040]/10">
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="Search any symbol or pair..."
-                  className="w-full bg-[#060402] border border-[#ffc040]/15 rounded-lg px-2.5 py-1.5 text-[10px] font-mono text-[#fff8e8] placeholder-[#ffc040]/25 outline-none focus:border-[#ffc040]/40"
-                />
-              </div>
-              <button
-                onMouseDown={(e) => { e.preventDefault(); selectSymbol(null); }}
-                className={`w-full text-left px-3 py-2.5 text-[10px] font-mono hover:bg-[#ffc040]/8 transition-all flex items-center gap-2 border-b border-[#ffc040]/8 ${!selectedSymbol ? "text-[#ffc040] bg-[#ffc040]/6" : "text-[#ffc040]/55"}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ffc040]/40" />
-                All Markets Overview
-              </button>
-              <div className="max-h-52 overflow-y-auto">
-                {filtered.map(t => (
-                  <button
-                    key={t.symbol}
-                    onMouseDown={(e) => { e.preventDefault(); selectSymbol(t.symbol); }}
-                    className={`w-full text-left px-3 py-2 text-[10px] font-mono hover:bg-[#ffc040]/8 transition-all flex items-center justify-between gap-2 ${selectedSymbol === t.symbol ? "text-[#ffc040] bg-[#ffc040]/6" : "text-[#fff8e8]/70"}`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-bold shrink-0 text-[#ffc040]">{t.symbol}</span>
-                      <span className="text-[#ffc040]/35 truncate text-[9px]">{t.name}</span>
+            {/* All Markets */}
+            <button
+              className="w-full text-left px-4 py-3 text-xs font-mono font-bold flex items-center gap-2 border-b"
+              style={{
+                borderColor: "rgba(255,192,64,0.08)",
+                background: !selectedSymbol ? "rgba(255,192,64,0.08)" : "transparent",
+                color: !selectedSymbol ? "#ffc040" : "rgba(255,192,64,0.5)"
+              }}
+              onClick={() => { setSelectedSymbol(null); setShowModal(false); setQuery(""); }}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ background: "#ffc040", opacity: 0.5 }} />
+              All Markets Overview
+            </button>
+
+            {/* Coin list */}
+            <div style={{ maxHeight: "280px", overflowY: "auto" }}>
+              {filtered.map(t => (
+                <button
+                  key={t.symbol}
+                  className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-2"
+                  style={{
+                    background: selectedSymbol === t.symbol ? "rgba(255,192,64,0.08)" : "transparent",
+                    color: selectedSymbol === t.symbol ? "#ffc040" : "rgba(255,248,232,0.75)",
+                    borderBottom: "1px solid rgba(255,192,64,0.05)"
+                  }}
+                  onClick={() => { setSelectedSymbol(t.symbol); setShowModal(false); setQuery(""); }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-bold font-mono" style={{ color: "#ffc040" }}>{t.symbol}</span>
+                    <span className="text-[10px] font-mono truncate" style={{ color: "rgba(255,192,64,0.35)" }}>{t.name}</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: (t.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
+                    {(t.changePercent ?? 0) >= 0 ? "+" : ""}{(t.changePercent ?? 0).toFixed(2)}%
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bar */}
+      <div style={{ background: "#060401", borderBottom: "1px solid rgba(255,192,64,0.12)" }}>
+        <div className="px-4 py-3 flex flex-wrap items-center gap-3">
+
+          {/* Selector button */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#ffc040" }} />
+            <span className="text-[9px] font-mono uppercase tracking-widest hidden sm:block" style={{ color: "rgba(255,192,64,0.45)" }}>Sentiment</span>
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold"
+              style={{ background: "#181410", border: "1px solid rgba(255,192,64,0.25)", color: "#ffc040" }}
+            >
+              {displayName}
+              <ChevronDown className="w-3 h-3" style={{ color: "rgba(255,192,64,0.4)" }} />
+            </button>
+          </div>
+
+          {/* Timeframe pills */}
+          <div className="flex items-end gap-2 flex-wrap">
+            {rows.map(({ tf, label, bull, bear, neut, single }) => {
+              const total = bull + bear + neut || 1;
+              const bullPct = (bull / total) * 100;
+              const bearPct = (bear / total) * 100;
+              const short = label === "Strong Bull" ? "S.Bull" : label === "Strong Bear" ? "S.Bear" : label;
+              return (
+                <div key={tf} className="flex flex-col items-center gap-1">
+                  <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: "rgba(255,192,64,0.3)" }}>{tf}</span>
+                  {single ? (
+                    <div className="w-14 h-6 rounded-lg flex items-center justify-center text-[9px] font-mono font-bold" style={sentBgStyle(label)}>
+                      {short}
                     </div>
-                    <span className={`shrink-0 font-bold ${(t.changePercent ?? 0) >= 0 ? "text-[#4ade80]" : "text-[#ff5566]"}`}>
-                      {(t.changePercent ?? 0) >= 0 ? "+" : ""}{(t.changePercent ?? 0).toFixed(2)}%
-                    </span>
-                  </button>
-                ))}
-              </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-0.5 w-14">
+                      <div className="flex h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <div className="h-full transition-all duration-700" style={{ width: `${bullPct}%`, background: "#4ade80" }} />
+                        <div className="h-full transition-all duration-700" style={{ width: `${bearPct}%`, background: "#ff5566" }} />
+                      </div>
+                      <span className="text-[9px] font-mono font-semibold" style={{ color: sentColor(label) }}>{short}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Divider */}
+          <div className="hidden sm:block w-px h-8 mx-1" style={{ background: "rgba(255,192,64,0.1)" }} />
+
+          {/* Final verdict */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold shrink-0" style={sentBgStyle(verdict)}>
+            <span className="text-[8px] font-normal opacity-50">FINAL</span>
+            {verdict.toUpperCase()}
+          </div>
+
+          {/* Live price */}
+          {selectedTick && (
+            <div className="ml-auto flex items-center gap-2 shrink-0">
+              <span className="text-sm font-bold font-mono" style={{ color: "#fff8e8" }}>
+                ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+              </span>
+              <span className="text-[10px] font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
+                {(selectedTick.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(selectedTick.changePercent ?? 0).toFixed(2)}%
+              </span>
             </div>
           )}
         </div>
-
-        {/* Timeframe sentiment pills */}
-        <div className="flex items-end gap-2 flex-wrap">
-          {sentimentRows.map(({ tf, label, score: _score, bull, bear, neut, single }) => {
-            const color  = sentLabelColor(label);
-            const bg     = sentLabelBg(label);
-            const border = sentLabelBorder(label);
-            const total  = bull + bear + neut || 1;
-            const bullPct = (bull / total) * 100;
-            const bearPct = (bear / total) * 100;
-            const shortLabel = label === "Strong Bull" ? "S.Bull" : label === "Strong Bear" ? "S.Bear" : label;
-            return (
-              <div key={tf} className="flex flex-col items-center gap-1">
-                <span className="text-[8px] font-mono text-[#ffc040]/30 uppercase tracking-wider">{tf}</span>
-                {single ? (
-                  <div
-                    className="w-14 h-6 rounded-lg flex items-center justify-center text-[9px] font-mono font-bold"
-                    style={{ background: bg, border: `1px solid ${border}`, color }}
-                  >
-                    {shortLabel}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-0.5 w-14">
-                    <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-white/5">
-                      <div className="h-full bg-[#4ade80] transition-all duration-700" style={{ width: `${bullPct}%` }} />
-                      <div className="h-full bg-[#ff5566] transition-all duration-700" style={{ width: `${bearPct}%` }} />
-                    </div>
-                    <span className="text-[9px] font-mono font-semibold" style={{ color }}>{shortLabel}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="hidden sm:block w-px h-8 bg-[#ffc040]/10 mx-1" />
-
-        {/* Final verdict */}
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold tracking-wide shrink-0"
-          style={{ background: sentLabelBg(verdict), border: `1px solid ${sentLabelBorder(verdict)}`, color: sentLabelColor(verdict), boxShadow: `0 0 16px ${sentLabelBg(verdict)}` }}
-        >
-          <span className="text-[8px] opacity-50 font-normal">FINAL</span>
-          {verdict.toUpperCase()}
-        </div>
-
-        {/* Live price if single pair selected */}
-        {selectedTick && (
-          <div className="ml-auto flex items-center gap-2 shrink-0">
-            <span className="text-sm font-bold font-mono text-[#fff8e8]">
-              ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
-            </span>
-            <span className={`text-[10px] font-mono font-bold ${(selectedTick.changePercent ?? 0) >= 0 ? "text-[#4ade80]" : "text-[#ff5566]"}`}>
-              {(selectedTick.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(selectedTick.changePercent ?? 0).toFixed(2)}%
-            </span>
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }
 
