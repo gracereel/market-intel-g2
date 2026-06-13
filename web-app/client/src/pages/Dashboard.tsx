@@ -1972,7 +1972,7 @@ function NewsAlertBanner() {
 
   return (
     <div
-      className={`fixed right-4 z-[90] w-80 transition-all duration-500 ease-out ${
+      className={`fixed right-4 z-[110] w-80 transition-all duration-500 ease-out ${
         visible ? "top-[calc(32px+68px)] opacity-100 translate-y-0" : "top-[calc(32px+40px)] opacity-0 -translate-y-2 pointer-events-none"
       }`}
     >
@@ -2091,7 +2091,7 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
     s === "bullish" ? "bg-[#ffc040]/10 border-[#ffc040]/28" : s === "bearish" ? "bg-[#ff5566]/10 border-[#ff5566]/28" : "bg-[#1e1a12] border-[#ffc040]/15";
 
   return (
-    <div className="fixed inset-0 z-80 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex justify-end bg-[#030201]/60 backdrop-blur-sm" onClick={onClose}>
       <div
         className="h-full w-full max-w-sm bg-[#060502] border-l border-[#ffc040]/15 flex flex-col shadow-2xl"
         onClick={e => e.stopPropagation()}
