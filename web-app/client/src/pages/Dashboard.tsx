@@ -2786,8 +2786,6 @@ export default function Dashboard() {
       </div>
 
       {/* Market Sentiment Bar */}
-      <MarketSentimentBar ticks={ticks} />
-
       {/* Search bar */}
       {tab !== "currency" && <div className="px-4 pt-3 pb-2 flex items-center gap-2">
         <button
@@ -2865,6 +2863,9 @@ export default function Dashboard() {
           </div>
         )}
       </main>}
+
+      {/* Market Sentiment Panel */}
+      <MarketSentimentBar ticks={ticks} />
 
       {/* News Panel */}
       {showNews && <NewsPanel onClose={() => setShowNews(false)} />}
