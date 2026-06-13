@@ -553,7 +553,8 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
       background: "#100d07",
       border: "1px solid rgba(255,192,64,0.13)",
       borderRadius: 16,
-      padding: "10px 12px 10px",
+      padding: "0px 12px 10px",
+      paddingTop: Math.round(W * 0.14),
       minWidth: W + 16,
       flexShrink: 0,
       overflow: "visible",
@@ -754,7 +755,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div style={{ display:"flex", alignItems:"flex-end", gap:8, overflowX:"auto", flex:1, paddingBottom:4 }}>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:8, overflowX:"auto", overflowY:"visible", flex:1, paddingBottom:4, paddingTop:16 }}>
             {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
