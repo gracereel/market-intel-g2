@@ -717,8 +717,8 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
       )}
 
       {/* Bar */}
-      <div style={{ background: "#060401", borderBottom: "1px solid rgba(255,192,64,0.12)" }}>
-        <div className="px-4 py-3 flex flex-wrap items-center gap-3">
+      <div style={{ background: "#07050200", borderTop: "1px solid rgba(255,192,64,0.10)", borderBottom: "1px solid rgba(255,192,64,0.10)", marginTop: 8 }}>
+        <div className="px-4 pt-5 pb-4 flex flex-wrap items-center gap-4">
 
           {/* Selector button */}
           <div className="flex items-center gap-2 shrink-0">
@@ -735,14 +735,14 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div className="flex items-center gap-6 flex-wrap flex-1 py-2">
+          <div className="flex items-center gap-5 flex-wrap flex-1">
             {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
               const displayPct = single ? pct : Math.round((bull / total) * 100);
               const color = sentColor(label);
               const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
-              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={80} />;
+              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={90} />;
             })}
             {/* Divider */}
             <div style={{ width:1, height:70, background:"rgba(255,192,64,0.12)" }} className="hidden sm:block" />
@@ -751,7 +751,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
               const color = sentColor(verdict);
               const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
-              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={110} />;
+              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={120} />;
             })()}
             {/* Live price */}
             {selectedTick && (
