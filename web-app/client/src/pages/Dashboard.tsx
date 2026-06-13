@@ -511,67 +511,57 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
-  const sw = size * 0.10;           // stroke width proportional to size
-  const R  = (size / 2) - sw;       // radius leaving room for stroke
+  // Canvas: full circle coords, we only show top half
+  // Center is at bottom-center of viewBox so arc opens upward like reference image
+  const pad = size * 0.12;
+  const R = size / 2 - pad;
   const cx = size / 2;
-  const cy = size / 2;
+  const cy = size / 2;          // center is at mid-height
+  const sw = size * 0.11;
+  const viewH = size / 2 + pad; // only show top half + a bit of padding
 
-  // Arc goes from 180° (left) to 0° (right) — a perfect semicircle
-  // fill sweeps pct/100 of 180° from left
-  const fillRad = Math.PI - (pct / 100) * Math.PI;
-  const x1 = cx - R;               // left endpoint (180°)
-  const y1 = cy;
-  const x2 = cx + R * Math.cos(fillRad);
-  const y2 = cy - R * Math.sin(fillRad);  // SVG y is inverted so minus
-  const largeArc = pct > 50 ? 1 : 0;
+  // Arc: starts at left (180deg) sweeps clockwise to right (0deg)
+  // SVG angles: 0deg = right, angles go clockwise
+  // We sweep from angle=180 to angle=0 going counterclockwise (sweep-flag=0 means counter)
+  // Actually for SVG: to go LEFT to RIGHT along the TOP we use sweep=1 (clockwise in screen coords)
+  // Start: left point  (cx - R, cy)
+  // End:   right point (cx + R, cy)
+  // The track is always the full half circle
+  const trackD = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
 
-  const isSmall = size <= 90;
+  // Fill: sweep from left, covering pct% of 180deg
+  // angle in radians from left: 0 = left endpoint, PI = right endpoint
+  const sweepRad = (pct / 100) * Math.PI;
+  // end point on circle going clockwise from left
+  const ex = cx - R * Math.cos(sweepRad);
+  const ey = cy - R * Math.sin(sweepRad);
+  const largeArc = pct >= 50 ? 1 : 0;
+  const fillD = `M ${cx - R} ${cy} A ${R} ${R} 0 ${largeArc} 1 ${ex} ${ey}`;
+
+  const isSmall = size < 100;
+  const pctFontSize = isSmall ? size * 0.20 : size * 0.19;
+  const labelFontSize = isSmall ? size * 0.10 : size * 0.09;
+  const textY1 = cy - R * 0.22;
+  const textY2 = cy - R * 0.02;
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <svg width={size} height={size / 2 + sw} viewBox={`0 0 ${size} ${size / 2 + sw}`} overflow="visible">
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+      <svg width={size} height={viewH} viewBox={`0 0 ${size} ${viewH}`} style={{ overflow: "visible" }}>
         {/* Track */}
-        <path
-          d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
-          fill="none"
-          stroke="rgba(255,255,255,0.08)"
-          strokeWidth={sw}
-          strokeLinecap="round"
-        />
-        {/* Fill arc */}
+        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={sw} strokeLinecap="round" />
+        {/* Fill */}
         {pct > 1 && (
           <path
-            d={`M ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2}`}
-            fill="none"
-            stroke={color}
-            strokeWidth={sw}
-            strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 ${sw * 0.8}px ${color}aa)` }}
+            d={fillD} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 ${sw * 0.7}px ${color}cc)` }}
           />
         )}
-        {/* Percentage */}
-        <text
-          x={cx} y={cy - (isSmall ? 6 : 10)}
-          textAnchor="middle"
-          fontSize={isSmall ? 13 : 20}
-          fontWeight="bold"
-          fontFamily="'Satoshi', monospace"
-          fill={color}
-        >
-          {pct}%
-        </text>
-        {/* Label */}
-        <text
-          x={cx} y={cy + (isSmall ? 7 : 10)}
-          textAnchor="middle"
-          fontSize={isSmall ? 7 : 9}
-          fontFamily="'Satoshi', sans-serif"
-          fill="rgba(255,248,232,0.55)"
-        >
-          {label}
-        </text>
+        {/* % */}
+        <text x={cx} y={textY1} textAnchor="middle" fontSize={pctFontSize} fontWeight="800" fill={color} fontFamily="monospace">{pct}%</text>
+        {/* label */}
+        <text x={cx} y={textY2} textAnchor="middle" fontSize={labelFontSize} fill="rgba(255,248,232,0.55)" fontFamily="sans-serif">{label}</text>
       </svg>
-      <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,192,64,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{tf}</span>
+      <span style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(255,192,64,0.4)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{tf}</span>
     </div>
   );
 }
@@ -2791,6 +2781,8 @@ export default function Dashboard() {
       </div>
 
       {/* Market Sentiment Bar */}
+      <MarketSentimentBar ticks={ticks} />
+
       {/* Search bar */}
       {tab !== "currency" && <div className="px-4 pt-3 pb-2 flex items-center gap-2">
         <button
@@ -2868,9 +2860,6 @@ export default function Dashboard() {
           </div>
         )}
       </main>}
-
-      {/* Market Sentiment Panel */}
-      <MarketSentimentBar ticks={ticks} />
 
       {/* News Panel */}
       {showNews && <NewsPanel onClose={() => setShowNews(false)} />}
