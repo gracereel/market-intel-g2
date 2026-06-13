@@ -511,27 +511,42 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 
 // ─── Market Sentiment Panel ──────────────────────────────────────────────────
 const TIMEFRAMES = [
-  { tf: "5M",  thresholds: [0.15, 0.4,  0.8 ] },
-  { tf: "15M", thresholds: [0.3,  0.8,  1.5 ] },
-  { tf: "1H",  thresholds: [0.6,  1.5,  3.0 ] },
-  { tf: "4H",  thresholds: [1.5,  3.0,  6.0 ] },
-  { tf: "12H", thresholds: [3.0,  6.0,  10.0] },
-  { tf: "1D",  thresholds: [5.0,  10.0, 18.0] },
-  { tf: "1W",  thresholds: [8.0,  16.0, 28.0] },
+  { tf: "5M"  },
+  { tf: "15M" },
+  { tf: "1H"  },
+  { tf: "4H"  },
+  { tf: "12H" },
+  { tf: "1D"  },
+  { tf: "1W"  },
 ];
 
-function getSentimentForTick(change: number, thresholds: number[]) {
-  const [weak, mid, strong] = thresholds;
-  const abs = Math.abs(change);
-  if (abs < weak) return { label: "Neutral", score: 0 };
-  if (change > 0) {
-    if (abs >= strong) return { label: "Strong Bull", score: 1.0 };
-    if (abs >= mid)    return { label: "Bullish",     score: 0.7 };
-    return               { label: "Bullish",           score: 0.4 };
+// Timeframe decay multipliers — shorter TF reacts faster, longer TF needs bigger moves
+// We scale the actual % change so each timeframe has its own sensitivity
+const TF_SCALE: Record<string, number> = {
+  "5M":  5.0,   // very sensitive — small moves count
+  "15M": 2.5,
+  "1H":  1.5,
+  "4H":  1.0,   // baseline
+  "12H": 0.7,
+  "1D":  0.5,
+  "1W":  0.3,   // needs huge move to register
+};
+
+function getSentimentForTick(change: number, tf: string) {
+  // Scale the change by timeframe sensitivity
+  const scale = TF_SCALE[tf] ?? 1.0;
+  const scaled = change * scale;
+  const abs = Math.abs(scaled);
+
+  if (abs < 0.4)  return { label: "Neutral",     score: 0 };
+  if (scaled > 0) {
+    if (abs >= 6.0) return { label: "Strong Bull", score: 1.0 };
+    if (abs >= 2.5) return { label: "Bullish",     score: 0.7 };
+    return           { label: "Bullish",            score: 0.4 };
   } else {
-    if (abs >= strong) return { label: "Strong Bear", score: -1.0 };
-    if (abs >= mid)    return { label: "Bearish",     score: -0.7 };
-    return               { label: "Bearish",           score: -0.4 };
+    if (abs >= 6.0) return { label: "Strong Bear", score: -1.0 };
+    if (abs >= 2.5) return { label: "Bearish",     score: -0.7 };
+    return           { label: "Bearish",            score: -0.4 };
   }
 }
 
@@ -596,14 +611,16 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
   }, [allTicks, query]);
 
   const sentimentRows = useMemo(() => {
-    return TIMEFRAMES.map(({ tf, thresholds }) => {
+    return TIMEFRAMES.map(({ tf }) => {
       if (selectedTick) {
-        const { label, score } = getSentimentForTick(selectedTick.changePercent ?? 0, thresholds);
+        // Per-coin: scale the single % change differently for each timeframe
+        const { label, score } = getSentimentForTick(selectedTick.changePercent ?? 0, tf);
         return { tf, label, score, bull: 0, bear: 0, neut: 0, single: true };
       }
+      // All-market: count each coin's sentiment at this timeframe
       let bull = 0, bear = 0, neut = 0;
       allTicks.forEach(t => {
-        const s = getSentimentForTick(t.changePercent ?? 0, thresholds);
+        const s = getSentimentForTick(t.changePercent ?? 0, tf);
         if (s.score > 0) bull++;
         else if (s.score < 0) bear++;
         else neut++;
