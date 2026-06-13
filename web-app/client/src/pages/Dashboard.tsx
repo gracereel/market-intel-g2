@@ -519,17 +519,15 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
   // We only DISPLAY the top half: viewBox clips at y=0 (top of square).
   // Key: sw/2 inner margin ensures caps never reach y=0.
   const W = size;
-  const sw = Math.round(W * 0.10);  // stroke width = 10% of W
-  const R = W / 2 - sw / 2 - 2;    // radius: arc outer edge = W/2 - 2px from canvas edge
+  const sw = Math.round(W * 0.10);  // stroke width
+  // Push cy DOWN so the arc top has generous clearance above y=0
   const cx = W / 2;
-  const cy = W / 2;                 // center at middle of square canvas
-  // The topmost point of the arc stroke is at: cy - R - sw/2
-  // With R = W/2 - sw/2 - 2: topmost = W/2 - (W/2 - sw/2 - 2) - sw/2 = 2px from top
-  // So 2px of canvas space above the arc stroke — it will NOT clip.
+  const cy = Math.round(W * 0.62);  // center well below top — arc top has ~18% W of room
+  const R  = Math.round(W * 0.44);  // radius: arc fills width nicely
+  // arc top y = cy - R - sw/2 = 0.62W - 0.44W - 0.05W = 0.13W above top — no clip
 
-  // ViewBox: show full square (arc center at W/2, full arc fits in 0..W)
-  // Height: only show top half + a tiny bit below center for the bottom endpoints
-  const vH = cy + sw / 2 + 4;
+  // ViewBox: 0 to cy+sw/2+4 (just past the bottom of the stroke at center line)
+  const vH = cy + Math.round(sw / 2) + 4;
 
   const lx = (cx - R).toFixed(1);
   const rx = (cx + R).toFixed(1);
