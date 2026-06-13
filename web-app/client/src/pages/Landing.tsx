@@ -3,7 +3,8 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Zap, Bell, Star, Shield,
   ArrowRight, ChevronDown, BarChart2, Activity,
-  Target, Newspaper, Smartphone, Monitor
+  Target, Newspaper, Smartphone, Monitor,
+  TrendingUp, AlertTriangle, BookOpen, Search, ListChecks
 } from "lucide-react";
 
 // ── Animated counter ──────────────────────────────────────────────────────────
@@ -312,6 +313,84 @@ export default function Landing() {
           <FeatureCard icon={BarChart2}  color="#ffc040" title="ATR on Every Asset"     desc="ATR-14 on every instrument — crypto, futures, stocks, oil, and all 28 forex pairs." />
           <FeatureCard icon={Star}       color="#ffb030" title="Watchlist & Favorites"  desc="Star any asset across any category. Your watchlist syncs live so your picks are always front and centre." />
           <FeatureCard icon={Monitor}    color="#ffc040" title="Web Dashboard"          desc="A full-screen professional terminal in your browser. No downloads, no installs — just open and trade." />
+        </div>
+      </section>
+
+      {/* How to Use It */}
+      <section className="px-6 py-20 max-w-5xl mx-auto">
+        <div className="text-center mb-14">
+          <div className="text-[10px] font-mono text-[#ffc040]/50 uppercase tracking-widest mb-3">Your edge</div>
+          <h2 className="text-3xl font-bold text-[#fff8e8] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>How to Trade With It</h2>
+          <p className="text-sm text-[#ffc040]/55 max-w-xl mx-auto leading-relaxed">Five signals built into the app — each one gives you a real edge when you know how to read them.</p>
+        </div>
+
+        <div className="space-y-4">
+          {[
+            {
+              num: "01",
+              icon: Activity,
+              color: "#ffd060",
+              title: "Currency Strength (FX)",
+              howto: "Check 1H first to see what's moving right now. Cross-reference with 4H and 1D to confirm it's not noise.",
+              edge: "Trade the strongest currency against the weakest. If USD is top and JPY is bottom — look at USD/JPY long.",
+            },
+            {
+              num: "02",
+              icon: BarChart2,
+              color: "#ffc040",
+              title: "ATR — Know Your Risk",
+              howto: "ATR tells you how much that asset moves on average per candle. Find it on any coin, pair, or stock.",
+              edge: "Use ATR to set your stop loss. If BTC ATR is $2,000, a $500 stop will get you shaken out every time.",
+            },
+            {
+              num: "03",
+              icon: Bell,
+              color: "#ff9040",
+              title: "Breaking News Alerts",
+              howto: "When an alert pops, check the sentiment tag — Bullish or Bearish — and the impact level.",
+              edge: "High-impact bullish news on BTC = potential fast long. Act in the first few minutes before the market fully absorbs it.",
+            },
+            {
+              num: "04",
+              icon: Target,
+              color: "#ffc040",
+              title: "Position Tracker",
+              howto: "Log every trade with entry price, target, and stop loss the moment you enter.",
+              edge: "Live P&L updates automatically — no mental math, no spreadsheets. Review closed trades to track your real win rate.",
+            },
+            {
+              num: "05",
+              icon: Star,
+              color: "#ffb030",
+              title: "Watchlist",
+              howto: "Star your best setups before bed. Open the app in the morning — your picks are front and center.",
+              edge: "You stop reacting to random coins and start trading only what you already studied. Discipline by design.",
+            },
+          ].map(({ num, icon: Icon, color, title, howto, edge }) => (
+            <div key={num} className="group rounded-2xl border border-[#ffc040]/15 bg-[#0d0a06] p-6 hover:border-[#ffc040]/35 hover:bg-[#111009] transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,192,64,0.06)]">
+              <div className="flex flex-col sm:flex-row gap-6">
+                {/* Number + icon */}
+                <div className="flex items-start gap-4 shrink-0">
+                  <span className="text-3xl font-black font-mono text-[#ffc040]/15 leading-none w-10">{num}</span>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + "18", border: `1px solid ${color}30` }}>
+                    <Icon className="w-5 h-5" style={{ color }} />
+                  </div>
+                </div>
+                {/* Content */}
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm font-bold text-[#fff8e8] mb-2">{title}</div>
+                    <div className="text-[10px] font-mono text-[#ffc040]/40 uppercase tracking-widest mb-1.5">How to read it</div>
+                    <p className="text-xs text-[#ffc040]/60 leading-relaxed">{howto}</p>
+                  </div>
+                  <div className="sm:border-l sm:border-[#ffc040]/10 sm:pl-4">
+                    <div className="text-[10px] font-mono text-[#ffc040]/40 uppercase tracking-widest mb-1.5">Your edge</div>
+                    <p className="text-xs text-[#fff8e8]/80 leading-relaxed">{edge}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
