@@ -11,6 +11,9 @@ import {
   getTicksByCategory,
   tickEmitter,
   tickStore,
+  getCurrencyStrength,
+  getForexTicks,
+  startForexFeed,
 } from "./liveFeeds";
 
 let lastFetch = 0;
@@ -27,6 +30,7 @@ setTimeout(() => autoRefresh(), 800);
 
 // Start live WebSocket feeds immediately
 startLiveFeeds();
+startForexFeed();
 
 function parseJson(v: string, fb: any) { try { return JSON.parse(v); } catch { return fb; } }
 
@@ -163,6 +167,15 @@ export async function registerRoutes(_: Server, app: Express) {
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   app.get("/api/stats", (req, res) => res.json(storage.getStats()));
+
+  // Currency strength endpoints
+  app.get("/api/currency/strength", (_req, res) => {
+    res.json(getCurrencyStrength());
+  });
+
+  app.get("/api/currency/forex", (_req, res) => {
+    res.json(getForexTicks());
+  });
 
   // ── Crypto meta ───────────────────────────────────────────────────────────
   app.get("/api/meta/crypto", (req, res) => {

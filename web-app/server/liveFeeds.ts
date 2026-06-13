@@ -506,3 +506,137 @@ export function getStockTicks(): Tick[] {
 export function getOilTicks(): Tick[] {
   return Array.from(tickStore.values()).filter(t => t.category === "oil");
 }
+
+// ─── Currency Strength ────────────────────────────────────────────────────────
+
+const MAJOR_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "NZD"];
+
+// Forex pairs to fetch — each currency vs USD and cross pairs for strength calc
+const FOREX_PAIRS = [
+  "EURUSD=X","GBPUSD=X","USDJPY=X","USDCHF=X","AUDUSD=X","USDCAD=X","NZDUSD=X",
+  "EURGBP=X","EURJPY=X","GBPJPY=X","AUDJPY=X","CADJPY=X","EURCHF=X","GBPCHF=X",
+];
+
+export interface ForexTick {
+  symbol: string;
+  base: string;
+  quote: string;
+  price: number;
+  change1h: number;
+  change1d: number;
+  updatedAt: number;
+}
+
+export interface CurrencyStrength {
+  currency: string;
+  strength1h: number;  // 0-100
+  strength1d: number;  // 0-100
+  rank1h: number;
+  rank1d: number;
+  updatedAt: number;
+}
+
+const forexStore = new Map<string, ForexTick>();
+let forexPoller: NodeJS.Timeout | null = null;
+
+async function fetchForexBatch(): Promise<void> {
+  const symbols = FOREX_PAIRS.join(',');
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+    "Referer": "https://finance.yahoo.com",
+  };
+  const urls = [
+    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`,
+    `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`,
+  ];
+
+  for (const url of urls) {
+    try {
+      const r = await axios.get(url, { timeout: 10000, headers });
+      const results: any[] = r.data?.quoteResponse?.result || [];
+      const now = Date.now();
+      for (const q of results) {
+        const sym: string = q.symbol || '';
+        // Parse base/quote from symbol like EURUSD=X
+        const clean = sym.replace('=X', '');
+        const base = clean.slice(0, 3).toUpperCase();
+        const quote = clean.slice(3, 6).toUpperCase();
+        const price = q.regularMarketPrice ?? 0;
+        const change1d = q.regularMarketChangePercent ?? 0;
+        // Estimate 1h change as ~1/6 of daily change (approximation)
+        const change1h = change1d / 6;
+        forexStore.set(sym, { symbol: sym, base, quote, price, change1h, change1d, updatedAt: now });
+      }
+      console.log(`[Forex] Updated ${results.length} pairs`);
+      return;
+    } catch (e: any) {
+      console.warn(`[Forex] batch fetch failed: ${e.message}`);
+    }
+  }
+}
+
+export function getCurrencyStrength(): CurrencyStrength[] {
+  const now = Date.now();
+  // Calculate strength score for each currency based on its performance vs all others
+  const scores1h: Record<string, number[]> = {};
+  const scores1d: Record<string, number[]> = {};
+
+  for (const cur of MAJOR_CURRENCIES) {
+    scores1h[cur] = [];
+    scores1d[cur] = [];
+  }
+
+  for (const tick of forexStore.values()) {
+    const { base, quote, change1h, change1d } = tick;
+    // Base currency gained if change is positive
+    if (scores1h[base]) scores1h[base].push(change1h);
+    if (scores1d[base]) scores1d[base].push(change1d);
+    // Quote currency lost if change is positive (inverse)
+    if (scores1h[quote]) scores1h[quote].push(-change1h);
+    if (scores1d[quote]) scores1d[quote].push(-change1d);
+  }
+
+  // Average scores
+  const raw1h: Record<string, number> = {};
+  const raw1d: Record<string, number> = {};
+  for (const cur of MAJOR_CURRENCIES) {
+    raw1h[cur] = scores1h[cur].length ? scores1h[cur].reduce((a, b) => a + b, 0) / scores1h[cur].length : 0;
+    raw1d[cur] = scores1d[cur].length ? scores1d[cur].reduce((a, b) => a + b, 0) / scores1d[cur].length : 0;
+  }
+
+  // Normalize to 0-100
+  const vals1h = Object.values(raw1h);
+  const vals1d = Object.values(raw1d);
+  const min1h = Math.min(...vals1h), max1h = Math.max(...vals1h);
+  const min1d = Math.min(...vals1d), max1d = Math.max(...vals1d);
+  const norm = (v: number, min: number, max: number) => max === min ? 50 : Math.round(((v - min) / (max - min)) * 100);
+
+  const result = MAJOR_CURRENCIES.map(cur => ({
+    currency: cur,
+    strength1h: norm(raw1h[cur], min1h, max1h),
+    strength1d: norm(raw1d[cur], min1d, max1d),
+    rank1h: 0,
+    rank1d: 0,
+    updatedAt: now,
+  }));
+
+  // Rank (1 = strongest)
+  const sorted1h = [...result].sort((a, b) => b.strength1h - a.strength1h);
+  const sorted1d = [...result].sort((a, b) => b.strength1d - a.strength1d);
+  for (let i = 0; i < result.length; i++) {
+    result[i].rank1h = sorted1h.findIndex(r => r.currency === result[i].currency) + 1;
+    result[i].rank1d = sorted1d.findIndex(r => r.currency === result[i].currency) + 1;
+  }
+
+  return result.sort((a, b) => a.rank1d - b.rank1d);
+}
+
+export function getForexTicks(): ForexTick[] {
+  return Array.from(forexStore.values());
+}
+
+export function startForexFeed() {
+  fetchForexBatch();
+  forexPoller = setInterval(fetchForexBatch, 60000); // refresh every 60s (forex moves slow)
+}

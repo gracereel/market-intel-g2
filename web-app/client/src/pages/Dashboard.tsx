@@ -13,7 +13,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "crypto" | "futures" | "stocks" | "oil";
+type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency";
 
 interface Tick {
   symbol: string;
@@ -597,6 +597,95 @@ function SentimentDonut({ bull, bear, neut }: { bull: number; bear: number; neut
   );
 }
 
+// ─── Currency Strength Panel ────────────────────────────────────────────────
+interface CurrencyStrength {
+  currency: string;
+  strength1h: number;
+  strength1d: number;
+  rank1h: number;
+  rank1d: number;
+  updatedAt: number;
+}
+
+function CurrencyStrengthPanel() {
+  const [timeframe, setTimeframe] = useState<"1h" | "1d">("1d");
+  const { data, isLoading } = useQuery<CurrencyStrength[]>({
+    queryKey: ["/api/currency/strength"],
+    refetchInterval: 60000,
+  });
+
+  const FLAGS: Record<string, string> = {
+    USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵",
+    CHF: "🇨🇭", AUD: "🇦🇺", CAD: "🇨🇦", NZD: "🇳🇿",
+  };
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-48 text-white/30 font-mono text-sm">
+      Loading currency data...
+    </div>
+  );
+
+  if (!data || data.length === 0) return (
+    <div className="flex items-center justify-center h-48 text-white/30 font-mono text-sm">
+      Waiting for forex data...
+    </div>
+  );
+
+  const sorted = [...data].sort((a, b) =>
+    timeframe === "1h" ? b.strength1h - a.strength1h : b.strength1d - a.strength1d
+  );
+
+  return (
+    <div className="p-4 space-y-3">
+      {/* Timeframe toggle */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-white/40 font-mono text-xs uppercase tracking-wider">Currency Strength</span>
+        <div className="flex gap-1">
+          {(["1h", "1d"] as const).map(tf => (
+            <button key={tf} onClick={() => setTimeframe(tf)}
+              className={`px-3 py-1 rounded text-xs font-mono font-bold transition-colors ${
+                timeframe === tf ? "bg-green-500 text-black" : "bg-white/5 text-white/40 hover:bg-white/10"
+              }`}>
+              {tf.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Strength bars */}
+      {sorted.map((c, i) => {
+        const strength = timeframe === "1h" ? c.strength1h : c.strength1d;
+        const rank = timeframe === "1h" ? c.rank1h : c.rank1d;
+        const color = strength >= 70 ? "#22c55e" : strength >= 40 ? "#eab308" : "#ef4444";
+        const label = strength >= 70 ? "Strong" : strength >= 40 ? "Neutral" : "Weak";
+        return (
+          <div key={c.currency} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{FLAGS[c.currency] || "🏳️"}</span>
+                <span className="font-mono font-bold text-white text-sm">{c.currency}</span>
+                <span className="text-white/30 font-mono text-xs">#{rank}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs" style={{ color }}>{label}</span>
+                <span className="font-mono font-bold text-sm" style={{ color }}>{strength}</span>
+              </div>
+            </div>
+            <div className="w-full bg-white/5 rounded-full h-2">
+              <div className="h-2 rounded-full transition-all duration-500"
+                style={{ width: `${strength}%`, backgroundColor: color }} />
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="text-white/20 font-mono text-[10px] text-center pt-2">
+        Based on 14 major forex pairs · Updates every 60s
+      </div>
+    </div>
+  );
+}
+
 // ─── G1 Preview Modal ─────────────────────────────────────────────────────────
 function G1Modal({ text, onClose }: { text: string; onClose: () => void }) {
   return (
@@ -916,10 +1005,11 @@ export default function Dashboard() {
   };
 
   const tabs: { id: Tab; label: string; icon: any; count: number }[] = [
-    { id: "crypto",  label: "Crypto",  icon: Bitcoin,   count: cryptoTicks.length },
-    { id: "futures", label: "Futures", icon: BarChart2,  count: futuresTicks.length },
-    { id: "stocks",  label: "Stocks",  icon: TrendingUp, count: stockTicks.length },
-    { id: "oil",     label: "Oil",     icon: Fuel,       count: oilTicks.length },
+    { id: "crypto",   label: "Crypto",   icon: Bitcoin,   count: cryptoTicks.length },
+    { id: "futures",  label: "Futures",  icon: BarChart2,  count: futuresTicks.length },
+    { id: "stocks",   label: "Stocks",   icon: TrendingUp, count: stockTicks.length },
+    { id: "oil",      label: "Oil",      icon: Fuel,       count: oilTicks.length },
+    { id: "currency", label: "FX",       icon: Activity,   count: 8 },
   ];
 
   const currentTicks = filterTicks(
@@ -1011,7 +1101,7 @@ export default function Dashboard() {
       </div>
 
       {/* Search bar */}
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+      {tab !== "currency" && <div className="px-4 pt-3 pb-2 flex items-center gap-2">
         <button
           onClick={() => setShowSearch(true)}
           className="flex items-center gap-2 flex-1 max-w-sm text-left text-xs font-mono border border-white/8 rounded-lg px-3 h-8 bg-white/2 text-white/25 hover:border-green-500/30 hover:bg-green-500/4 hover:text-white/50 transition-all"
@@ -1024,10 +1114,17 @@ export default function Dashboard() {
         <span className="text-[10px] text-white/20 font-mono shrink-0">
           {currentTicks.length.toLocaleString()} coins
         </span>
-      </div>
+      </div>}
+
+      {/* Currency Strength Panel */}
+      {tab === "currency" && (
+        <main className="px-4 pb-8 mt-2">
+          <CurrencyStrengthPanel />
+        </main>
+      )}
 
       {/* Grid */}
-      <main className="px-4 pb-8">
+      {tab !== "currency" && <main className="px-4 pb-8">
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-2">
             {Array.from({ length: 24 }).map((_, i) => (
@@ -1051,7 +1148,7 @@ export default function Dashboard() {
             })}
           </div>
         )}
-      </main>
+      </main>}
 
       {/* Coin detail modal */}
       {selectedTick && (
