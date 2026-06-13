@@ -8,7 +8,8 @@ import {
   Search, X, TrendingUp, TrendingDown, Minus,
   Glasses, Zap, Bitcoin, BarChart2, Fuel, RefreshCw,
   AlertTriangle, ExternalLink, Newspaper, Radio,
-  ChevronRight, Activity, Command, Star
+  ChevronRight, Activity, Command, Star,
+  Bell, Filter, Flame, Clock, ArrowUpRight, Globe
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1077,7 +1078,7 @@ function G1Modal({ text, onClose }: { text: string; onClose: () => void }) {
 }
 
 // ─── Coin Detail Modal ────────────────────────────────────────────────────────
-function CoinModal({ tick, onClose }: { tick: Tick; onClose: () => void }) {
+function CoinModal({ tick, onClose, favSet, toggleFav }: { tick: Tick; onClose: () => void; favSet?: Set<string>; toggleFav?: (t: Tick) => void }) {
   const [newsFilter, setNewsFilter] = useState<"all" | "bullish" | "bearish" | "neutral">("all");
   const [g1Text, setG1Text] = useState<string | null>(null);
   const sym = tick.symbol.replace("USDT", "");
@@ -1120,7 +1121,25 @@ function CoinModal({ tick, onClose }: { tick: Tick; onClose: () => void }) {
               <div className="text-[10px] text-white/40 font-mono">{sym} · {tick.category.toUpperCase()}</div>
             </div>
           </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
+          <div className="flex items-center gap-2">
+            {favSet && toggleFav && (() => {
+              const isFav = favSet.has(tick.symbol);
+              return (
+                <button
+                  onClick={() => toggleFav(tick)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
+                    isFav
+                      ? "bg-yellow-400/15 border-yellow-400/30 text-yellow-400"
+                      : "bg-white/5 border-white/10 text-white/40 hover:bg-yellow-400/10 hover:border-yellow-400/30 hover:text-yellow-400"
+                  }`}
+                >
+                  <Star className="w-3 h-3" fill={isFav ? "currentColor" : "none"} />
+                  {isFav ? "Saved" : "Watchlist"}
+                </button>
+              );
+            })()}
+            <button onClick={onClose} className="text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
+          </div>
         </div>
 
         <div className="p-5 space-y-5">
@@ -1308,6 +1327,226 @@ function CoinModal({ tick, onClose }: { tick: Tick; onClose: () => void }) {
 // ─── Favorites hook ─────────────────────────────────────────────────────────
 interface FavoriteRecord { id: number; symbol: string; name: string; category: string; addedAt: string; }
 
+// ─── NewsItem types ────────────────────────────────────────────────────────
+interface NewsArticle {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  sentiment: "bullish" | "bearish" | "neutral";
+  sentimentScore: number;
+  impactLevel: "high" | "medium" | "low";
+  buyerPressure: number;
+  sellerPressure: number;
+  category: string;
+  tags: string[];
+}
+
+// ─── NewsPanel ─────────────────────────────────────────────────────────────
+function NewsPanel({ onClose }: { onClose: () => void }) {
+  const [filter, setFilter] = useState<"all" | "bullish" | "bearish" | "high">("all");
+  const [inputVal, setInputVal] = useState("");
+  const [deepSearch, setDeepSearch] = useState("");
+
+  const params = new URLSearchParams({ limit: "60" });
+  if (filter === "bullish") params.set("sentiment", "bullish");
+  if (filter === "bearish") params.set("sentiment", "bearish");
+  if (filter === "high")    params.set("sentiment", "high_impact");
+  if (deepSearch)           params.set("search", deepSearch);
+
+  const { data: articles = [], isLoading, refetch } = useQuery<NewsArticle[]>({
+    queryKey: ["/api/news", filter, deepSearch],
+    queryFn: async () => {
+      const r = await apiRequest("GET", `/api/news?${params}`);
+      return r.json();
+    },
+    refetchInterval: 90_000,
+    staleTime: 60_000,
+  });
+
+  const sentColor = (s: string) =>
+    s === "bullish" ? "text-green-400" : s === "bearish" ? "text-red-400" : "text-white/40";
+  const sentBg = (s: string) =>
+    s === "bullish" ? "bg-green-500/10 border-green-500/20" : s === "bearish" ? "bg-red-500/10 border-red-500/20" : "bg-white/3 border-white/8";
+
+  return (
+    <div className="fixed inset-0 z-80 flex justify-end" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-sm bg-[hsl(224_18%_6%)] border-l border-white/8 flex flex-col shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Panel Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 bg-[hsl(224_18%_7%)]">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-green-400" />
+            <span className="text-sm font-bold text-white">Market News</span>
+            <span className="text-[9px] font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded">{articles.length}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => refetch()}
+              className="text-white/30 hover:text-white/70 p-1 rounded transition-colors"
+              title="Refresh"
+            >
+              <Clock className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={onClose} className="text-white/30 hover:text-white p-1 rounded transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Deep Search */}
+        <div className="px-3 pt-3 pb-2">
+          <form
+            onSubmit={e => { e.preventDefault(); setDeepSearch(inputVal); }}
+            className="flex items-center gap-2"
+          >
+            <div className="flex-1 flex items-center gap-2 bg-white/5 border border-white/8 rounded-lg px-3 py-1.5">
+              <Search className="w-3 h-3 text-white/30 flex-shrink-0" />
+              <input
+                type="text"
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                placeholder="Deep search news..."
+                className="bg-transparent text-xs text-white placeholder-white/25 outline-none w-full"
+              />
+              {inputVal && (
+                <button type="button" onClick={() => { setInputVal(""); setDeepSearch(""); }} className="text-white/30 hover:text-white/70">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="bg-green-500/15 border border-green-500/25 text-green-400 text-[10px] font-mono px-2.5 py-1.5 rounded-lg hover:bg-green-500/25 transition-colors"
+            >
+              GO
+            </button>
+          </form>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-1.5 px-3 pb-3">
+          {(["all","bullish","bearish","high"] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`text-[10px] font-mono px-2 py-1 rounded border transition-all ${
+                filter === f
+                  ? f === "bullish" ? "bg-green-500/15 border-green-500/30 text-green-400"
+                  : f === "bearish" ? "bg-red-500/15 border-red-500/30 text-red-400"
+                  : f === "high"    ? "bg-orange-500/15 border-orange-500/30 text-orange-400"
+                  : "bg-white/10 border-white/20 text-white"
+                  : "bg-transparent border-white/8 text-white/35 hover:text-white/70 hover:border-white/20"
+              }`}
+            >
+              {f === "all" ? "All" : f === "bullish" ? "🟢 Bull" : f === "bearish" ? "🔴 Bear" : "🔥 Impact"}
+            </button>
+          ))}
+        </div>
+
+        {/* Article List */}
+        <div className="flex-1 overflow-y-auto px-3 space-y-2 pb-4">
+          {isLoading ? (
+            <div className="space-y-2 mt-1">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-20 bg-white/3 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : articles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-white/25 text-xs font-mono">
+              <Globe className="w-8 h-8 mb-2 opacity-30" />
+              No news found
+            </div>
+          ) : (
+            articles.map(article => (
+              <a
+                key={article.id}
+                href={article.url || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`block rounded-lg border p-3 hover:border-white/20 transition-all group ${sentBg(article.sentiment)}`}
+              >
+                {/* Top row: source + time + sentiment */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[9px] font-mono text-white/30 uppercase tracking-wider">{article.source}</span>
+                  <div className="flex items-center gap-1.5">
+                    {article.impactLevel === "high" && (
+                      <span title="High Impact"><Flame className="w-3 h-3 text-orange-400" /></span>
+                    )}
+                    <span className={`text-[9px] font-mono font-bold uppercase ${sentColor(article.sentiment)}`}>
+                      {article.sentiment}
+                    </span>
+                    <span className="text-[9px] font-mono text-white/20">{ago(new Date(article.publishedAt).getTime())}</span>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div className="text-xs font-semibold text-white leading-snug mb-1.5 group-hover:text-green-300 transition-colors">
+                  {article.title}
+                </div>
+
+                {/* Summary */}
+                {article.summary && (
+                  <div className="text-[10px] text-white/40 leading-snug line-clamp-2 mb-2">
+                    {article.summary}
+                  </div>
+                )}
+
+                {/* Buyer / Seller pressure bars */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-[9px] font-mono mb-0.5">
+                      <span className="text-green-400">BUY {article.buyerPressure}%</span>
+                      <span className="text-red-400">SELL {article.sellerPressure}%</span>
+                    </div>
+                    <div className="h-1 bg-white/8 rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-green-500/70 rounded-l-full transition-all"
+                        style={{ width: `${article.buyerPressure}%` }}
+                      />
+                      <div
+                        className="h-full bg-red-500/70 rounded-r-full transition-all"
+                        style={{ width: `${article.sellerPressure}%` }}
+                      />
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-3 h-3 text-white/15 group-hover:text-white/50 transition-colors flex-shrink-0" />
+                </div>
+
+                {/* Tags */}
+                {article.tags && article.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {article.tags.slice(0, 4).map(tag => (
+                      <span key={tag} className="text-[8px] font-mono px-1.5 py-0.5 bg-white/5 border border-white/8 text-white/25 rounded">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </a>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-white/8 px-4 py-2 flex items-center justify-between">
+          <span className="text-[9px] font-mono text-white/20">Auto-refresh 90s · Deep search powered</span>
+          <button
+            onClick={() => refetch()}
+            className="text-[9px] font-mono text-green-400/60 hover:text-green-400 transition-colors flex items-center gap-1"
+          >
+            <Clock className="w-2.5 h-2.5" /> Refresh now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function useFavorites() {
   const { data: favs = [], refetch } = useQuery<FavoriteRecord[]>({
     queryKey: ["/api/favorites"],
@@ -1339,10 +1578,10 @@ function StarBtn({ tick, favSet, toggle }: { tick: Tick; favSet: Set<string>; to
     <button
       data-testid={`star-${tick.symbol}`}
       onClick={e => { e.stopPropagation(); toggle(tick); }}
-      className={`absolute top-1.5 right-1.5 p-0.5 rounded transition-all ${
+      className={`absolute top-1 right-1 p-1 rounded-md transition-all z-10 ${
         isFav
-          ? "text-yellow-400 opacity-100"
-          : "text-white/20 opacity-0 group-hover:opacity-100 hover:text-yellow-400"
+          ? "text-yellow-400 bg-yellow-400/10"
+          : "text-white/30 hover:text-yellow-400 hover:bg-yellow-400/10 bg-black/20"
       }`}
       title={isFav ? "Remove from Watchlist" : "Add to Watchlist"}
     >
@@ -1358,6 +1597,7 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [selectedTick, setSelectedTick] = useState<Tick | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [showNews, setShowNews] = useState(false);
   const { ticks, connected } = useLiveTicks();
   const { favs, favSet, toggle: toggleFav } = useFavorites();
 
@@ -1404,10 +1644,21 @@ export default function Dashboard() {
   }, [ticks]);
 
   // Favorite ticks — matched from live tickStore so they get real-time prices
+  // Key format in tickStore: crypto:BTC, futures:BTCUSDT, stocks:SPY, oil:CL=F
   const favoriteTicks = useMemo(() => {
     return favs
-      .map(f => ticks.get(`${f.category}:${f.symbol}`) ?? ticks.get(f.symbol))
-      .filter((t): t is Tick => !!t);
+      .map(f => {
+        // Try direct key first, then fallback variations
+        return (
+          ticks.get(`${f.category}:${f.symbol}`) ??
+          ticks.get(`crypto:${f.symbol}`) ??
+          ticks.get(`futures:${f.symbol}`) ??
+          ticks.get(`stocks:${f.symbol}`) ??
+          ticks.get(`oil:${f.symbol}`) ??
+          null
+        );
+      })
+      .filter((t): t is Tick => t !== null);
   }, [favs, ticks]);
 
   // All ticks merged for global search (crypto sorted by volume first)
@@ -1493,6 +1744,21 @@ export default function Dashboard() {
             <kbd className="hidden sm:inline text-[9px] border border-white/10 px-1 rounded text-white/25">⌘K</kbd>
           </button>
 
+          {/* News Bell icon */}
+          <button
+            data-testid="open-news"
+            onClick={() => setShowNews(n => !n)}
+            className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-2 py-1 rounded transition-all ${
+              showNews
+                ? "border-green-500/40 bg-green-500/10 text-green-400"
+                : "border-white/10 text-white/40 hover:text-white hover:border-white/20"
+            }`}
+            title="Market News"
+          >
+            <Bell className="w-3 h-3" />
+            <span className="hidden sm:inline">News</span>
+          </button>
+
           {/* G2 Glasses icon */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono border border-white/10 px-2 py-1 rounded text-white/40">
             <Glasses className="w-3 h-3" />
@@ -1576,9 +1842,16 @@ export default function Dashboard() {
             {currentTicks.map(tick => {
               const cat = tick.category;
               const base = tick.symbol.replace("USDT", "");
-              const atrKey = (cat === "crypto" || cat === "futures")
-                ? (atrData?.[`crypto:${base}`] ?? atrData?.[`other:${tick.symbol.replace("=F","F")}`])
-                : atrData?.[`other:${tick.symbol}`];
+              // ATR lookup: try all key formats that the ATR service might use
+              const atrKey = atrData
+                ? (atrData[`crypto:${base}`]                                          // perp/crypto base
+                  ?? atrData[`crypto:${tick.symbol}`]                                 // full USDT symbol
+                  ?? atrData[`other:${tick.symbol}`]                                  // display name (WTI, BRENT, SPY...)
+                  ?? atrData[`other:${base}`]                                         // base without USDT
+                  ?? atrData[`other:${tick.symbol.replace("=F","F")}`]               // legacy =F→F
+                  ?? atrData[`forex:${tick.symbol}`]                                  // forex pair
+                  ?? null)
+                : null;
               const starBtn = <StarBtn tick={tick} favSet={favSet} toggle={toggleFav} />;
               if (cat === "crypto") {
                 return <CoinCard key={tick.symbol} tick={tick} onClick={() => setSelectedTick(tick)} atr={atrKey} starBtn={starBtn} />;
@@ -1592,9 +1865,12 @@ export default function Dashboard() {
         )}
       </main>}
 
+      {/* News Panel */}
+      {showNews && <NewsPanel onClose={() => setShowNews(false)} />}
+
       {/* Coin detail modal */}
       {selectedTick && (
-        <CoinModal tick={selectedTick} onClose={() => setSelectedTick(null)} />
+        <CoinModal tick={selectedTick} onClose={() => setSelectedTick(null)} favSet={favSet} toggleFav={toggleFav} />
       )}
 
       {/* Global search overlay */}

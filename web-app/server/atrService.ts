@@ -163,12 +163,29 @@ async function refreshATR() {
   }));
   console.log(`[ATR] Futures perps done: ${atrStore.size} symbols`);
 
+  // Display name map mirrors liveFeeds.ts DISPLAY_MAP
+  const DISPLAY_NAME: Record<string, string> = {
+    "ES=F":"ES", "NQ=F":"NQ", "YM=F":"YM", "RTY=F":"RTY",
+    "GC=F":"GC", "SI=F":"SI", "ZB=F":"ZB", "CL=F":"WTI",
+    "BZ=F":"BRENT", "NG=F":"NG", "RB=F":"RB", "HG=F":"HG",
+    "^VIX":"VIX",
+  };
+
   // 3. Stocks + traditional futures — Yahoo (throttled to avoid 429)
   for (const sym of ALL_STOCKS_FUTURES) {
     const result = await fetchYahooATR(sym);
     if (result) {
-      const key = sym.replace("=X","").replace("=F","F").replace("^","");
-      atrStore.set(`other:${key}`, { ...result, updatedAt: now });
+      const baseKey = sym.replace("=X","").replace("=F","F").replace("^","");
+      atrStore.set(`other:${baseKey}`, { ...result, updatedAt: now });
+      // Also store under display name (e.g. "WTI" for CL=F, "BRENT" for BZ=F)
+      const dispName = DISPLAY_NAME[sym];
+      if (dispName && dispName !== baseKey) {
+        atrStore.set(`other:${dispName}`, { ...result, updatedAt: now });
+      }
+      // For plain stocks (no =F), store under the symbol directly
+      if (!sym.includes("=") && !sym.startsWith("^")) {
+        atrStore.set(`other:${sym}`, { ...result, updatedAt: now });
+      }
     }
     await delay(300);
   }
