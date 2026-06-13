@@ -577,27 +577,33 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
+    if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node) &&
-          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-sentdrop]") && !target.closest("[data-sentbtn]")) {
         setOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [open]);
 
   const handleOpen = () => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + 4, left: rect.left });
+      setDropPos({ top: rect.bottom + 6, left: rect.left });
     }
     setOpen(o => !o);
+  };
+
+  const selectSymbol = (sym: string | null) => {
+    setSelectedSymbol(sym);
+    setOpen(false);
+    setQuery("");
   };
 
   const selectedTick = selectedSymbol ? ticks.get(selectedSymbol) : null;
@@ -654,12 +660,13 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
       <div className="px-4 py-3 flex flex-wrap items-center gap-3 relative">
 
         {/* Header + Pair Selector */}
-        <div className="flex items-center gap-2 shrink-0 relative" ref={dropRef}>
+        <div className="flex items-center gap-2 shrink-0 relative">
           <span className="w-1.5 h-1.5 rounded-full bg-[#ffc040] animate-pulse shrink-0" />
           <span className="text-[9px] font-mono text-[#ffc040]/45 uppercase tracking-widest shrink-0 hidden sm:block">Sentiment</span>
 
           <button
             ref={btnRef}
+            data-sentbtn="1"
             onClick={handleOpen}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#ffc040]/25 bg-[#181410] hover:border-[#ffc040]/50 hover:bg-[#1e1a0f] transition-all text-[10px] font-mono font-bold text-[#ffc040] max-w-[180px]"
           >
@@ -668,7 +675,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </button>
 
           {open && (
-            <div ref={dropRef} className="fixed w-64 z-[500] rounded-xl border border-[#ffc040]/25 bg-[#0d0a06] shadow-[0_8px_40px_rgba(0,0,0,0.85)] overflow-hidden" style={{ top: dropPos.top, left: dropPos.left }}>
+            <div data-sentdrop="1" className="fixed w-72 z-[9999] rounded-xl border border-[#ffc040]/25 bg-[#0d0a06] shadow-[0_8px_40px_rgba(0,0,0,0.9)]" style={{ top: dropPos.top, left: dropPos.left }}>
               <div className="px-3 py-2 border-b border-[#ffc040]/10">
                 <input
                   autoFocus
@@ -679,7 +686,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
                 />
               </div>
               <button
-                onClick={() => { setSelectedSymbol(null); setOpen(false); setQuery(""); }}
+                onClick={() => selectSymbol(null)}
                 className={`w-full text-left px-3 py-2.5 text-[10px] font-mono hover:bg-[#ffc040]/8 transition-all flex items-center gap-2 border-b border-[#ffc040]/8 ${!selectedSymbol ? "text-[#ffc040] bg-[#ffc040]/6" : "text-[#ffc040]/55"}`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ffc040]/40" />
@@ -689,7 +696,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
                 {filtered.map(t => (
                   <button
                     key={t.symbol}
-                    onClick={() => { setSelectedSymbol(t.symbol); setOpen(false); setQuery(""); }}
+                    onClick={() => selectSymbol(t.symbol)}
                     className={`w-full text-left px-3 py-2 text-[10px] font-mono hover:bg-[#ffc040]/8 transition-all flex items-center justify-between gap-2 ${selectedSymbol === t.symbol ? "text-[#ffc040] bg-[#ffc040]/6" : "text-[#fff8e8]/70"}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
