@@ -516,7 +516,7 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
   // The semicircle is always the FULL track path.
   // We reveal pct% of it via dashoffset. The SVG is just a rectangle.
   const W = size;
-  const sw = Math.round(W * 0.16);   // thicker stroke to match reference
+  const sw = Math.round(W * 0.18);   // bold speedometer stroke
   const R = (W - sw) / 2 - 2;       // radius fills width
   const cx = W / 2;
   const cy = W / 2 + 2;
@@ -750,7 +750,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               const displayPct = single ? pct : Math.round((bull / total) * 100);
               const color = sentColor(label);
               const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
-              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={100} />;
+              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={130} />;
             })}
             {/* Divider */}
             <div style={{ width:1, height:80, background:"rgba(255,192,64,0.12)", flexShrink:0 }} />
@@ -759,7 +759,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
               const color = sentColor(verdict);
               const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
-              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={130} />;
+              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={160} />;
             })()}
             {/* Live price */}
             {selectedTick && (
