@@ -512,67 +512,55 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
   const isFinal = size >= 110;
-  // ── Bulletproof semicircle gauge ──
-  // The SVG canvas is W wide and W tall (square).
-  // cx = W/2, cy = W/2 (dead center of square).
-  // The semicircle arc goes LEFT → TOP → RIGHT over the upper half.
-  // We only DISPLAY the top half: viewBox clips at y=0 (top of square).
-  // Key: sw/2 inner margin ensures caps never reach y=0.
+  // Uses stroke-dasharray trick: no arc endpoint math = no clipping ever.
+  // The semicircle is always the FULL track path.
+  // We reveal pct% of it via dashoffset. The SVG is just a rectangle.
   const W = size;
-  const sw = Math.round(W * 0.10);  // stroke width
-  // Push cy DOWN so the arc top has generous clearance above y=0
+  const sw = Math.round(W * 0.16);   // thicker stroke to match reference
+  const R = (W - sw) / 2 - 2;       // radius fills width
   const cx = W / 2;
-  const cy = Math.round(W * 0.62);  // center well below top — arc top has ~18% W of room
-  const R  = Math.round(W * 0.44);  // radius: arc fills width nicely
-  // arc top y = cy - R - sw/2 = 0.62W - 0.44W - 0.05W = 0.13W above top — no clip
+  const cy = W / 2 + 2;
 
-  // ViewBox: 0 to cy+sw/2+4 (just past the bottom of the stroke at center line)
-  const vH = cy + Math.round(sw / 2) + 4;
+  // Full semicircle circumference (half circle)
+  const semi = Math.PI * R;         // π * R
 
-  const lx = (cx - R).toFixed(1);
-  const rx = (cx + R).toFixed(1);
-  const cyS = cy.toFixed(1);
-  const RS = R.toFixed(1);
+  // dasharray = full semicircle length; dashoffset = hidden portion
+  const dashTotal = semi;
+  const dashFill  = (pct / 100) * semi;
+  const dashOffset = semi - dashFill;  // hide from right end backwards
 
-  // Track: full semicircle left → right sweeping clockwise over top
-  const trackD = `M ${lx} ${cyS} A ${RS} ${RS} 0 0 1 ${rx} ${cyS}`;
+  // The SVG height = cy + sw/2 + 6 (just past the bottom endpoints)
+  const svgH = cy + sw / 2 + 6;
 
-  // Fill: sweep pct% of 180° CW from left
-  // At angle θ from left: point = (cx - R·cosθ, cy - R·sinθ)
-  const theta = (Math.min(pct, 99.9) / 100) * Math.PI;
-  const ex = (cx - R * Math.cos(theta)).toFixed(1);
-  const ey = (cy - R * Math.sin(theta)).toFixed(1);
-  const lg = pct > 50 ? 1 : 0;
-  const fillD = `M ${lx} ${cyS} A ${RS} ${RS} 0 ${lg} 1 ${ex} ${ey}`;
+  // Track path: left endpoint → arc over top → right endpoint (fixed, never changes)
+  const lx = (cx - R).toFixed(1), rx = (cx + R).toFixed(1), cyS = cy.toFixed(1), RS = R.toFixed(1);
+  const arcPath = `M ${lx} ${cyS} A ${RS} ${RS} 0 0 1 ${rx} ${cyS}`;
+
+  // ViewBox top = 0, but arc top = cy - R = W/2+2 - (W/2-sw/2-4) = sw/2+6 ≥ 11px from top
+  // So the stroke (sw/2 outward from arc) top = sw/2+6 - sw/2 = 6px from top — safe.
 
   return (
     <div style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
+      display: "flex", flexDirection: "column", alignItems: "center",
       background: "#100d07",
       border: "1px solid rgba(255,192,64,0.13)",
       borderRadius: 16,
-      padding: "0px 12px 10px",
-      paddingTop: Math.round(W * 0.14),
+      paddingTop: 8, paddingBottom: 10, paddingLeft: 12, paddingRight: 12,
       minWidth: W + 16,
       flexShrink: 0,
-      overflow: "visible",
     }}>
-      <svg
-        width={W}
-        height={vH}
-        viewBox={`0 0 ${W} ${vH}`}
-        style={{ display: "block", overflow: "visible" }}
-      >
-        <path d={trackD} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={sw} strokeLinecap="round" />
+      <svg width={W} height={svgH} viewBox={`0 0 ${W} ${svgH}`} style={{ display: "block", overflow: "visible" }}>
+        {/* Track — full dim semicircle */}
+        <path d={arcPath} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={sw} strokeLinecap="round" />
+        {/* Fill — same path, revealed via dasharray */}
         {pct > 0 && (
           <path
-            d={fillD}
+            d={arcPath}
             fill="none"
             stroke={color}
             strokeWidth={sw}
             strokeLinecap="round"
+            strokeDasharray={`${dashFill.toFixed(2)} ${(dashTotal - dashFill + 999).toFixed(2)}`}
             style={{ filter: `drop-shadow(0 0 6px ${color}aa)` }}
           />
         )}
