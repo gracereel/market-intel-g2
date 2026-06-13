@@ -85,6 +85,16 @@ sqlite.exec(`
   );
 `);
 
+// Invite passwords table
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS invite_passwords (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL DEFAULT '',
+    password TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Migration: add missing columns if they don't exist
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN category TEXT NOT NULL DEFAULT 'stocks'`); } catch {}
 try { sqlite.exec(`ALTER TABLE news_items ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`); } catch {}
@@ -113,6 +123,13 @@ export interface Position {
   closePrice: number | null;
 }
 
+export interface InvitePassword {
+  id: number;
+  label: string;
+  password: string;
+  createdAt: string;
+}
+
 export interface WaitlistEntry {
   id: number;
   email: string;
@@ -137,6 +154,10 @@ export interface IStorage {
   isFavorite(symbol: string): boolean;
   addToWaitlist(email: string, name: string, reason: string): { success: boolean; alreadyExists: boolean };
   getWaitlist(): WaitlistEntry[];
+  getInvitePasswords(): InvitePassword[];
+  addInvitePassword(label: string, password: string): { success: boolean; alreadyExists: boolean };
+  deleteInvitePassword(id: number): void;
+  checkInvitePassword(password: string): boolean;
   getPositions(): Position[];
   addPosition(data: { symbol: string; name: string; category: string; entryPrice: number; quantity: number; targetPrice?: number | null; stopLoss?: number | null; notes?: string }): Position;
   updatePosition(id: number, data: Partial<{ targetPrice: number | null; stopLoss: number | null; quantity: number; notes: string; status: string; closedAt: string; closePrice: number }>): Position | null;
@@ -226,6 +247,27 @@ export const storage: IStorage = {
   getWaitlist(): WaitlistEntry[] {
     const rows = sqlite.prepare(`SELECT * FROM waitlist ORDER BY joined_at DESC`).all() as any[];
     return rows.map(r => ({ id: r.id, email: r.email, name: r.name, reason: r.reason, source: r.source, status: r.status, joinedAt: r.joined_at }));
+  },
+
+  getInvitePasswords(): InvitePassword[] {
+    const rows = sqlite.prepare(`SELECT * FROM invite_passwords ORDER BY created_at DESC`).all() as any[];
+    return rows.map(r => ({ id: r.id, label: r.label, password: r.password, createdAt: r.created_at }));
+  },
+
+  addInvitePassword(label: string, password: string): { success: boolean; alreadyExists: boolean } {
+    const existing = sqlite.prepare(`SELECT id FROM invite_passwords WHERE password = ?`).get(password) as any;
+    if (existing) return { success: false, alreadyExists: true };
+    sqlite.prepare(`INSERT INTO invite_passwords (label, password) VALUES (?, ?)`).run(label, password);
+    return { success: true, alreadyExists: false };
+  },
+
+  deleteInvitePassword(id: number): void {
+    sqlite.prepare(`DELETE FROM invite_passwords WHERE id = ?`).run(id);
+  },
+
+  checkInvitePassword(password: string): boolean {
+    const row = sqlite.prepare(`SELECT id FROM invite_passwords WHERE password = ?`).get(password) as any;
+    return !!row;
   },
 
   getPositions(): Position[] {

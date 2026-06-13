@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "node:http";
 import cookieParser from "cookie-parser";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -74,8 +75,11 @@ app.post('/auth/login', (req: Request, res: Response) => {
   const body = req.body || {};
   const password = (body.password || '').trim();
   const expected = (APP_PASSWORD || '').trim();
-  console.log('[auth] login attempt, password length:', password.length, 'expected length:', expected.length);
-  if (expected && password === expected) {
+  console.log('[auth] login attempt, password length:', password.length);
+  // Accept master password OR any active invite password
+  const isMaster = expected && password === expected;
+  const isInvite = !isMaster && storage.checkInvitePassword(password);
+  if (isMaster || isInvite) {
     res.cookie(AUTH_COOKIE, 'ok', { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
     res.redirect('/');
   } else {
@@ -99,7 +103,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     req.path.startsWith('/auth') ||
     req.path === '/login' ||
     req.path === '/' ||
-    req.path === '';
+    req.path === '';  // Landing + Admin use their own auth (hash routing serves index.html)
   if (isPublic) return next();
   const cookie = req.cookies?.[AUTH_COOKIE];
   if (cookie === 'ok') return next();

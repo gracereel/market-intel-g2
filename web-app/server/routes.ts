@@ -82,11 +82,37 @@ export async function registerRoutes(_: Server, app: Express) {
     res.json({ success: true, message: "You're on the list! We'll be in touch soon." });
   });
 
-  // Admin only — protected by password
-  app.get("/api/waitlist", (req, res) => {
+  // Admin only — protected by master password
+  const adminAuth = (req: any, res: any, next: any) => {
     const auth = req.headers.authorization;
     if (auth !== `Bearer ${process.env.APP_PASSWORD}`) return res.status(401).json({ error: "Unauthorized" });
+    next();
+  };
+
+  app.get("/api/waitlist", adminAuth, (req, res) => {
     res.json(storage.getWaitlist());
+  });
+
+  // ── Invite passwords (admin only) ─────────────────────────────────────────
+  app.get("/api/invites", adminAuth, (_req, res) => {
+    res.json(storage.getInvitePasswords());
+  });
+
+  app.post("/api/invites", adminAuth, (req, res) => {
+    const { label = "", password } = req.body || {};
+    if (!password || String(password).trim().length < 4) {
+      return res.status(400).json({ error: "Password must be at least 4 characters" });
+    }
+    const result = storage.addInvitePassword(String(label).trim(), String(password).trim());
+    if (result.alreadyExists) return res.status(409).json({ error: "That password already exists" });
+    res.json({ success: true });
+  });
+
+  app.delete("/api/invites/:id", adminAuth, (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    storage.deleteInvitePassword(id);
+    res.json({ success: true });
   });
 
   // ── Assets (list) ─────────────────────────────────────────────────────────

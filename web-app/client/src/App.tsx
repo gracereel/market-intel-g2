@@ -5,6 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
+import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/admin" component={Admin} />
           <Route component={NotFound} />
         </Switch>
       </Router>
