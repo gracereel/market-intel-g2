@@ -453,7 +453,7 @@ async function pollStocks() {
       });
       changed.push(key);
     } catch {}
-    await sleep(800); // stagger requests to avoid rate limiting
+    await sleep(300); // stagger requests to avoid rate limiting
   }
 
   if (changed.length) {
@@ -481,7 +481,7 @@ export function startLiveFeeds() {
 
   // Poll stocks/oil every 5 seconds (Yahoo chart API - one call per ticker)
   pollStocks();
-  stockPoller = setInterval(pollStocks, 30000);
+  stockPoller = setInterval(pollStocks, 10000);
 
   console.log("[LiveFeeds] All feeds started");
 }
