@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  TrendingUp, Zap, Globe, Bell, Star, Shield,
+  Zap, Bell, Star, Shield,
   ArrowRight, ChevronDown, BarChart2, Activity,
-  Bitcoin, Target, Newspaper, Eye
+  Target, Newspaper, Smartphone, Monitor
 } from "lucide-react";
 
 // ── Animated counter ──────────────────────────────────────────────────────────
@@ -206,19 +206,19 @@ export default function Landing() {
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#ffc040]/25 bg-[#ffc040]/8 text-[10px] font-mono text-[#ffc040] uppercase tracking-widest mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-[#ffc040] animate-pulse" />
-          Live Market Intelligence · Built for G2 Smart Glasses
+          Live Market Intelligence · Web & Mobile
         </div>
 
         <h1 className="text-5xl sm:text-6xl font-bold text-[#fff8e8] leading-tight mb-6" style={{ fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em" }}>
-          The Market Terminal<br />
+          Your Market Terminal,<br />
           <span style={{ background: "linear-gradient(135deg, #ffc040, #ffd970)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            In Your Glasses
+            Anywhere You Trade
           </span>
         </h1>
 
         <p className="text-base text-[#ffc040]/65 max-w-2xl mx-auto leading-relaxed mb-10">
-          Real-time crypto, stocks, futures and forex — all streaming live to your Even Realities G2.
-          Deep news search, AI sentiment, position tracking, and breaking alerts. Built for serious traders.
+          Real-time crypto, stocks, futures and forex — streamed live with zero delay on web and mobile.
+          Deep news search, AI sentiment, position tracking, and breaking sound alerts. Built for serious traders.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -295,15 +295,15 @@ export default function Landing() {
           <h2 className="text-3xl font-bold text-[#fff8e8]" style={{ fontFamily: "'Playfair Display', serif" }}>Built for serious traders</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <FeatureCard icon={Zap}        color="#ffc040" title="Live Streaming Prices"      desc="WebSocket feeds from Binance for crypto and futures. Zero delay. Prices flash on every tick." />
-          <FeatureCard icon={Newspaper}  color="#ff9040" title="Deep News Search"           desc="AI-powered market news with sentiment scoring, buyer/seller pressure, and impact ratings." />
-          <FeatureCard icon={Bell}       color="#ffcc60" title="Breaking Alert Sound"       desc="High-impact news triggers an audio chime and a banner — click to read the full article instantly." />
-          <FeatureCard icon={Target}     color="#ffc040" title="Position Tracker"           desc="Log your entry price, quantity, take profit and stop loss. Track live P&L with visual range bars." />
-          <FeatureCard icon={Activity}   color="#ff8040" title="Currency Strength (FX)"    desc="28 forex pairs across 1H/4H/1D/1W. Strength rankings, heatmap, and DXY index live." />
-          <FeatureCard icon={Eye}        color="#ffd060" title="G2 Glasses HUD"            desc="Designed for Even Realities G2 — see prices, alerts, and news on your lens while your hands are free." />
-          <FeatureCard icon={BarChart2}  color="#ffc040" title="ATR Coverage"              desc="ATR-14 on every asset — crypto, futures, stocks, oil, and all 28 forex pairs." />
-          <FeatureCard icon={Star}       color="#ffb030" title="Watchlist"                 desc="Star any coin across any category. Your watchlist syncs live so your favourites are always front and centre." />
-          <FeatureCard icon={Shield}     color="#ffc040" title="Private & Secure"          desc="Password protected. Your positions and watchlist saved privately in your own database." />
+          <FeatureCard icon={Zap}        color="#ffc040" title="Live Streaming Prices"  desc="WebSocket feeds from Binance for crypto and futures. Zero delay. Prices flash on every tick in real time." />
+          <FeatureCard icon={Newspaper}  color="#ff9040" title="Deep News Search"       desc="AI-powered market news with sentiment scoring, buyer/seller pressure bars, and high-impact ratings." />
+          <FeatureCard icon={Bell}       color="#ffcc60" title="Breaking Sound Alerts"  desc="High-impact news triggers an audio chime and a clickable banner that takes you straight to the article." />
+          <FeatureCard icon={Target}     color="#ffc040" title="Position Tracker"       desc="Log entry price, quantity, take profit and stop loss. Track live P&L with animated visual range bars." />
+          <FeatureCard icon={Activity}   color="#ff8040" title="Currency Strength (FX)" desc="28 forex pairs across 1H / 4H / 1D / 1W. Strength rankings and DXY index — all live." />
+          <FeatureCard icon={Smartphone} color="#ffd060" title="Mobile Ready"           desc="Fully responsive. Open on your phone and get the same live dashboard, news, and alerts on the go." />
+          <FeatureCard icon={BarChart2}  color="#ffc040" title="ATR on Every Asset"     desc="ATR-14 on every instrument — crypto, futures, stocks, oil, and all 28 forex pairs." />
+          <FeatureCard icon={Star}       color="#ffb030" title="Watchlist & Favorites"  desc="Star any asset across any category. Your watchlist syncs live so your picks are always front and centre." />
+          <FeatureCard icon={Monitor}    color="#ffc040" title="Web Dashboard"          desc="A full-screen professional terminal in your browser. No downloads, no installs — just open and trade." />
         </div>
       </section>
 
@@ -316,7 +316,7 @@ export default function Landing() {
               Get on the list
             </h2>
             <p className="text-sm text-[#ffc040]/55 leading-relaxed">
-              Market Intel G2 is currently invite-only. Join the waitlist and we'll reach out when your spot is ready.
+              Market Intel is currently invite-only. Join the waitlist and we'll reach out when your spot is ready.
             </p>
           </div>
           <WaitlistForm />
@@ -331,7 +331,7 @@ export default function Landing() {
             <path d="M8 14a6 6 0 1 1 6 6H8v-3h4a3 3 0 1 0-3-3H8v-3z" fill="#ffc040" />
             <rect x="18" y="8" width="2.5" height="12" rx="1.25" fill="#ffc040" />
           </svg>
-          <span className="text-xs font-mono text-[#ffc040]/40">Market Intel G2 · Built for Even Realities G2</span>
+          <span className="text-xs font-mono text-[#ffc040]/40">Market Intel · Web & Mobile Trading Terminal</span>
         </div>
         <p className="text-[10px] font-mono text-[#ffc040]/25">© 2026 · Invite-only beta</p>
       </footer>
