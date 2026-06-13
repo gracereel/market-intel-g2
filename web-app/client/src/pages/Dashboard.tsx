@@ -517,7 +517,7 @@ function TickerTape({ allTicks }: { allTicks: Map<string, Tick> }) {
     return Array.from(allTicks.values())
       .filter(t => t.category === "crypto")
       .sort((a, b) => b.quoteVolume - a.quoteVolume)
-      .slice(0, 10);
+      .slice(0, 20);
   }, [allTicks]);
 
   if (items.length === 0) return null;
@@ -1901,6 +1901,34 @@ function useNewsAlert() {
           seenIds.current.add(fresh.id);
           setAlert(fresh);
           setVisible(true);
+          // Play subtle alert chime
+          try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const playTone = (freq: number, startTime: number, duration: number, vol: number) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.type = "sine";
+              osc.frequency.setValueAtTime(freq, startTime);
+              gain.gain.setValueAtTime(0, startTime);
+              gain.gain.linearRampToValueAtTime(vol, startTime + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+              osc.start(startTime);
+              osc.stop(startTime + duration);
+            };
+            const t = ctx.currentTime;
+            // High-impact = 3-note ascending chime; normal = 2-note soft ping
+            const isHigh = fresh.impactLevel === "high";
+            if (isHigh) {
+              playTone(880, t,        0.18, 0.18);
+              playTone(1100, t + 0.14, 0.16, 0.15);
+              playTone(1320, t + 0.28, 0.22, 0.20);
+            } else {
+              playTone(660, t,        0.18, 0.12);
+              playTone(880, t + 0.16, 0.22, 0.10);
+            }
+          } catch { /* AudioContext blocked — silent fallback */ }
           if (dismissTimer.current) clearTimeout(dismissTimer.current);
           dismissTimer.current = setTimeout(dismiss, 8000);
         }
@@ -2361,7 +2389,7 @@ export default function Dashboard() {
 
   const tabs: { id: Tab; label: string; icon: any; count: number }[] = [
     { id: "favorites", label: "Watchlist", icon: Star,        count: favs.length },
-    { id: "crypto",    label: "Crypto",    icon: Bitcoin,     count: Math.min(10, cryptoTicks.length) },
+    { id: "crypto",    label: "Crypto",    icon: Bitcoin,     count: Math.min(20, cryptoTicks.length) },
     { id: "futures",   label: "Futures",   icon: BarChart2,   count: futuresTicks.length },
     { id: "stocks",    label: "Stocks",    icon: TrendingUp,  count: stockTicks.length },
     { id: "oil",       label: "Oil",       icon: Fuel,        count: oilTicks.length },
@@ -2376,8 +2404,8 @@ export default function Dashboard() {
       tab === "futures"   ? futuresTicks :
       tab === "stocks"    ? stockTicks : oilTicks;
 
-    // Crypto tab: show only top 10 by volume unless user is searching
-    const pool = (tab === "crypto" && !search) ? base.slice(0, 10) : base;
+    // Crypto tab: show only top 20 by volume unless user is searching
+    const pool = (tab === "crypto" && !search) ? base.slice(0, 20) : base;
     return filterTicks(pool);
   }, [tab, cryptoTicks, futuresTicks, stockTicks, oilTicks, favoriteTicks, search]);
 
