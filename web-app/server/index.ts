@@ -96,12 +96,14 @@ app.get('/auth/logout', (_req: Request, res: Response) => {
   res.redirect('/login');
 });
 
-// Auth middleware — protects all routes except /login, /auth, /api, and root / (landing page)
+// Auth middleware — protects all routes except /login, /auth, /api, root / (landing page), and static assets
 app.use((req: Request, res: Response, next: NextFunction) => {
   const isPublic =
     req.path.startsWith('/api') ||
     req.path.startsWith('/auth') ||
+    req.path.startsWith('/assets') ||
     req.path === '/login' ||
+    req.path === '/favicon.ico' ||
     req.path === '/' ||
     req.path === '';  // Landing + Admin use their own auth (hash routing serves index.html)
   if (isPublic) return next();
