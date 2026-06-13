@@ -738,7 +738,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
 
       {/* Bar */}
       <div style={{ background: "#060401", borderTop: "1px solid rgba(255,192,64,0.12)", borderBottom: "1px solid rgba(255,192,64,0.12)" }}>
-        <div style={{ padding: "12px 16px", display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ padding: "20px 16px 12px 16px", display:"flex", alignItems:"center", gap:12 }}>
 
           {/* Selector button */}
           <div className="flex items-center gap-2 shrink-0">
@@ -755,7 +755,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div style={{ display:"flex", alignItems:"flex-end", gap:8, overflowX:"auto", overflowY:"visible", flex:1, paddingBottom:4, paddingTop:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, overflowX:"auto", overflowY:"visible", flex:1, paddingBottom:4, paddingTop:4, paddingLeft:4 }}>
             {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
