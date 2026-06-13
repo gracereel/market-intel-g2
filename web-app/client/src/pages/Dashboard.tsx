@@ -512,29 +512,38 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
   const isFinal = size >= 110;
-  // Fixed geometry — center at bottom of a square canvas
-  // This guarantees the full semicircle always fits with no clipping
+  // Geometry: place cx,cy at centre of a square canvas.
+  // The arc sweeps the TOP half of the circle.
+  // We pad the viewBox by sw/2 on every side so rounded caps never clip.
   const W = size;
-  const sw = W * 0.12;
-  const R = W * 0.38;
+  const sw = Math.round(W * 0.11);          // stroke width
+  const R  = (W - sw) / 2 - 2;              // radius — fits inside padded square
   const cx = W / 2;
-  const cy = W / 2 + sw / 2; // center below midpoint so top of arc has room
-  // ViewBox shows full square so nothing clips
-  const vH = cy + sw / 2 + 2;
+  const cy = W / 2;                          // true center of square canvas
+  const pad = Math.ceil(sw / 2) + 2;        // padding = half stroke + safety
+  // ViewBox expands upward & sideways by pad so caps never hit the edge
+  const vbX = -pad;
+  const vbY = -(pad);                        // expands UP so top cap fits
+  const vbW = W + pad * 2;
+  const vbH = cy + pad;                      // only show top half + bottom padding
 
-  // Track: full semicircle from left to right across the top (sweep=1 = clockwise in SVG)
-  const trackD = `M ${(cx - R).toFixed(1)} ${cy.toFixed(1)} A ${R.toFixed(1)} ${R.toFixed(1)} 0 0 1 ${(cx + R).toFixed(1)} ${cy.toFixed(1)}`;
+  // Track arc: left (180°) → right (0°) sweeping CW over the top
+  const trackD = `M ${(cx - R).toFixed(2)} ${cy.toFixed(2)} A ${R.toFixed(2)} ${R.toFixed(2)} 0 0 1 ${(cx + R).toFixed(2)} ${cy.toFixed(2)}`;
 
-  // Fill: from left endpoint, sweep (pct/100 * 180deg) clockwise
-  const rad = (pct / 100) * Math.PI;
-  // moving clockwise from left (180deg): new angle = 180 - deg_swept
-  // in SVG coords (y-down, angles CW): 
-  //   left endpoint = (cx-R, cy)
-  //   after sweeping rad radians CW along top:
-  const ex = (cx - R * Math.cos(rad)).toFixed(1);
-  const ey = (cy - R * Math.sin(rad)).toFixed(1);
-  const lg = pct >= 50 ? 1 : 0;
-  const fillD = `M ${(cx - R).toFixed(1)} ${cy.toFixed(1)} A ${R.toFixed(1)} ${R.toFixed(1)} 0 ${lg} 1 ${ex} ${ey}`;
+  // Fill arc: from left, sweep pct% of 180° clockwise
+  // SVG angle convention (y-down, CW positive):
+  //   angle 180° = left = (cx-R, cy)
+  //   sweeping CW by θ rad → new point = (cx + R·cos(π-θ), cy - R·sin(π-θ))
+  //                                     = (cx - R·cos(θ),   cy - R·sin(θ))
+  const theta = (pct / 100) * Math.PI;      // 0 → π
+  const ex = (cx - R * Math.cos(theta)).toFixed(2);
+  const ey = (cy - R * Math.sin(theta)).toFixed(2);
+  const lg = pct > 50 ? 1 : 0;             // large-arc flag
+  const fillD = pct >= 100
+    ? trackD                                 // full semicircle
+    : `M ${(cx - R).toFixed(2)} ${cy.toFixed(2)} A ${R.toFixed(2)} ${R.toFixed(2)} 0 ${lg} 1 ${ex} ${ey}`;
+
+  const svgH = cy + pad;                    // rendered height = half circle + bottom pad
 
   return (
     <div style={{
@@ -546,14 +555,19 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
       minWidth: W + 20,
       flexShrink: 0,
     }}>
-      <svg width={W} height={vH} viewBox={`0 0 ${W} ${vH}`}>
+      <svg
+        width={W + pad * 2}
+        height={svgH + pad}
+        viewBox={`${vbX} ${vbY} ${vbW} ${vbH + pad}`}
+        style={{ overflow: "visible", display: "block" }}
+      >
         <path d={trackD} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={sw} strokeLinecap="round"/>
         {pct > 0 && (
           <path d={fillD} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 6px ${color}bb)` }}/>
+            style={{ filter: `drop-shadow(0 0 5px ${color}cc)` }}/>
         )}
       </svg>
-      <div style={{ textAlign:"center", marginTop: 10 }}>
+      <div style={{ textAlign:"center", marginTop: 6 }}>
         <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color, fontFamily:"monospace", lineHeight:1 }}>{pct}%</div>
         <div style={{ fontSize: isFinal ? 11 : 9, color:"rgba(255,248,232,0.55)", marginTop:3, fontFamily:"sans-serif" }}>{label}</div>
       </div>
