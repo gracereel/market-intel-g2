@@ -240,7 +240,7 @@ function GlobalSearch({ allTicks, onSelect, onClose }: {
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-sm font-mono font-bold text-white">${fmtPrice(tick.price)}</div>
-                  <div className={`text-[11px] font-mono ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+                  <div className={`text-[11px] font-mono ${isUp ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
                     {isUp ? "+" : ""}{tick.changePercent.toFixed(2)}%
                   </div>
                 </div>
@@ -385,7 +385,7 @@ function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => 
           <div className="font-mono text-base font-bold text-[#f0f4ff] leading-tight">
             ${fmtPrice(tick.price)}
           </div>
-          <div className={`text-[11px] font-mono font-semibold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+          <div className={`text-[11px] font-mono font-semibold ${isUp ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
         </div>
@@ -393,7 +393,7 @@ function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => 
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-[#3b8bf6]/58 font-mono">Vol {fmtVol(tick.quoteVolume || tick.volume)}</span>
         {atr && (
-          <span className="text-[10px] font-mono text-[#3b8bf6]/85 font-semibold" title="ATR-14 (daily expected move)">
+          <span className="text-[10px] font-mono font-semibold" style={{ color: atr.atrPct >= 0 ? "#f0f4ff" : "#ff5566" }} title="ATR-14 (daily expected move)">
             ATR {atr.atrPct.toFixed(2)}%
           </span>
         )}
@@ -435,7 +435,7 @@ function FuturesCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () 
         </div>
         <div className="text-right">
           <div className="font-mono text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
-          <div className={`text-[11px] font-mono ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+          <div className={`text-[11px] font-mono ${isUp ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
         </div>
@@ -450,7 +450,7 @@ function FuturesCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () 
       </div>
       {atr && (
         <div className="mt-1 text-right">
-          <span className="text-[10px] font-mono text-[#3b8bf6]/85 font-semibold" title="ATR-14 (daily expected move)">
+          <span className="text-[10px] font-mono font-semibold" style={{ color: atr.atrPct >= 0 ? "#f0f4ff" : "#ff5566" }} title="ATR-14 (daily expected move)">
             ATR {atr.atrPct.toFixed(2)}%
           </span>
         </div>
@@ -491,7 +491,7 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
         </div>
         <div className="text-right">
           <div className="font-mono text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
-          <div className={`text-[11px] font-mono ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+          <div className={`text-[11px] font-mono ${isUp ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
         </div>
@@ -499,7 +499,7 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-[#3b8bf6]/58 font-mono">Vol {fmtVol(tick.volume)}</span>
         {atr && (
-          <span className="text-[10px] font-mono text-[#3b8bf6]/85 font-semibold" title="ATR-14 (daily expected move)">
+          <span className="text-[10px] font-mono font-semibold" style={{ color: atr.atrPct >= 0 ? "#f0f4ff" : "#ff5566" }} title="ATR-14 (daily expected move)">
             ATR {atr.atrPct.toFixed(2)}%
           </span>
         )}
@@ -812,7 +812,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
                     <span className="text-xs font-bold font-mono" style={{ color: "#3b8bf6" }}>{t.symbol}</span>
                     <span className="text-[10px] font-mono truncate" style={{ color: "rgba(59,139,246,0.35)" }}>{t.name}</span>
                   </div>
-                  <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: (t.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
+                  <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: (t.changePercent ?? 0) >= 0 ? "#f0f4ff" : "#ff5566" }}>
                     {(t.changePercent ?? 0) >= 0 ? "+" : ""}{(t.changePercent ?? 0).toFixed(2)}%
                   </span>
                 </button>
@@ -865,7 +865,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
                 <span className="text-lg font-bold font-mono" style={{ color: "#f0f4ff" }}>
                   ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                 </span>
-                <span className="text-xs font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
+                <span className="text-xs font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#f0f4ff" : "#ff5566" }}>
                   {(selectedTick.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(selectedTick.changePercent ?? 0).toFixed(2)}%
                 </span>
               </div>
@@ -910,7 +910,7 @@ function TickerTape({ allTicks }: { allTicks: Map<string, Tick> }) {
             <span key={`${sym}-${i}`} className="flex items-center shrink-0" style={{ paddingRight: "28px" }}>
               <span className="font-bold mr-1" style={{ color }}>{sym}</span>
               <span className="text-white/90 mr-1">${fmtPrice(tick.price)}</span>
-              <span className={`font-semibold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+              <span className={`font-semibold ${isUp ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
                 {isUp ? "▲" : "▼"}{Math.abs(tick.changePercent).toFixed(2)}%
               </span>
               <span className="text-white/10 ml-7">|</span>
@@ -1159,7 +1159,7 @@ function CurrencyStrengthPanel() {
         <div className="mx-4 mt-3 flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-500/8 border border-blue-500/20">
           <span className="text-blue-400 font-mono font-bold text-xs tracking-widest">DXY</span>
           <span className="text-white font-mono font-bold text-base">{dxyData.value.toFixed(2)}</span>
-          <span className={`text-xs font-mono font-bold ${dxyData.change1d >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+          <span className={`text-xs font-mono font-bold ${dxyData.change1d >= 0 ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
             {fmtChg(dxyData.change1d)}
           </span>
           <span className="text-[#3b8bf6]/30 text-[10px] font-mono ml-auto">US Dollar Index · 1D</span>
@@ -1241,10 +1241,10 @@ function CurrencyStrengthPanel() {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <span className={`text-[10px] font-mono mr-2 ${c.change1h >= 0 ? "text-[#3b8bf6]/60" : "text-[#ff5566]/60"}`}>
+                      <span className={`text-[10px] font-mono mr-2 ${c.change1h >= 0 ? "text-[#f0f4ff]/70" : "text-[#ff5566]/60"}`}>
                         {fmtChg(c.change1h)} 1H
                       </span>
-                      <span className={`text-[10px] font-mono ${c.change1d >= 0 ? "text-[#3b8bf6]/60" : "text-[#ff5566]/60"}`}>
+                      <span className={`text-[10px] font-mono ${c.change1d >= 0 ? "text-[#f0f4ff]/70" : "text-[#ff5566]/60"}`}>
                         {fmtChg(c.change1d)} 1D
                       </span>
                     </div>
@@ -1315,13 +1315,13 @@ function CurrencyStrengthPanel() {
                           </div>
                         </td>
                         <td className="text-right text-white/80">{fmtPx(p.price, isJPY)}</td>
-                        <td className={`text-right ${p.change1h >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+                        <td className={`text-right ${p.change1h >= 0 ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
                           {fmtChg(p.change1h)}
                         </td>
-                        <td className={`text-right ${p.change4h >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+                        <td className={`text-right ${p.change4h >= 0 ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
                           {fmtChg(p.change4h)}
                         </td>
-                        <td className={`text-right ${p.change1d >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+                        <td className={`text-right ${p.change1d >= 0 ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
                           {fmtChg(p.change1d)}
                         </td>
                         <td className={`text-right ${p.change1w >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
@@ -1632,7 +1632,7 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
           <div className={`rounded-xl border p-4 ${flash === "up" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/40" : flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/38" : "bg-[#111827]/80 border-[#3b8bf6]/10"} transition-all duration-300`}>
             <div className="flex items-baseline gap-3">
               <span className="font-mono text-2xl font-bold text-white">${fmtPrice(tick.price)}</span>
-              <span className={`font-mono text-sm font-semibold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+              <span className={`font-mono text-sm font-semibold ${isUp ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
                 {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
               </span>
               {tick.category === "crypto" || tick.category === "futures" ? (
@@ -2226,7 +2226,7 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
                       <span className="text-[9px] font-mono text-[#3b8bf6]/30">→ Close ${p.closePrice ? fmtPrice(p.closePrice) : "—"}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-mono font-bold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
+                      <span className={`text-[9px] font-mono font-bold ${isUp ? "text-[#f0f4ff]" : "text-[#ff5566]"}`}>
                         {pnl !== null ? `${isUp ? "+" : ""}$${fmtPrice(Math.abs(pnl))} (${pnlPct!.toFixed(2)}%)` : "—"}
                       </span>
                       <button onClick={() => remove(p.id)} className="text-[#3b8bf6]/20 hover:text-[#ff5566] transition-colors">
