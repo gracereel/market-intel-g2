@@ -154,14 +154,24 @@ const spotWsConnections: WebSocket[] = [];
 
 // Dead / collapsed / duplicate coins — block from appearing in the app
 const BLOCKLIST = new Set([
-  "MATIC",  // rebranded to POL — same coin, show POL only
-  "LUNC",   // Terra Luna Classic — collapsed May 2022
-  "LUNA",   // Terra 2.0 — effectively dead
-  "USTC",   // collapsed UST stablecoin
-  "UST",    // same collapsed stablecoin
-  "LUNA2",  // another Terra variant
-  "BUSD",   // Binance USD — discontinued
+  // Rebranded / duplicate
+  "MATIC",  // rebranded to POL
   "BTTC",   // BitTorrent old chain
+
+  // Dead / collapsed coins
+  "LUNC", "LUNA", "LUNA2", "USTC", "UST",
+
+  // Stablecoins — not tradeable assets
+  "USDC", "USDT", "BUSD", "DAI", "FDUSD", "TUSD", "USDP", "GUSD",
+  "USDD", "SUSD", "FRAX", "LUSD", "USD1", "PYUSD", "CEUR", "CUSD",
+
+  // Gold/commodity tokens (shown separately in oil tab)
+  "XAUT", "PAXG",
+
+  // Low quality / meme coins with no fundamentals
+  "BABY", "NIGHT", "MEGA", "RIF", "DEXE", "STG",
+  "LAZIO", "PORTO", "SANTOS", "ATM", "BAR", "CITY", "JUV", "PSG", "ACM", "ASR", "OG",
+  "ALPACA", "CHESS", "AUCTION", "AUTO",
 ]);
 
 function processSpotTickers(tickers: any[]) {
