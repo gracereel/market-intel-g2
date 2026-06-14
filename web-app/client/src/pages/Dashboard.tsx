@@ -30,6 +30,8 @@ interface Tick {
   low: number;
   open: number;
   updatedAt: number;
+  bid?: number;
+  ask?: number;
   fundingRate?: number;
   openInterest?: number;
   rank?: number;
@@ -618,8 +620,31 @@ function getSentimentForTick(tick: Tick, tf: string): { label: string; score: nu
     else if (distFromLow  < 0.15) breakout = -0.5; // approaching low
   }
 
-  // 5. Combine: momentum 50%, range position 20%, body 10%, breakout 20%
-  const raw = momentum * 0.50 + rangeSignal * 0.20 + bodySignal * 0.10 + breakout * 0.20;
+  // 5. Bid/Ask order pressure
+  // bid > ask proximity to price = buying pressure (bullish)
+  // ask >> bid = selling pressure (bearish)
+  // Order imbalance = (bid - ask) / spread, normalized to [-1, 1]
+  let orderPressure = 0;
+  const bid = tick.bid ?? 0;
+  const ask = tick.ask ?? 0;
+  if (bid > 0 && ask > 0 && price > 0) {
+    const spread = ask - bid;
+    // Mid price vs actual price: if price closer to ask = buyers lifting offers = bullish
+    const mid = (bid + ask) / 2;
+    const pressureRaw = spread > 0 ? (price - mid) / (spread / 2) : 0;
+    orderPressure = Math.max(-1, Math.min(1, pressureRaw));
+  }
+
+  // 6. Funding rate signal (futures only) — negative = shorts paying longs = bullish
+  let fundingSignal = 0;
+  if (tick.fundingRate !== undefined) {
+    // Funding rates typically -0.1% to +0.1% per 8h
+    fundingSignal = Math.max(-1, Math.min(1, -(tick.fundingRate) * 1000));
+  }
+
+  // 7. Combine all signals
+  // Momentum 40%, breakout 20%, range position 15%, bid/ask 15%, body 5%, funding 5%
+  const raw = momentum * 0.40 + breakout * 0.20 + rangeSignal * 0.15 + orderPressure * 0.15 + bodySignal * 0.05 + fundingSignal * 0.05;
   const score = Math.max(-1, Math.min(1, raw));
 
   const abs = Math.abs(score);

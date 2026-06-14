@@ -35,6 +35,9 @@ export interface Tick {
   open: number;
   quoteVolume: number;
   updatedAt: number; // ms timestamp
+  // order book
+  bid?: number;
+  ask?: number;
   // futures-specific
   fundingRate?: number;
   openInterest?: number;
@@ -449,10 +452,58 @@ async function pollStocks() {
   }
 }
 
+// ─── 3. Binance Spot bookTicker — real-time best bid/ask ─────────────────────
+// Stream: wss://stream.binance.com:9443/ws/!bookTicker
+// Gives best bid price + qty, best ask price + qty for every symbol in real time
+
+let bookWs: WebSocket | null = null;
+
+function startBookTicker() {
+  if (bookWs) { try { bookWs.terminate(); } catch {} }
+  bookWs = new WebSocket("wss://stream.binance.com:9443/ws/!bookTicker");
+
+  bookWs.on("open", () => {
+    console.log("[BookTicker] Connected — streaming bid/ask for all pairs");
+  });
+
+  bookWs.on("message", (raw: Buffer) => {
+    try {
+      const d = JSON.parse(raw.toString());
+      // d = { u, s, b, B, a, A } — symbol, bestBid, bestAsk
+      const sym = d.s as string;
+      if (!sym || !sym.endsWith("USDT")) return;
+      const base = sym.replace("USDT", "");
+      const key = `crypto:${base}`;
+      const existing = tickStore.get(key);
+      if (existing) {
+        existing.bid = parseFloat(d.b) || existing.bid;
+        existing.ask = parseFloat(d.a) || existing.ask;
+      }
+      // Also update futures
+      const futKey = `futures:${sym}`;
+      const futExisting = tickStore.get(futKey);
+      if (futExisting) {
+        futExisting.bid = parseFloat(d.b) || futExisting.bid;
+        futExisting.ask = parseFloat(d.a) || futExisting.ask;
+      }
+    } catch {}
+  });
+
+  bookWs.on("close", () => {
+    console.log("[BookTicker] Disconnected — reconnecting in 3s");
+    setTimeout(startBookTicker, 3000);
+  });
+
+  bookWs.on("error", () => {
+    try { bookWs?.terminate(); } catch {}
+  });
+}
+
 // ─── Start all feeds ──────────────────────────────────────────────────────────
 
 export function startLiveFeeds() {
   connectBinanceSpot();
+  startBookTicker();
 
   // Binance Futures WS: try WebSocket, fall back to REST if no USDT perp data after 8s
   // (Yahoo futures already populates "futures" category, so check for USDT perps specifically)
