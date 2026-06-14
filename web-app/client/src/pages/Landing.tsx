@@ -192,7 +192,7 @@ export default function Landing() {
             <path d="M8 14a6 6 0 1 1 6 6H8v-3h4a3 3 0 1 0-3-3H8v-3z" fill="#3b8bf6" />
             <rect x="18" y="8" width="2.5" height="12" rx="1.25" fill="#3b8bf6" />
           </svg>
-          <span className="font-bold text-[#f0f4ff] tracking-wide">Market Intel G2</span>
+          <span className="font-bold text-[#f0f4ff] tracking-wide">Market Intel</span>
         </div>
         <div className="flex items-center gap-3">
           <a
