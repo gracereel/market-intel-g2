@@ -566,6 +566,38 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
             style={{ filter: `drop-shadow(0 0 6px ${color}aa)` }}
           />
         )}
+        {/* Zone threshold tick marks — Short(40%) and Long(60%) */}
+        {[
+          { pct: 40, col: "#ff5566", label: "40" },
+          { pct: 60, col: "#4ade80", label: "60" },
+        ].map(({ pct: tp, col, label: tl }) => {
+          // Point on the arc at tp%
+          const tTheta = (tp / 100) * Math.PI;
+          const tx = cx - R * Math.cos(tTheta);
+          const ty = cy - R * Math.sin(tTheta);
+          // Direction outward from center
+          const nx = Math.cos(Math.PI - tTheta);
+          const ny = -Math.sin(Math.PI - tTheta);
+          const tickLen = sw * 0.9;
+          const x1 = (tx - nx * (sw * 0.55)).toFixed(1);
+          const y1 = (ty - ny * (sw * 0.55)).toFixed(1);
+          const x2 = (tx + nx * (tickLen - sw * 0.55)).toFixed(1);
+          const y2 = (ty + ny * (tickLen - sw * 0.55)).toFixed(1);
+          // Label position — slightly further out
+          const lx2 = (tx + nx * (tickLen + 3)).toFixed(1);
+          const ly2 = (ty + ny * (tickLen + 3)).toFixed(1);
+          return (
+            <g key={tp}>
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={col} strokeWidth={1.5} strokeLinecap="round" opacity={0.9} />
+              {!isFinal && (
+                <text x={lx2} y={ly2} textAnchor="middle" dominantBaseline="middle"
+                  style={{ fontSize: W * 0.07, fontFamily: "monospace", fill: col, fontWeight: 700, opacity: 0.85 }}>
+                  {tl}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
       <div style={{ textAlign: "center", marginTop: 8 }}>
         <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color, fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
