@@ -10,12 +10,13 @@ import {
   AlertTriangle, ExternalLink, Newspaper, Radio,
   ChevronRight, Activity, Command, Star,
   Bell, Filter, Flame, Clock, ArrowUpRight, Globe,
-  Target, PlusCircle, Trash2, Edit3, CheckCircle, TrendingUp as TrendUp, ChevronDown
+  Target, PlusCircle, Trash2, Edit3, CheckCircle, TrendingUp as TrendUp, ChevronDown,
+  BellRing, Map, Calendar, TrendingDown as TrendDn, LayoutGrid, Zap as ZapIcon, AlertCircle, Home
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency" | "favorites" | "positions";
+type Tab = "crypto" | "futures" | "stocks" | "oil" | "currency" | "favorites" | "positions" | "heatmap" | "sentiment-table" | "calendar";
 
 interface Tick {
   symbol: string;
@@ -2676,6 +2677,406 @@ function StarBtn({ tick, favSet, toggle }: { tick: Tick; favSet: Set<string>; to
   );
 }
 
+// ─── Price Alerts ─────────────────────────────────────────────────────────────
+interface PriceAlert {
+  id: string;
+  symbol: string;
+  name: string;
+  targetPrice: number;
+  direction: "above" | "below";
+  triggered: boolean;
+  createdAt: number;
+}
+
+function usePriceAlerts(ticks: Map<string, Tick>) {
+  const [alerts, setAlerts] = useState<PriceAlert[]>(() => {
+    try { return JSON.parse(localStorage.getItem("priceAlerts") || "[]"); } catch { return []; }
+  });
+
+  const save = (a: PriceAlert[]) => {
+    setAlerts(a);
+    localStorage.setItem("priceAlerts", JSON.stringify(a));
+  };
+
+  const add = (sym: string, name: string, price: number, dir: "above" | "below") => {
+    const a: PriceAlert = { id: Date.now().toString(), symbol: sym, name, targetPrice: price, direction: dir, triggered: false, createdAt: Date.now() };
+    save([...alerts, a]);
+  };
+
+  const remove = (id: string) => save(alerts.filter(a => a.id !== id));
+
+  useEffect(() => {
+    if (!alerts.length) return;
+    let changed = false;
+    const updated = alerts.map(a => {
+      if (a.triggered) return a;
+      const tick = Array.from(ticks.values()).find(t => t.symbol === a.symbol || t.symbol.replace("USDT","") === a.symbol);
+      if (!tick) return a;
+      const hit = a.direction === "above" ? tick.price >= a.targetPrice : tick.price <= a.targetPrice;
+      if (hit) {
+        changed = true;
+        try {
+          if (Notification.permission === "granted") {
+            new Notification(`🔔 ${a.symbol} Alert Triggered`, {
+              body: `Price ${a.direction === "above" ? "reached" : "dropped to"} $${tick.price.toLocaleString()}`,
+            });
+          }
+        } catch {}
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc = ctx.createOscillator(); const g = ctx.createGain();
+          osc.connect(g); g.connect(ctx.destination);
+          osc.frequency.setValueAtTime(a.direction === "above" ? 1047 : 659, ctx.currentTime);
+          g.gain.setValueAtTime(0.15, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+          osc.start(); osc.stop(ctx.currentTime + 0.6);
+        } catch {}
+        return { ...a, triggered: true };
+      }
+      return a;
+    });
+    if (changed) save(updated);
+  }, [ticks]);
+
+  return { alerts, add, remove };
+}
+
+function PriceAlertsPanel({ ticks, onClose }: { ticks: Map<string, Tick>; onClose: () => void }) {
+  const { alerts, add, remove } = usePriceAlerts(ticks);
+  const [sym, setSym] = useState("");
+  const [price, setPrice] = useState("");
+  const [dir, setDir] = useState<"above" | "below">("above");
+  const allTicks = Array.from(ticks.values());
+
+  useEffect(() => {
+    if (Notification.permission === "default") Notification.requestPermission();
+  }, []);
+
+  const handleAdd = () => {
+    if (!sym || !price) return;
+    const tick = allTicks.find(t => t.symbol.replace("USDT","").toLowerCase() === sym.toLowerCase());
+    add(sym.toUpperCase(), tick?.name || sym.toUpperCase(), parseFloat(price), dir);
+    setSym(""); setPrice("");
+  };
+
+  const active = alerts.filter(a => !a.triggered);
+  const done   = alerts.filter(a =>  a.triggered);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex justify-end bg-[#030201]/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="h-full w-full max-w-sm bg-[#060502] border-l border-[#ffc040]/15 flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#ffc040]/15 bg-[#0d0b07]">
+          <div className="flex items-center gap-2">
+            <BellRing className="w-4 h-4 text-[#ffc040]" />
+            <span className="text-sm font-bold text-white">Price Alerts</span>
+            {active.length > 0 && <span className="text-[9px] font-mono text-[#ffc040]/45 bg-[#221d13] px-1.5 py-0.5 rounded">{active.length} active</span>}
+          </div>
+          <button onClick={onClose} className="text-[#ffc040]/45 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="px-4 py-3 border-b border-[#ffc040]/10 space-y-2">
+          <div className="text-[9px] font-mono text-[#ffc040]/45 uppercase tracking-widest mb-1">New Alert</div>
+          <div className="flex gap-2">
+            <input value={sym} onChange={e => setSym(e.target.value.toUpperCase())}
+              placeholder="BTC, ETH..."
+              className="flex-1 bg-[#181410] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50" />
+            <input value={price} onChange={e => setPrice(e.target.value)} type="number" step="any"
+              placeholder="Target $"
+              className="flex-1 bg-[#181410] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setDir("above")}
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-colors ${dir === "above" ? "bg-[#ffc040]/16 border-[#ffc040]/40 text-[#ffc040]" : "bg-[#181410] border-[#ffc040]/15 text-[#ffc040]/45"}`}>↑ Above</button>
+            <button onClick={() => setDir("below")}
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-colors ${dir === "below" ? "bg-[#ff5566]/16 border-[#ff5566]/40 text-[#ff5566]" : "bg-[#181410] border-[#ffc040]/15 text-[#ffc040]/45"}`}>↓ Below</button>
+          </div>
+          <button onClick={handleAdd}
+            className="w-full py-2 rounded-lg bg-[#ffc040]/14 border border-[#ffc040]/35 text-[#ffc040] text-xs font-mono font-bold hover:bg-[#ffc040]/22 transition-colors">
+            Set Alert
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          {active.length === 0 && done.length === 0 && (
+            <div className="text-center py-12 text-[#ffc040]/30 text-xs font-mono">
+              <BellRing className="w-8 h-8 mx-auto mb-2 opacity-20" />
+              No alerts set
+            </div>
+          )}
+          {active.map(a => (
+            <div key={a.id} className="flex items-center justify-between bg-[#181410] border border-[#ffc040]/15 rounded-xl px-3 py-2.5">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold font-mono text-white">{a.symbol}</span>
+                  <span className={`text-[9px] font-mono font-bold ${a.direction === "above" ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                    {a.direction === "above" ? "↑" : "↓"} ${a.targetPrice.toLocaleString()}
+                  </span>
+                </div>
+                <div className="text-[9px] font-mono text-[#ffc040]/35">{a.name}</div>
+              </div>
+              <button onClick={() => remove(a.id)} className="text-[#ffc040]/25 hover:text-[#ff5566] transition-colors"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          ))}
+          {done.length > 0 && (
+            <>
+              <div className="text-[9px] font-mono text-[#ffc040]/30 uppercase tracking-widest pt-2">Triggered</div>
+              {done.map(a => (
+                <div key={a.id} className="flex items-center justify-between bg-[#0d0a06] border border-[#ffc040]/8 rounded-xl px-3 py-2.5 opacity-50">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle className="w-3 h-3 text-[#ffc040]" />
+                    <span className="text-xs font-mono text-[#ffc040]/68">{a.symbol} {a.direction === "above" ? "↑" : "↓"} ${a.targetPrice.toLocaleString()}</span>
+                  </div>
+                  <button onClick={() => remove(a.id)} className="text-[#ffc040]/20 hover:text-[#ff5566] transition-colors"><X className="w-3 h-3" /></button>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Market Heatmap ───────────────────────────────────────────────────────────
+function MarketHeatmap({ ticks }: { ticks: Map<string, Tick> }) {
+  const all = useMemo(() => {
+    const cryptos = Array.from(ticks.values()).filter(t => t.category === "crypto").sort((a,b) => b.quoteVolume - a.quoteVolume).slice(0,30);
+    const others  = Array.from(ticks.values()).filter(t => t.category !== "crypto");
+    return [...cryptos, ...others];
+  }, [ticks]);
+
+  function heatColor(pct: number) {
+    if (pct >= 5)    return { bg: "rgba(34,197,94,0.55)", text: "#fff" };
+    if (pct >= 2)    return { bg: "rgba(34,197,94,0.35)", text: "#86efac" };
+    if (pct >= 0.5)  return { bg: "rgba(34,197,94,0.18)", text: "#86efac" };
+    if (pct >= 0)    return { bg: "rgba(34,197,94,0.08)", text: "rgba(134,239,172,0.7)" };
+    if (pct >= -0.5) return { bg: "rgba(239,68,68,0.08)", text: "rgba(252,165,165,0.7)" };
+    if (pct >= -2)   return { bg: "rgba(239,68,68,0.18)", text: "#fca5a5" };
+    if (pct >= -5)   return { bg: "rgba(239,68,68,0.35)", text: "#fca5a5" };
+    return                  { bg: "rgba(239,68,68,0.6)",  text: "#fff" };
+  }
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest">24H Change Heatmap</span>
+        <div className="flex items-center gap-1 text-[9px] font-mono">
+          {[[-6,"≤-5%"],[-3,"-2%"],[-1,"flat"],[3,"+2%"],[6,"≥+5%"]].map(([v,l]) => {
+            const {bg,text} = heatColor(Number(v));
+            return <span key={String(l)} className="px-1.5 py-0.5 rounded" style={{background:bg,color:text}}>{l}</span>;
+          })}
+        </div>
+      </div>
+      <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))" }}>
+        {all.map(t => {
+          const sym = t.symbol.replace("USDT","");
+          const pct = t.changePercent ?? 0;
+          const { bg, text } = heatColor(pct);
+          return (
+            <div key={`${t.category}:${t.symbol}`}
+              className="rounded-lg p-2 text-center hover:scale-105 transition-transform cursor-default"
+              style={{ background: bg, border: "1px solid rgba(255,255,255,0.06)" }}
+              title={`${t.name} — ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`}
+            >
+              <div className="text-[10px] font-bold font-mono" style={{ color: text }}>{sym.slice(0,6)}</div>
+              <div className="text-[9px] font-mono mt-0.5" style={{ color: text, opacity: 0.85 }}>
+                {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Multi-Coin Sentiment Table ───────────────────────────────────────────────
+function SentimentTable({ ticks }: { ticks: Map<string, Tick> }) {
+  const [sortCol, setSortCol] = useState<string>("4H");
+  const allTicks = useMemo(() =>
+    Array.from(ticks.values()).filter(t => t.category === "crypto" || t.category === "futures").slice(0,20)
+  , [ticks]);
+
+  const rows = useMemo(() => allTicks.map(t => {
+    const sym = t.symbol.replace("USDT","");
+    const scores: Record<string,number> = {};
+    TIMEFRAMES.forEach(tf => { scores[tf] = Math.round(((getSentimentForTick(t,tf).score+1)/2)*100); });
+    const divergence = Math.abs((scores["5M"]??50) - (scores["1D"]??50));
+    return { sym, name: t.name, scores, divergence, changePercent: t.changePercent??0 };
+  }), [allTicks]);
+
+  const sorted = useMemo(() => [...rows].sort((a,b) => (b.scores[sortCol]??50)-(a.scores[sortCol]??50)), [rows,sortCol]);
+
+  function cellColor(pct: number) {
+    if (pct >= 70) return { bg: "rgba(34,197,94,0.25)", text: "#86efac" };
+    if (pct >= 55) return { bg: "rgba(34,197,94,0.12)", text: "rgba(134,239,172,0.8)" };
+    if (pct >= 45) return { bg: "transparent", text: "rgba(255,248,232,0.45)" };
+    if (pct >= 30) return { bg: "rgba(239,68,68,0.12)", text: "rgba(252,165,165,0.8)" };
+    return              { bg: "rgba(239,68,68,0.25)", text: "#fca5a5" };
+  }
+
+  return (
+    <div className="px-2 py-3">
+      <div className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest px-2 mb-2">All Coins Sentiment</div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[10px] font-mono">
+          <thead>
+            <tr className="text-[#ffc040]/38 text-[9px] uppercase border-b border-[#ffc040]/10">
+              <th className="text-left pl-2 py-2">Asset</th>
+              <th className="text-right py-2 pr-1">24H%</th>
+              {TIMEFRAMES.map(tf => (
+                <th key={tf} onClick={() => setSortCol(tf)}
+                  className={`text-right py-2 px-1 cursor-pointer transition-colors ${sortCol===tf ? "text-[#ffc040]" : "text-[#ffc040]/38 hover:text-[#ffc040]/68"}`}>
+                  {tf}{sortCol===tf?" ▼":""}
+                </th>
+              ))}
+              <th className="text-right py-2 pr-2">DIV</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(r => (
+              <tr key={r.sym} className="border-b border-white/3 hover:bg-[#1e1a12] transition-colors">
+                <td className="pl-2 py-1.5">
+                  <div className="font-bold text-white">{r.sym}</div>
+                  <div className="text-[8px] text-[#ffc040]/35 truncate max-w-[60px]">{r.name}</div>
+                </td>
+                <td className={`text-right pr-1 font-bold ${r.changePercent>=0?"text-[#ffc040]":"text-[#ff5566]"}`}>
+                  {r.changePercent>=0?"+":""}{r.changePercent.toFixed(2)}%
+                </td>
+                {TIMEFRAMES.map(tf => {
+                  const pct = r.scores[tf]??50;
+                  const {bg,text} = cellColor(pct);
+                  return (
+                    <td key={tf} className="text-right py-1 px-1">
+                      <span className="inline-block rounded px-1 py-0.5" style={{background:bg,color:text}}>{pct}%</span>
+                    </td>
+                  );
+                })}
+                <td className="text-right pr-2">
+                  <span className={`font-bold ${r.divergence>=30?"text-[#ffc040]":"text-[#ffc040]/30"}`}>
+                    {r.divergence>=30?"⚡":""}{r.divergence}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="text-[8px] font-mono text-[#ffc040]/20 px-2 mt-2">DIV = 5M vs 1D divergence · ⚡ = conflict signal · click timeframe to sort</div>
+    </div>
+  );
+}
+
+// ─── Economic Calendar ────────────────────────────────────────────────────────
+const ECON_EVENTS: { date: string; time: string; event: string; impact: "high"|"medium"|"low"; currency: string }[] = [
+  { date:"2026-06-13",time:"08:30",event:"US CPI (YoY)",             impact:"high",  currency:"USD" },
+  { date:"2026-06-14",time:"09:00",event:"ECB Rate Decision",        impact:"high",  currency:"EUR" },
+  { date:"2026-06-16",time:"08:30",event:"US Retail Sales",          impact:"medium",currency:"USD" },
+  { date:"2026-06-17",time:"10:00",event:"US Consumer Confidence",   impact:"medium",currency:"USD" },
+  { date:"2026-06-18",time:"08:30",event:"US Jobless Claims",        impact:"medium",currency:"USD" },
+  { date:"2026-06-27",time:"08:30",event:"US PCE Inflation",         impact:"high",  currency:"USD" },
+  { date:"2026-07-01",time:"08:30",event:"US Non-Farm Payrolls",     impact:"high",  currency:"USD" },
+  { date:"2026-07-08",time:"14:00",event:"FOMC Meeting Minutes",     impact:"high",  currency:"USD" },
+  { date:"2026-07-10",time:"08:30",event:"US CPI (YoY)",             impact:"high",  currency:"USD" },
+  { date:"2026-07-22",time:"08:30",event:"US Q2 GDP (Advance)",      impact:"high",  currency:"USD" },
+  { date:"2026-07-29",time:"14:00",event:"Fed Rate Decision",        impact:"high",  currency:"USD" },
+  { date:"2026-08-05",time:"08:30",event:"US Non-Farm Payrolls",     impact:"high",  currency:"USD" },
+];
+
+function EconomicCalendar() {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const upcoming = ECON_EVENTS.filter(e => e.date >= todayStr).slice(0,10);
+
+  function impactDot(i: string) {
+    if (i==="high")   return { dot:"bg-red-500", badge:"bg-red-500/12 border-red-500/30 text-red-400" };
+    if (i==="medium") return { dot:"bg-[#ffc040]", badge:"bg-[#ffc040]/10 border-[#ffc040]/28 text-[#ffc040]" };
+    return                   { dot:"bg-blue-400", badge:"bg-blue-500/10 border-blue-400/28 text-blue-400" };
+  }
+  function daysUntil(d: string) {
+    const diff = Math.round((new Date(d).getTime()-today.getTime())/86400000);
+    if (diff<=0) return "TODAY"; if (diff===1) return "TOMORROW"; return `IN ${diff}D`;
+  }
+
+  let lastDate = "";
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-2 mb-3">
+        <Calendar className="w-3.5 h-3.5 text-[#ffc040]" />
+        <span className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest">Economic Calendar</span>
+      </div>
+      <div className="space-y-1">
+        {upcoming.map((ev,i) => {
+          const { dot, badge } = impactDot(ev.impact);
+          const showDate = ev.date !== lastDate; lastDate = ev.date;
+          const isToday = ev.date === todayStr;
+          return (
+            <div key={i}>
+              {showDate && (
+                <div className={`text-[9px] font-mono uppercase tracking-widest px-1 py-1 mt-2 ${isToday?"text-[#ffc040] font-bold":"text-[#ffc040]/30"}`}>
+                  {new Date(ev.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}{isToday?" — TODAY":""}
+                </div>
+              )}
+              <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${isToday?"bg-[#ffc040]/6 border-[#ffc040]/20":"bg-[#181410]/60 border-[#ffc040]/8 hover:border-[#ffc040]/20"}`}>
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-white font-medium truncate">{ev.event}</div>
+                  <div className="text-[9px] font-mono text-[#ffc040]/38">{ev.currency} · {ev.time} ET</div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${badge}`}>{ev.impact.toUpperCase()}</span>
+                  <span className={`text-[8px] font-mono font-bold ${isToday?"text-[#ffc040]":"text-[#ffc040]/30"}`}>{daysUntil(ev.date)}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-[8px] font-mono text-[#ffc040]/18 mt-3 text-center">Times in ET · High impact = potential volatility spike</div>
+    </div>
+  );
+}
+
+// ─── Divergence Alert ─────────────────────────────────────────────────────────
+function DivergenceAlerts({ ticks }: { ticks: Map<string, Tick> }) {
+  const alerts = useMemo(() => {
+    const out: { sym: string; short: number; long: number; delta: number }[] = [];
+    Array.from(ticks.values()).filter(t => t.category==="crypto").slice(0,30).forEach(t => {
+      const s5  = Math.round(((getSentimentForTick(t,"5M").score+1)/2)*100);
+      const s1d = Math.round(((getSentimentForTick(t,"1D").score+1)/2)*100);
+      const delta = Math.abs(s5-s1d);
+      if (delta>=35) out.push({ sym: t.symbol.replace("USDT",""), short: s5, long: s1d, delta });
+    });
+    return out.sort((a,b)=>b.delta-a.delta).slice(0,4);
+  }, [ticks]);
+
+  if (!alerts.length) return null;
+
+  return (
+    <div className="mx-4 mt-3 rounded-xl border border-[#ffc040]/25 bg-[#ffc040]/5 p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertCircle className="w-3.5 h-3.5 text-[#ffc040]" />
+        <span className="text-[10px] font-mono font-bold text-[#ffc040] uppercase tracking-wider">Sentiment Divergence</span>
+        <span className="text-[9px] font-mono text-[#ffc040]/45">{alerts.length} signals</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {alerts.map(a => (
+          <div key={a.sym} className="bg-[#181410] border border-[#ffc040]/15 rounded-lg px-2.5 py-2">
+            <div className="text-xs font-bold font-mono text-white mb-1">{a.sym}</div>
+            <div className="flex items-center justify-between text-[9px] font-mono">
+              <span className={a.short>=50?"text-white":"text-[#ff5566]"}>5M {a.short}%</span>
+              <span className="text-[#ffc040]/30">vs</span>
+              <span className={a.long>=50?"text-white":"text-[#ff5566]"}>1D {a.long}%</span>
+            </div>
+            <div className="text-[8px] font-mono text-[#ffc040]/40 mt-0.5">
+              {a.short>a.long?"Short-term bull vs long bear":"Short-term bear vs long bull"}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -2684,6 +3085,7 @@ export default function Dashboard() {
   const [selectedTick, setSelectedTick] = useState<Tick | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [showNews, setShowNews] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
   const { ticks, connected } = useLiveTicks();
   const { favs, favSet, toggle: toggleFav } = useFavorites();
   const { add: addPosition } = usePositions();
@@ -2764,13 +3166,16 @@ export default function Dashboard() {
   };
 
   const tabs: { id: Tab; label: string; icon: any; count: number }[] = [
-    { id: "favorites", label: "Watchlist", icon: Star,        count: favs.length },
-    { id: "crypto",    label: "Crypto",    icon: Bitcoin,     count: Math.min(20, cryptoTicks.length) },
-    { id: "futures",   label: "Futures",   icon: BarChart2,   count: futuresTicks.length },
-    { id: "stocks",    label: "Stocks",    icon: TrendingUp,  count: stockTicks.length },
-    { id: "oil",       label: "Oil",       icon: Fuel,        count: oilTicks.length },
-    { id: "currency",  label: "FX",        icon: Activity,    count: 8 },
-    { id: "positions", label: "Positions",  icon: Target,      count: 0 },
+    { id: "favorites",       label: "Watchlist",  icon: Star,        count: favs.length },
+    { id: "crypto",          label: "Crypto",     icon: Bitcoin,     count: Math.min(20, cryptoTicks.length) },
+    { id: "futures",         label: "Futures",    icon: BarChart2,   count: futuresTicks.length },
+    { id: "stocks",          label: "Stocks",     icon: TrendingUp,  count: stockTicks.length },
+    { id: "oil",             label: "Oil",        icon: Fuel,        count: oilTicks.length },
+    { id: "currency",        label: "FX",         icon: Activity,    count: 8 },
+    { id: "heatmap",         label: "Heatmap",    icon: LayoutGrid,  count: 0 },
+    { id: "sentiment-table", label: "Sent. Table",icon: BarChart2,   count: 0 },
+    { id: "calendar",        label: "Calendar",   icon: Calendar,    count: 0 },
+    { id: "positions",       label: "Positions",  icon: Target,      count: 0 },
   ];
 
   const currentTicks = useMemo(() => {
@@ -2833,6 +3238,20 @@ export default function Dashboard() {
             <Search className="w-3 h-3" />
             <span className="hidden sm:inline">Search</span>
             <kbd className="hidden sm:inline text-[9px] border border-[#ffc040]/20 px-1 rounded text-[#ffc040]/38">⌘K</kbd>
+          </button>
+
+          {/* Price Alerts */}
+          <button
+            onClick={() => setShowAlerts(a => !a)}
+            className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-2 py-1 rounded transition-all ${
+              showAlerts
+                ? "border-[#ffc040]/50 bg-[#ffc040]/10 text-[#ffc040]"
+                : "border-[#ffc040]/20 text-[#ffc040]/58 hover:text-white hover:border-[#ffc040]/35"
+            }`}
+            title="Price Alerts"
+          >
+            <BellRing className="w-3 h-3" />
+            <span className="hidden sm:inline">Alerts</span>
           </button>
 
           {/* News Bell icon */}
@@ -2903,6 +3322,30 @@ export default function Dashboard() {
           {tab === 'positions' ? '' : `${currentTicks.length.toLocaleString()} coins`}
         </span>
       </div>}
+
+      {/* Divergence Alerts */}
+      {(tab === "crypto" || tab === "futures") && <DivergenceAlerts ticks={ticks} />}
+
+      {/* Heatmap Panel */}
+      {tab === "heatmap" && (
+        <main className="pb-8">
+          <MarketHeatmap ticks={ticks} />
+        </main>
+      )}
+
+      {/* Sentiment Table Panel */}
+      {tab === "sentiment-table" && (
+        <main className="pb-8">
+          <SentimentTable ticks={ticks} />
+        </main>
+      )}
+
+      {/* Economic Calendar Panel */}
+      {tab === "calendar" && (
+        <main className="pb-8">
+          <EconomicCalendar />
+        </main>
+      )}
 
       {/* Positions Panel */}
       {tab === "positions" && (
@@ -2988,6 +3431,33 @@ export default function Dashboard() {
           onClose={() => setShowSearch(false)}
         />
       )}
+
+      {/* Price Alerts Panel */}
+      {showAlerts && <PriceAlertsPanel ticks={ticks} onClose={() => setShowAlerts(false)} />}
+
+      {/* Mobile Bottom Nav */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-[#0d0a06]/98 border-t border-[#ffc040]/20 backdrop-blur-md flex items-center justify-around px-2 py-2 safe-area-bottom">
+        {[
+          { id: "crypto" as Tab,    icon: Bitcoin,     label: "Crypto" },
+          { id: "favorites" as Tab, icon: Star,        label: "Watch" },
+          { id: "heatmap" as Tab,   icon: LayoutGrid,  label: "Heat" },
+          { id: "positions" as Tab, icon: Target,      label: "Positions" },
+          { id: "calendar" as Tab,  icon: Calendar,    label: "Calendar" },
+        ].map(({ id, icon: Icon, label }) => (
+          <button key={id} onClick={() => setTab(id)}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
+              tab === id
+                ? "bg-[#ffc040]/12 text-[#ffc040]"
+                : "text-[#ffc040]/40 hover:text-[#ffc040]/68"
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            <span className="text-[9px] font-mono">{label}</span>
+          </button>
+        ))}
+      </nav>
+      {/* Bottom padding for mobile nav */}
+      <div className="h-16 sm:hidden" />
     </div>
   );
 }
