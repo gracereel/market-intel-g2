@@ -54,7 +54,7 @@ tickEmitter.setMaxListeners(500);
 const COIN_NAMES: Record<string, string> = {
   BTC:"Bitcoin",ETH:"Ethereum",BNB:"BNB",SOL:"Solana",XRP:"XRP",
   ADA:"Cardano",DOGE:"Dogecoin",AVAX:"Avalanche",LINK:"Chainlink",
-  DOT:"Polkadot",MATIC:"Polygon",POL:"POL (Polygon)",LTC:"Litecoin",UNI:"Uniswap",
+  DOT:"Polkadot",MATIC:"Polygon",POL:"Polygon",LTC:"Litecoin",UNI:"Uniswap",
   ATOM:"Cosmos",NEAR:"NEAR",TON:"Toncoin",TRX:"TRON",
   SHIB:"Shiba Inu",BCH:"Bitcoin Cash",APT:"Aptos",ARB:"Arbitrum",
   OP:"Optimism",FTM:"Fantom",ALGO:"Algorand",VET:"VeChain",
@@ -167,6 +167,9 @@ const BLOCKLIST = new Set([
 
   // Gold/commodity tokens (shown separately in oil tab)
   "XAUT", "PAXG",
+
+  // Different project often confused with Polygon
+  "POLY",   // Polymath — NOT Polygon, confusing name
 
   // Low quality / meme coins with no fundamentals
   "BABY", "NIGHT", "MEGA", "RIF", "DEXE", "STG",

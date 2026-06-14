@@ -47,7 +47,7 @@ export const CRYPTO_COINS: Record<string, { keywords: string[]; name: string; co
   AVAX:  { name: "Avalanche",   coingeckoId: "avalanche-2",       keywords: ["avalanche", "avax", "avax network", "ava labs"] },
   LINK:  { name: "Chainlink",   coingeckoId: "chainlink",         keywords: ["chainlink", "link oracle", "chainlink network", "link token"] },
   DOT:   { name: "Polkadot",    coingeckoId: "polkadot",          keywords: ["polkadot", " dot ", "parachain", "substrate", "gavin wood polkadot"] },
-  POL:   { name: "POL",         coingeckoId: "matic-network",     keywords: ["pol token", "pol coin", " pol ", "polygon 2.0", "polygon ecosystem token", "polygon upgrade"] },
+  POL:   { name: "Polygon",     coingeckoId: "matic-network",     keywords: ["pol token", "pol coin", " pol ", "polygon 2.0", "polygon ecosystem token", "polygon upgrade", "polygon matic", "matic network"] },
   LTC:   { name: "Litecoin",    coingeckoId: "litecoin",          keywords: ["litecoin", "ltc", "litecoin network"] },
   UNI:   { name: "Uniswap",     coingeckoId: "uniswap",           keywords: ["uniswap", " uni ", "dex", "defi swap", "uniswap v4", "uniswap labs"] },
   ATOM:  { name: "Cosmos",      coingeckoId: "cosmos",            keywords: ["cosmos hub", " atom ", "ibc protocol", "cosmos network", "tendermint"] },
