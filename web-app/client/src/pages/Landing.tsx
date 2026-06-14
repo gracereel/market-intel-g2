@@ -129,7 +129,7 @@ function WaitlistForm() {
           <label className="text-[9px] font-mono text-[#ffc040]/50 uppercase tracking-widest mb-1.5 block">Your Name</label>
           <input
             value={name} onChange={e => setName(e.target.value)}
-            placeholder="Grace Reel"
+            placeholder="Your full name"
             className="w-full bg-[#0d0a06] border border-[#ffc040]/20 rounded-xl px-4 py-3 text-sm text-[#fff8e8] placeholder-[#ffc040]/25 outline-none focus:border-[#ffc040]/50 focus:shadow-[0_0_15px_rgba(255,192,64,0.08)] transition-all"
           />
         </div>
