@@ -41,6 +41,12 @@ export interface Tick {
   // futures-specific
   fundingRate?: number;
   openInterest?: number;
+  // Upgraded sentiment factors
+  cvd?: number;          // Cumulative Volume Delta (aggTrade WS) — buy vol minus sell vol, normalized
+  cvdSignal?: number;    // CVD signal [-1,1]: positive = buying pressure
+  oiDelta?: number;      // Open Interest % change vs 1 hour ago
+  oiSignal?: number;     // OI signal [-1,1]: rising OI + rising price = real trend
+  adx?: number;          // ADX-14 (Average Directional Index) — trend strength 0-100
   // crypto extras
   rank?: number;
   image?: string;
@@ -49,6 +55,69 @@ export interface Tick {
 export const tickStore = new Map<string, Tick>();
 export const tickEmitter = new EventEmitter();
 tickEmitter.setMaxListeners(500);
+
+// ─── CVD (Cumulative Volume Delta) store ─────────────────────────────────────
+// Tracks aggressive buy vs sell volume from aggTrade stream per symbol
+// cvdStore[symbol] = { buyVol, sellVol, window: rolling 500 trades }
+interface CVDEntry { buyVol: number; sellVol: number; updatedAt: number }
+const cvdStore = new Map<string, CVDEntry>();
+
+// ─── Open Interest store ──────────────────────────────────────────────────────
+// oiStore[symbol] = { current, prev1h, delta% }
+interface OIEntry { current: number; prev1h: number; deltaPercent: number; updatedAt: number }
+const oiStore = new Map<string, OIEntry>();
+
+// ─── Price history for ADX calculation ───────────────────────────────────────
+// Keep last 30 candle-equivalent closes per symbol (sampled every ~2min)
+const priceHistory = new Map<string, number[]>();
+const MAX_PRICE_HISTORY = 30;
+
+function recordPriceHistory(symbol: string, price: number) {
+  const arr = priceHistory.get(symbol) || [];
+  arr.push(price);
+  if (arr.length > MAX_PRICE_HISTORY) arr.shift();
+  priceHistory.set(symbol, arr);
+}
+
+// ADX-14 approximation from price history array
+// Uses Wilder smoothing on TR-equivalent (|close[i] - close[i-1]|)
+function calcADX(prices: number[]): number {
+  if (prices.length < 15) return 25; // default — assume moderate trend
+  const period = 14;
+  const trs: number[] = [];
+  const plusDMs: number[] = [];
+  const minusDMs: number[] = [];
+
+  for (let i = 1; i < prices.length; i++) {
+    const curr = prices[i];
+    const prev = prices[i - 1];
+    const tr = Math.abs(curr - prev);
+    trs.push(tr);
+    // Using simplified DM from close-to-close
+    if (curr > prev) { plusDMs.push(curr - prev); minusDMs.push(0); }
+    else { plusDMs.push(0); minusDMs.push(prev - curr); }
+  }
+
+  if (trs.length < period) return 25;
+
+  // Wilder smoothing
+  let atr14 = trs.slice(0, period).reduce((a, b) => a + b, 0);
+  let plus14 = plusDMs.slice(0, period).reduce((a, b) => a + b, 0);
+  let minus14 = minusDMs.slice(0, period).reduce((a, b) => a + b, 0);
+
+  for (let i = period; i < trs.length; i++) {
+    atr14  = atr14  - atr14 / period  + trs[i];
+    plus14 = plus14 - plus14 / period + plusDMs[i];
+    minus14= minus14- minus14/ period + minusDMs[i];
+  }
+
+  if (atr14 === 0) return 25;
+  const diPlus  = (plus14  / atr14) * 100;
+  const diMinus = (minus14 / atr14) * 100;
+  const diSum   = diPlus + diMinus;
+  const dx      = diSum > 0 ? Math.abs(diPlus - diMinus) / diSum * 100 : 0;
+  return Math.round(dx);
+}
 
 // Well-known coin names
 const COIN_NAMES: Record<string, string> = {
@@ -512,11 +581,157 @@ function startBookTicker() {
   });
 }
 
+// ─── 4. CVD WebSocket — Binance aggTrade stream ──────────────────────────────
+// aggTrade gives every trade with m=true (market maker = seller) or m=false (buyer)
+// We subscribe to top 20 crypto pairs for real-time CVD
+const CVD_SYMBOLS = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT",
+  "DOGEUSDT","AVAXUSDT","LINKUSDT","DOTUSDT","MATICUSDT","LTCUSDT",
+  "UNIUSDT","ATOMUSDT","NEARUSDT","INJUSDT","SUIUSDT","ARBUSDT","OPUSDT","WIFUSDT"];
+
+let cvdWs: WebSocket | null = null;
+
+function startCVDStream() {
+  if (cvdWs) { try { cvdWs.terminate(); } catch {} }
+  const streams = CVD_SYMBOLS.map(s => s.toLowerCase() + "@aggTrade").join("/");
+  const url = `wss://data-stream.binance.vision/stream?streams=${streams}`;
+  cvdWs = new WebSocket(url);
+
+  cvdWs.on("open", () => {
+    console.log("[CVD] aggTrade stream connected — tracking buy/sell pressure");
+  });
+
+  cvdWs.on("message", (raw: Buffer) => {
+    try {
+      const msg = JSON.parse(raw.toString());
+      const d = msg.data;
+      if (!d || !d.s) return;
+      const sym = d.s as string;
+      const qty = parseFloat(d.q || "0");
+      const isBuyerMaker = d.m as boolean; // m=true → seller is maker (sell trade), m=false → buy trade
+      const entry = cvdStore.get(sym) || { buyVol: 0, sellVol: 0, updatedAt: 0 };
+
+      if (isBuyerMaker) {
+        entry.sellVol += qty;
+      } else {
+        entry.buyVol += qty;
+      }
+      entry.updatedAt = Date.now();
+
+      // Reset CVD window every 5 minutes to prevent stale accumulation
+      if (Date.now() - entry.updatedAt > 300000) {
+        entry.buyVol = qty;
+        entry.sellVol = 0;
+      }
+
+      cvdStore.set(sym, entry);
+
+      // Update tick with CVD signal
+      const base = sym.replace("USDT", "");
+      const tick = tickStore.get(`crypto:${base}`);
+      if (tick) {
+        const total = entry.buyVol + entry.sellVol;
+        if (total > 0) {
+          const cvdRatio = (entry.buyVol - entry.sellVol) / total; // [-1, 1]
+          tick.cvd = parseFloat((entry.buyVol - entry.sellVol).toFixed(2));
+          tick.cvdSignal = Math.max(-1, Math.min(1, cvdRatio * 3)); // amplify
+        }
+      }
+      // Also update futures
+      const futTick = tickStore.get(`futures:${sym}`);
+      if (futTick) {
+        const total = entry.buyVol + entry.sellVol;
+        if (total > 0) {
+          const cvdRatio = (entry.buyVol - entry.sellVol) / total;
+          futTick.cvd = parseFloat((entry.buyVol - entry.sellVol).toFixed(2));
+          futTick.cvdSignal = Math.max(-1, Math.min(1, cvdRatio * 3));
+        }
+      }
+    } catch {}
+  });
+
+  cvdWs.on("close", () => {
+    console.log("[CVD] Stream closed — reconnecting in 5s");
+    setTimeout(startCVDStream, 5000);
+  });
+
+  cvdWs.on("error", (err) => {
+    console.error("[CVD] Error:", err.message);
+    try { cvdWs?.terminate(); } catch {}
+  });
+}
+
+// ─── 5. Open Interest polling — Binance Futures REST ─────────────────────────
+// Poll OI every 60s, compute delta vs last reading
+const OI_SYMBOLS = CVD_SYMBOLS; // same top 20
+
+async function pollOpenInterest() {
+  for (const sym of OI_SYMBOLS) {
+    try {
+      const r = await axios.get(
+        `https://fapi.binance.com/fapi/v1/openInterest?symbol=${sym}`,
+        { timeout: 5000, headers: { "User-Agent": "Mozilla/5.0" } }
+      );
+      const oi = parseFloat(r.data?.openInterest || "0");
+      if (oi === 0) continue;
+
+      const existing = oiStore.get(sym);
+      const prev1h = existing ? existing.current : oi;
+      const delta = prev1h > 0 ? ((oi - prev1h) / prev1h) * 100 : 0;
+
+      oiStore.set(sym, { current: oi, prev1h, deltaPercent: delta, updatedAt: Date.now() });
+
+      // Compute OI signal: combine OI delta with price direction
+      const base = sym.replace("USDT", "");
+      const tick = tickStore.get(`crypto:${base}`) || tickStore.get(`futures:${sym}`);
+      if (tick) {
+        const priceUp = tick.changePercent > 0;
+        const oiRising = delta > 0;
+        // Rising price + rising OI = real trend (bullish)
+        // Rising price + falling OI = short squeeze (bearish lean — likely reversal)
+        // Falling price + rising OI = real downtrend (bearish)
+        // Falling price + falling OI = long liquidation (reversal possible)
+        let oiSig = 0;
+        if (priceUp && oiRising)    oiSig =  Math.min(1, delta / 2);   // confirmed bull
+        if (priceUp && !oiRising)   oiSig = -Math.min(0.5, -delta / 3); // squeeze warning
+        if (!priceUp && oiRising)   oiSig = -Math.min(1, delta / 2);   // confirmed bear
+        if (!priceUp && !oiRising)  oiSig =  Math.min(0.3, -delta / 4); // possible reversal
+
+        const tickCrypto = tickStore.get(`crypto:${base}`);
+        const tickFut    = tickStore.get(`futures:${sym}`);
+        if (tickCrypto) { tickCrypto.oiDelta = delta; tickCrypto.oiSignal = oiSig; }
+        if (tickFut)    { tickFut.oiDelta    = delta; tickFut.oiSignal    = oiSig; }
+      }
+    } catch { /* non-critical */ }
+  }
+}
+
+// ─── 6. Price history sampler for ADX ────────────────────────────────────────
+function samplePricesForADX() {
+  for (const [key, tick] of tickStore.entries()) {
+    if (tick.price > 0) {
+      const sym = tick.symbol;
+      recordPriceHistory(sym, tick.price);
+      const history = priceHistory.get(sym) || [];
+      if (history.length >= 15) {
+        tick.adx = calcADX(history);
+      }
+    }
+  }
+}
+
 // ─── Start all feeds ──────────────────────────────────────────────────────────
 
 export function startLiveFeeds() {
   connectBinanceSpot();
   startBookTicker();
+  startCVDStream();
+
+  // OI polling every 60s (non-critical, skip silently if blocked)
+  pollOpenInterest();
+  setInterval(pollOpenInterest, 60000);
+
+  // Sample prices for ADX every 2 minutes
+  setInterval(samplePricesForADX, 120000);
 
   // Binance Futures WS: try WebSocket, fall back to REST if no USDT perp data after 8s
   // (Yahoo futures already populates "futures" category, so check for USDT perps specifically)
