@@ -601,7 +601,7 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
         })}
       </svg>
       <div style={{ textAlign: "center", marginTop: 8 }}>
-        <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color, fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
+        <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color: "#ffffff", fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
         <div style={{ fontSize: isFinal ? 11 : 9, color: "rgba(255,248,232,0.55)", marginTop: 3, fontFamily: "sans-serif" }}>{label}</div>
       </div>
       <div style={{ fontSize: 8, color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 6, fontFamily: "monospace" }}>{tf}</div>
