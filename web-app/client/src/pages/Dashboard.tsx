@@ -693,9 +693,9 @@ function getSentimentForTick(tick: Tick, tf: string): { label: string; score: nu
 }
 
 function sentColor(label: string) {
-  if (label === "Strong Bull") return "#22c55e";
-  if (label === "Bullish") return "#4ade80";
-  if (label === "Strong Bear") return "#ff3344";
+  if (label === "Strong Bull") return "#ffffff";
+  if (label === "Bullish") return "#e8e8e8";
+  if (label === "Strong Bear") return "#ff2233";
   if (label === "Bearish") return "#ff5566";
   return "#ffc040";
 }
