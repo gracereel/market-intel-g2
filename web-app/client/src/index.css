@@ -1,5 +1,5 @@
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,26 +7,26 @@
 
 @layer base {
   :root {
-    /* ── Obsidian + Gold palette ── */
-    --background:         12 8% 4%;       /* #060502 */
-    --foreground:         42 80% 94%;     /* #fff8e8 */
-    --card:               36 12% 9%;      /* #181410 */
-    --card-foreground:    42 80% 94%;
-    --popover:            36 10% 11%;
-    --popover-foreground: 42 80% 94%;
-    --primary:            42 100% 63%;    /* #ffc040 gold */
-    --primary-foreground: 12 8% 4%;
-    --secondary:          36 10% 13%;
-    --secondary-foreground: 42 40% 65%;
-    --muted:              36 8% 11%;
-    --muted-foreground:   42 30% 55%;
-    --accent:             42 100% 63%;
-    --accent-foreground:  12 8% 4%;
+    /* ── Edgeful Blue palette ── */
+    --background:         220 60% 4%;       /* #050810 */
+    --foreground:         214 80% 96%;      /* #eef4ff */
+    --card:               222 50% 8%;       /* #0d1120 */
+    --card-foreground:    214 80% 96%;
+    --popover:            222 50% 9%;
+    --popover-foreground: 214 80% 96%;
+    --primary:            214 92% 60%;      /* #3b8bf6 blue */
+    --primary-foreground: 220 60% 4%;
+    --secondary:          222 40% 13%;
+    --secondary-foreground: 214 50% 70%;
+    --muted:              222 35% 11%;
+    --muted-foreground:   214 30% 55%;
+    --accent:             214 92% 60%;
+    --accent-foreground:  220 60% 4%;
     --destructive:        0 72% 58%;
-    --destructive-foreground: 42 80% 94%;
-    --border:             42 60% 40% / 0.35;
-    --input:              36 10% 12%;
-    --ring:               42 100% 63%;
+    --destructive-foreground: 214 80% 96%;
+    --border:             214 70% 50% / 0.22;
+    --input:              222 40% 12%;
+    --ring:               214 92% 60%;
     --radius:             0.5rem;
   }
 
@@ -37,52 +37,52 @@
     font-family: 'Satoshi', 'Inter', sans-serif;
     min-height: 100dvh;
     background:
-      radial-gradient(ellipse 80% 40% at 0% 0%,   rgba(255,192,64,0.07) 0%, transparent 55%),
-      radial-gradient(ellipse 60% 30% at 100% 100%, rgba(255,192,64,0.04) 0%, transparent 50%),
-      #060502;
+      radial-gradient(ellipse 80% 40% at 0% 0%,   rgba(59,139,246,0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 30% at 100% 100%, rgba(59,139,246,0.04) 0%, transparent 50%),
+      #05080f;
   }
 
-  h1, h2, h3 { font-family: 'Playfair Display', 'Satoshi', sans-serif; font-weight: 700; }
+  h1, h2, h3 { font-family: 'Inter', 'Satoshi', sans-serif; font-weight: 700; }
 }
 
-/* ── G1 terminal (gold) ───────────────────────────────────────────── */
+/* ── G1 terminal (blue) ───────────────────────────────────────────── */
 .g1-screen {
-  background: #040200;
-  border: 1px solid rgba(255,192,64,0.5);
-  box-shadow: 0 0 24px rgba(255,192,64,0.12), inset 0 0 40px rgba(0,0,0,0.8);
+  background: #020508;
+  border: 1px solid rgba(59,139,246,0.5);
+  box-shadow: 0 0 24px rgba(59,139,246,0.12), inset 0 0 40px rgba(0,0,0,0.8);
   position: relative; overflow: hidden;
 }
 .g1-screen::before {
   content: '';
   position: absolute; inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,192,64,0.025) 2px, rgba(255,192,64,0.025) 4px);
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(59,139,246,0.025) 2px, rgba(59,139,246,0.025) 4px);
   pointer-events: none; z-index: 1;
 }
 .g1-text {
-  color: #ffc040;
+  color: #3b8bf6;
   font-family: 'JetBrains Mono', monospace;
-  text-shadow: 0 0 8px rgba(255,192,64,0.8), 0 0 22px rgba(255,192,64,0.35);
+  text-shadow: 0 0 8px rgba(59,139,246,0.8), 0 0 22px rgba(59,139,246,0.35);
   position: relative; z-index: 2;
   font-size: 11px; line-height: 1.65; letter-spacing: 0.04em;
 }
 .g1-scanline {
   position: absolute; top: -100%; left: 0; right: 0; height: 28%;
-  background: linear-gradient(transparent, rgba(255,192,64,0.06), transparent);
+  background: linear-gradient(transparent, rgba(59,139,246,0.06), transparent);
   animation: scanline 5s linear infinite; pointer-events: none; z-index: 3;
 }
 @keyframes scanline { to { top: 200%; } }
 
 /* ── Sentiment badges ─────────────────────────────────────────────── */
-.bull { background: rgba(255,192,64,0.12); border: 1px solid rgba(255,192,64,0.38); color: #ffd060; }
+.bull { background: rgba(0,255,136,0.10); border: 1px solid rgba(0,255,136,0.30); color: #00ff88; }
 .bear { background: rgba(255,85,102,0.12); border: 1px solid rgba(255,85,102,0.38); color: #ff7788; }
-.neut { background: rgba(60,50,30,0.6);   border: 1px solid rgba(120,100,60,0.4);  color: rgba(255,220,140,0.6); }
-.imp-high { background: rgba(255,140,30,0.12); border: 1px solid rgba(255,140,30,0.38); color: #ffaa50; }
-.imp-med  { background: rgba(255,192,64,0.10); border: 1px solid rgba(255,192,64,0.25); color: #ffc878; }
-.imp-low  { background: rgba(40,30,15,0.5);    border: 1px solid rgba(80,60,20,0.4);   color: rgba(200,160,80,0.55); }
+.neut { background: rgba(20,30,55,0.6);   border: 1px solid rgba(59,139,246,0.2);  color: rgba(160,190,240,0.6); }
+.imp-high { background: rgba(59,139,246,0.15); border: 1px solid rgba(59,139,246,0.40); color: #60a5fa; }
+.imp-med  { background: rgba(59,139,246,0.10); border: 1px solid rgba(59,139,246,0.25); color: #93c5fd; }
+.imp-low  { background: rgba(15,25,50,0.5);    border: 1px solid rgba(59,139,246,0.15); color: rgba(120,160,220,0.55); }
 
 /* ── Pressure bars ────────────────────────────────────────────────── */
-.pbar { height: 5px; border-radius: 3px; background: rgba(30,22,10,0.8); overflow: hidden; }
-.pbar-buy  { height: 100%; background: linear-gradient(90deg, rgba(255,192,64,0.5), #ffc040); border-radius: 3px; box-shadow: 0 0 6px rgba(255,192,64,0.4); transition: width 0.5s ease; }
+.pbar { height: 5px; border-radius: 3px; background: rgba(10,15,30,0.8); overflow: hidden; }
+.pbar-buy  { height: 100%; background: linear-gradient(90deg, rgba(59,139,246,0.5), #3b8bf6); border-radius: 3px; box-shadow: 0 0 6px rgba(59,139,246,0.4); transition: width 0.5s ease; }
 .pbar-sell { height: 100%; background: linear-gradient(90deg, rgba(255,85,102,0.5), #ff5566); border-radius: 3px; transition: width 0.5s ease; }
 
 /* ── News alert progress bar ───────────────────────────────────────── */

@@ -90,15 +90,15 @@ function ago(ts: number | string): string {
 }
 
 function sentimentColor(s: string) {
-  if (s === "bullish") return "text-[#ffc040]";
+  if (s === "bullish") return "text-[#3b8bf6]";
   if (s === "bearish") return "text-[#ff5566]";
-  return "text-[#ffc040]";
+  return "text-[#3b8bf6]";
 }
 
 function sentimentBg(s: string) {
-  if (s === "bullish") return "bg-[#ffc040]/10 text-[#ffc040] border-[#ffc040]/28";
+  if (s === "bullish") return "bg-[#3b8bf6]/10 text-[#3b8bf6] border-[#3b8bf6]/28";
   if (s === "bearish") return "bg-[#ff5566]/10 text-[#ff5566] border-[#ff5566]/28";
-  return "bg-[#ffc040]/12 text-[#ffc040] border-[#ffc040]/28";
+  return "bg-[#3b8bf6]/12 text-[#3b8bf6] border-[#3b8bf6]/28";
 }
 
 const COIN_COLORS: Record<string, string> = {
@@ -163,7 +163,7 @@ function GlobalSearch({ allTicks, onSelect, onClose }: {
   function catBadge(cat: string) {
     if (cat === "crypto")  return { label: "CRYPTO",  cls: "text-cyan-400 bg-cyan-400/10 border-cyan-400/20" };
     if (cat === "futures") return { label: "FUTURES", cls: "text-purple-400 bg-purple-400/10 border-purple-400/20" };
-    if (cat === "oil")     return { label: "OIL",     cls: "text-[#ffaa40] bg-orange-400/10 border-orange-400/20" };
+    if (cat === "oil")     return { label: "OIL",     cls: "text-[#60a5fa] bg-orange-400/10 border-orange-400/20" };
     return                        { label: "STOCK",   cls: "text-blue-400 bg-blue-400/10 border-blue-400/20" };
   }
 
@@ -180,36 +180,36 @@ function GlobalSearch({ allTicks, onSelect, onClose }: {
       >
         {/* Input */}
         <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <Search className="w-4 h-4 text-[#ffc040] shrink-0" />
+          <Search className="w-4 h-4 text-[#3b8bf6] shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKey}
             placeholder="Search any coin, pair, stock or commodity..."
-            className="flex-1 bg-transparent text-sm text-white placeholder:text-[#ffc040]/38 outline-none font-mono"
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-[#3b8bf6]/38 outline-none font-mono"
             data-testid="global-search-input"
           />
           {query ? (
-            <button onClick={() => setQuery("")} className="text-[#ffc040]/45 hover:text-[#ffc040]/88 transition-colors">
+            <button onClick={() => setQuery("")} className="text-[#3b8bf6]/45 hover:text-[#3b8bf6]/88 transition-colors">
               <X className="w-4 h-4" />
             </button>
           ) : (
-            <kbd className="text-[10px] font-mono text-[#ffc040]/30 border border-[#ffc040]/20 px-1.5 py-0.5 rounded">ESC</kbd>
+            <kbd className="text-[10px] font-mono text-[#3b8bf6]/30 border border-[#3b8bf6]/20 px-1.5 py-0.5 rounded">ESC</kbd>
           )}
         </div>
 
         {/* Category hint pills */}
         {!query && (
           <div className="flex gap-2 px-4 pt-2.5 pb-1">
-            <span className="text-[10px] text-[#ffc040]/38 font-mono">Top by volume:</span>
+            <span className="text-[10px] text-[#3b8bf6]/38 font-mono">Top by volume:</span>
           </div>
         )}
 
         {/* Results list */}
         <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: "360px" }}>
           {results.length === 0 ? (
-            <div className="py-12 text-center text-[#ffc040]/38 text-xs font-mono">No results for "{query}"</div>
+            <div className="py-12 text-center text-[#3b8bf6]/38 text-xs font-mono">No results for "{query}"</div>
           ) : results.map((tick, i) => {
             const sym = tick.symbol.replace("USDT", "");
             const cc = coinColor(sym);
@@ -236,11 +236,11 @@ function GlobalSearch({ allTicks, onSelect, onClose }: {
                     <span className="text-sm font-bold text-white">{sym}</span>
                     <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono ${badge.cls}`}>{badge.label}</span>
                   </div>
-                  <div className="text-[11px] text-[#ffc040]/52 truncate">{tick.name}</div>
+                  <div className="text-[11px] text-[#3b8bf6]/52 truncate">{tick.name}</div>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-sm font-mono font-bold text-white">${fmtPrice(tick.price)}</div>
-                  <div className={`text-[11px] font-mono ${isUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                  <div className={`text-[11px] font-mono ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                     {isUp ? "+" : ""}{tick.changePercent.toFixed(2)}%
                   </div>
                 </div>
@@ -251,10 +251,10 @@ function GlobalSearch({ allTicks, onSelect, onClose }: {
 
         {/* Footer */}
         <div className="flex items-center gap-4 px-4 py-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-          <span className="text-[10px] text-[#ffc040]/30 font-mono">↑↓ navigate</span>
-          <span className="text-[10px] text-[#ffc040]/30 font-mono">↵ open</span>
-          <span className="text-[10px] text-[#ffc040]/30 font-mono">ESC close</span>
-          <span className="text-[10px] text-[#ffc040]/38 font-mono ml-auto">{results.length} result{results.length !== 1 ? "s" : ""}</span>
+          <span className="text-[10px] text-[#3b8bf6]/30 font-mono">↑↓ navigate</span>
+          <span className="text-[10px] text-[#3b8bf6]/30 font-mono">↵ open</span>
+          <span className="text-[10px] text-[#3b8bf6]/30 font-mono">ESC close</span>
+          <span className="text-[10px] text-[#3b8bf6]/38 font-mono ml-auto">{results.length} result{results.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
     </div>
@@ -363,9 +363,9 @@ function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => 
       className={`
         group relative w-full text-left rounded-lg border p-3 transition-all duration-200
         hover:scale-[1.02] hover:shadow-lg cursor-pointer
-        ${flash === "up" ? "bg-[#ffc040]/10 border-[#ffc040]/50" :
+        ${flash === "up" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/50" :
           flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/45" :
-          "bg-[#181410] border-[#ffc040]/22 hover:border-[#ffc040]/50 hover:shadow-[0_0_20px_rgba(255,192,64,0.12)]"}
+          "bg-[#111827] border-[#3b8bf6]/22 hover:border-[#3b8bf6]/50 hover:shadow-[0_0_20px_rgba(59,139,246,0.12)]"}
       `}
       style={{ borderLeftColor: cc, borderLeftWidth: "3px" }}
     >
@@ -379,21 +379,21 @@ function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => 
               {tick.symbol.replace("USDT", "")}
             </span>
           </div>
-          <div className="text-[10px] text-[#ffc040]/70 truncate leading-none font-medium">{tick.name}</div>
+          <div className="text-[10px] text-[#3b8bf6]/70 truncate leading-none font-medium">{tick.name}</div>
         </div>
         <div className="text-right shrink-0">
-          <div className="font-mono text-base font-bold text-[#fff8e8] leading-tight">
+          <div className="font-mono text-base font-bold text-[#f0f4ff] leading-tight">
             ${fmtPrice(tick.price)}
           </div>
-          <div className={`text-[11px] font-mono font-semibold ${isUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+          <div className={`text-[11px] font-mono font-semibold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-[10px] text-[#ffc040]/58 font-mono">Vol {fmtVol(tick.quoteVolume || tick.volume)}</span>
+        <span className="text-[10px] text-[#3b8bf6]/58 font-mono">Vol {fmtVol(tick.quoteVolume || tick.volume)}</span>
         {atr && (
-          <span className="text-[10px] font-mono text-[#ffc040]/85 font-semibold" title="ATR-14 (daily expected move)">
+          <span className="text-[10px] font-mono text-[#3b8bf6]/85 font-semibold" title="ATR-14 (daily expected move)">
             ATR {atr.atrPct.toFixed(2)}%
           </span>
         )}
@@ -401,7 +401,7 @@ function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => 
       {starBtn}
       {/* Flash overlay */}
       {flash && (
-        <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-[#ffc040]/8" : "bg-[#ff5566]/8"}`} />
+        <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-[#3b8bf6]/8" : "bg-[#ff5566]/8"}`} />
       )}
     </button>
   );
@@ -422,42 +422,42 @@ function FuturesCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () 
       className={`
         group relative w-full text-left rounded-lg border p-3 transition-all duration-200
         hover:scale-[1.02] cursor-pointer
-        ${flash === "up" ? "bg-[#ffc040]/10 border-[#ffc040]/50" :
+        ${flash === "up" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/50" :
           flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/45" :
-          "bg-[#181410] border-[#ffc040]/22 hover:border-[#ffc040]/50 hover:shadow-[0_0_20px_rgba(255,192,64,0.12)]"}
+          "bg-[#111827] border-[#3b8bf6]/22 hover:border-[#3b8bf6]/50 hover:shadow-[0_0_20px_rgba(59,139,246,0.12)]"}
       `}
       style={{ borderLeftColor: cc, borderLeftWidth: "3px" }}
     >
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs font-bold text-white">{base}-PERP</div>
-          <div className="text-[10px] text-[#ffc040]/70">{tick.name}</div>
+          <div className="text-[10px] text-[#3b8bf6]/70">{tick.name}</div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-base font-bold text-[#fff8e8]">${fmtPrice(tick.price)}</div>
-          <div className={`text-[11px] font-mono ${isUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+          <div className="font-mono text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
+          <div className={`text-[11px] font-mono ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
         </div>
       </div>
-      <div className="flex justify-between mt-2 text-[10px] text-[#ffc040]/45 font-mono">
+      <div className="flex justify-between mt-2 text-[10px] text-[#3b8bf6]/45 font-mono">
         <span>Vol {fmtVol(tick.quoteVolume)}</span>
         {tick.fundingRate !== undefined && (
-          <span className={tick.fundingRate >= 0 ? "text-[#ffc040]/60" : "text-[#ff5566]/60"}>
+          <span className={tick.fundingRate >= 0 ? "text-[#3b8bf6]/60" : "text-[#ff5566]/60"}>
             FR {(tick.fundingRate * 100).toFixed(4)}%
           </span>
         )}
       </div>
       {atr && (
         <div className="mt-1 text-right">
-          <span className="text-[10px] font-mono text-[#ffc040]/85 font-semibold" title="ATR-14 (daily expected move)">
+          <span className="text-[10px] font-mono text-[#3b8bf6]/85 font-semibold" title="ATR-14 (daily expected move)">
             ATR {atr.atrPct.toFixed(2)}%
           </span>
         </div>
       )}
       {starBtn}
       {flash && (
-        <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-[#ffc040]/8" : "bg-[#ff5566]/8"}`} />
+        <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-[#3b8bf6]/8" : "bg-[#ff5566]/8"}`} />
       )}
     </button>
   );
@@ -478,35 +478,35 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
       className={`
         group relative w-full text-left rounded-lg border p-3 transition-all duration-200
         hover:scale-[1.02] cursor-pointer
-        ${flash === "up" ? "bg-[#ffc040]/10 border-[#ffc040]/50" :
+        ${flash === "up" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/50" :
           flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/45" :
-          "bg-[#181410] border-[#ffc040]/22 hover:border-[#ffc040]/50 hover:shadow-[0_0_20px_rgba(255,192,64,0.12)]"}
+          "bg-[#111827] border-[#3b8bf6]/22 hover:border-[#3b8bf6]/50 hover:shadow-[0_0_20px_rgba(59,139,246,0.12)]"}
       `}
       style={{ borderLeftColor: catColor, borderLeftWidth: "3px" }}
     >
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs font-bold text-white">{tick.symbol}</div>
-          <div className="text-[10px] text-[#ffc040]/58 truncate max-w-[100px]">{tick.name}</div>
+          <div className="text-[10px] text-[#3b8bf6]/58 truncate max-w-[100px]">{tick.name}</div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-base font-bold text-[#fff8e8]">${fmtPrice(tick.price)}</div>
-          <div className={`text-[11px] font-mono ${isUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+          <div className="font-mono text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
+          <div className={`text-[11px] font-mono ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-[10px] text-[#ffc040]/58 font-mono">Vol {fmtVol(tick.volume)}</span>
+        <span className="text-[10px] text-[#3b8bf6]/58 font-mono">Vol {fmtVol(tick.volume)}</span>
         {atr && (
-          <span className="text-[10px] font-mono text-[#ffc040]/85 font-semibold" title="ATR-14 (daily expected move)">
+          <span className="text-[10px] font-mono text-[#3b8bf6]/85 font-semibold" title="ATR-14 (daily expected move)">
             ATR {atr.atrPct.toFixed(2)}%
           </span>
         )}
       </div>
       {starBtn}
       {flash && (
-        <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-[#ffc040]/8" : "bg-[#ff5566]/8"}`} />
+        <div className={`absolute inset-0 rounded-lg pointer-events-none ${flash === "up" ? "bg-[#3b8bf6]/8" : "bg-[#ff5566]/8"}`} />
       )}
     </button>
   );
@@ -545,8 +545,8 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
-      background: "#100d07",
-      border: "1px solid rgba(255,192,64,0.13)",
+      background: "#0f1626",
+      border: "1px solid rgba(59,139,246,0.13)",
       borderRadius: 16,
       paddingTop: 8, paddingBottom: 10, paddingLeft: 12, paddingRight: 12,
       minWidth: W + 16,
@@ -705,7 +705,7 @@ function sentBgStyle(label: string): React.CSSProperties {
   if (label === "Bullish")     return { background: "rgba(74,222,128,0.10)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" };
   if (label === "Strong Bear") return { background: "rgba(255,51,68,0.15)", border: "1px solid rgba(255,51,68,0.4)", color: "#ff3344" };
   if (label === "Bearish")     return { background: "rgba(255,85,102,0.10)", border: "1px solid rgba(255,85,102,0.3)", color: "#ff5566" };
-  return { background: "rgba(255,192,64,0.10)", border: "1px solid rgba(255,192,64,0.3)", color: "#ffc040" };
+  return { background: "rgba(59,139,246,0.10)", border: "1px solid rgba(59,139,246,0.3)", color: "#3b8bf6" };
 }
 
 function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
@@ -765,19 +765,19 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
         >
           <div
             className="w-72 rounded-2xl overflow-hidden shadow-2xl"
-            style={{ background: "#0d0a06", border: "1px solid rgba(255,192,64,0.3)" }}
+            style={{ background: "#0d1120", border: "1px solid rgba(59,139,246,0.3)" }}
             onClick={e => e.stopPropagation()}
           >
             {/* Search */}
-            <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(255,192,64,0.12)" }}>
-              <div className="text-[10px] font-mono mb-2" style={{ color: "rgba(255,192,64,0.5)" }}>SELECT PAIR OR COIN</div>
+            <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(59,139,246,0.12)" }}>
+              <div className="text-[10px] font-mono mb-2" style={{ color: "rgba(59,139,246,0.5)" }}>SELECT PAIR OR COIN</div>
               <input
                 autoFocus
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Search BTC, ETH, EUR/USD..."
                 className="w-full rounded-lg px-3 py-2 text-xs font-mono outline-none"
-                style={{ background: "#060402", border: "1px solid rgba(255,192,64,0.2)", color: "#fff8e8" }}
+                style={{ background: "#060c18", border: "1px solid rgba(59,139,246,0.2)", color: "#f0f4ff" }}
               />
             </div>
 
@@ -785,13 +785,13 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
             <button
               className="w-full text-left px-4 py-3 text-xs font-mono font-bold flex items-center gap-2 border-b"
               style={{
-                borderColor: "rgba(255,192,64,0.08)",
-                background: !selectedSymbol ? "rgba(255,192,64,0.08)" : "transparent",
-                color: !selectedSymbol ? "#ffc040" : "rgba(255,192,64,0.5)"
+                borderColor: "rgba(59,139,246,0.08)",
+                background: !selectedSymbol ? "rgba(59,139,246,0.08)" : "transparent",
+                color: !selectedSymbol ? "#3b8bf6" : "rgba(59,139,246,0.5)"
               }}
               onClick={() => { setSelectedSymbol(null); setShowModal(false); setQuery(""); }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ background: "#ffc040", opacity: 0.5 }} />
+              <span className="w-2 h-2 rounded-full" style={{ background: "#3b8bf6", opacity: 0.5 }} />
               All Markets Overview
             </button>
 
@@ -802,15 +802,15 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
                   key={t.symbol}
                   className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-2"
                   style={{
-                    background: selectedSymbol === t.symbol ? "rgba(255,192,64,0.08)" : "transparent",
-                    color: selectedSymbol === t.symbol ? "#ffc040" : "rgba(255,248,232,0.75)",
-                    borderBottom: "1px solid rgba(255,192,64,0.05)"
+                    background: selectedSymbol === t.symbol ? "rgba(59,139,246,0.08)" : "transparent",
+                    color: selectedSymbol === t.symbol ? "#3b8bf6" : "rgba(255,248,232,0.75)",
+                    borderBottom: "1px solid rgba(59,139,246,0.05)"
                   }}
                   onClick={() => { setSelectedSymbol(t.symbol); setShowModal(false); setQuery(""); }}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs font-bold font-mono" style={{ color: "#ffc040" }}>{t.symbol}</span>
-                    <span className="text-[10px] font-mono truncate" style={{ color: "rgba(255,192,64,0.35)" }}>{t.name}</span>
+                    <span className="text-xs font-bold font-mono" style={{ color: "#3b8bf6" }}>{t.symbol}</span>
+                    <span className="text-[10px] font-mono truncate" style={{ color: "rgba(59,139,246,0.35)" }}>{t.name}</span>
                   </div>
                   <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: (t.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
                     {(t.changePercent ?? 0) >= 0 ? "+" : ""}{(t.changePercent ?? 0).toFixed(2)}%
@@ -823,20 +823,20 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
       )}
 
       {/* Bar */}
-      <div style={{ background: "#060401", borderTop: "1px solid rgba(255,192,64,0.12)", borderBottom: "1px solid rgba(255,192,64,0.12)" }}>
+      <div style={{ background: "#060a14", borderTop: "1px solid rgba(59,139,246,0.12)", borderBottom: "1px solid rgba(59,139,246,0.12)" }}>
         <div style={{ padding: "10px 12px 8px 12px", display:"flex", alignItems:"center", gap:8 }}>
 
           {/* Selector button */}
           <div className="flex items-center gap-2 shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#ffc040" }} />
-            <span className="text-[9px] font-mono uppercase tracking-widest hidden sm:block" style={{ color: "rgba(255,192,64,0.45)" }}>Sentiment</span>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#3b8bf6" }} />
+            <span className="text-[9px] font-mono uppercase tracking-widest hidden sm:block" style={{ color: "rgba(59,139,246,0.45)" }}>Sentiment</span>
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold"
-              style={{ background: "#181410", border: "1px solid rgba(255,192,64,0.25)", color: "#ffc040" }}
+              style={{ background: "#111827", border: "1px solid rgba(59,139,246,0.25)", color: "#3b8bf6" }}
             >
               {displayName}
-              <ChevronDown className="w-3 h-3" style={{ color: "rgba(255,192,64,0.4)" }} />
+              <ChevronDown className="w-3 h-3" style={{ color: "rgba(59,139,246,0.4)" }} />
             </button>
           </div>
 
@@ -851,7 +851,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={78} />;
             })}
             {/* Divider */}
-            <div style={{ width:1, height:60, background:"rgba(255,192,64,0.12)", flexShrink:0 }} />
+            <div style={{ width:1, height:60, background:"rgba(59,139,246,0.12)", flexShrink:0 }} />
             {/* Final */}
             {(() => {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
@@ -862,7 +862,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
             {/* Live price */}
             {selectedTick && (
               <div className="ml-auto flex flex-col items-end justify-center shrink-0 self-center gap-1">
-                <span className="text-lg font-bold font-mono" style={{ color: "#fff8e8" }}>
+                <span className="text-lg font-bold font-mono" style={{ color: "#f0f4ff" }}>
                   ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                 </span>
                 <span className="text-xs font-mono font-bold" style={{ color: (selectedTick.changePercent ?? 0) >= 0 ? "#4ade80" : "#ff5566" }}>
@@ -895,7 +895,7 @@ function TickerTape({ allTicks }: { allTicks: Map<string, Tick> }) {
   const duration = Math.max(20, items.length * 1.2); // ~1.2s per item, min 20s
 
   return (
-    <div className="overflow-hidden border-b border-[#ffc040]/28 bg-black/50" style={{ height: "30px" }}>
+    <div className="overflow-hidden border-b border-[#3b8bf6]/28 bg-black/50" style={{ height: "30px" }}>
       <div
         className="flex items-center h-full gap-0 text-[11px] font-mono whitespace-nowrap"
         style={{ animation: `scroll-left ${duration}s linear infinite` }}
@@ -910,7 +910,7 @@ function TickerTape({ allTicks }: { allTicks: Map<string, Tick> }) {
             <span key={`${sym}-${i}`} className="flex items-center shrink-0" style={{ paddingRight: "28px" }}>
               <span className="font-bold mr-1" style={{ color }}>{sym}</span>
               <span className="text-white/90 mr-1">${fmtPrice(tick.price)}</span>
-              <span className={`font-semibold ${isUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+              <span className={`font-semibold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                 {isUp ? "▲" : "▼"}{Math.abs(tick.changePercent).toFixed(2)}%
               </span>
               <span className="text-white/10 ml-7">|</span>
@@ -969,18 +969,18 @@ function SentimentDonut({ bull, bear, neut }: { bull: number; bear: number; neut
       <div className="text-xs space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-          <span className="text-[#ffc040]/78">Bull</span>
-          <span className="font-mono text-[#ffc040] font-bold">{bullPct.toFixed(0)}%</span>
+          <span className="text-[#3b8bf6]/78">Bull</span>
+          <span className="font-mono text-[#3b8bf6] font-bold">{bullPct.toFixed(0)}%</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-          <span className="text-[#ffc040]/78">Bear</span>
+          <span className="text-[#3b8bf6]/78">Bear</span>
           <span className="font-mono text-[#ff5566] font-bold">{bearPct.toFixed(0)}%</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" />
-          <span className="text-[#ffc040]/78">Neut</span>
-          <span className="font-mono text-[#ffc040] font-bold">{neutPct.toFixed(0)}%</span>
+          <span className="text-[#3b8bf6]/78">Neut</span>
+          <span className="font-mono text-[#3b8bf6] font-bold">{neutPct.toFixed(0)}%</span>
         </div>
       </div>
     </div>
@@ -1056,7 +1056,7 @@ function StrengthBar({ value, currency }: { value: number; currency: string }) {
   const color = sColor(value);
   const accent = CUR_COLORS[currency] || color;
   return (
-    <div className="relative h-3 w-full bg-[#221d13] rounded-full overflow-hidden">
+    <div className="relative h-3 w-full bg-[#1a2235] rounded-full overflow-hidden">
       <div
         className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
         style={{ width: `${value}%`, background: `linear-gradient(90deg, ${accent}60, ${color})` }}
@@ -1136,14 +1136,14 @@ function CurrencyStrengthPanel() {
   const fmtChg = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(3)}%`;
 
   if (isLoading) return (
-    <div className="flex flex-col items-center justify-center h-64 gap-3 text-[#ffc040]/45 font-mono text-sm">
-      <div className="w-7 h-7 border-2 border-[#ffc040]/40 border-t-green-500 rounded-full animate-spin" />
+    <div className="flex flex-col items-center justify-center h-64 gap-3 text-[#3b8bf6]/45 font-mono text-sm">
+      <div className="w-7 h-7 border-2 border-[#3b8bf6]/40 border-t-green-500 rounded-full animate-spin" />
       Loading FX data...
     </div>
   );
 
   if (!strengthData || strengthData.length === 0) return (
-    <div className="flex items-center justify-center h-64 text-[#ffc040]/45 font-mono text-sm">
+    <div className="flex items-center justify-center h-64 text-[#3b8bf6]/45 font-mono text-sm">
       Waiting for forex data...
     </div>
   );
@@ -1159,20 +1159,20 @@ function CurrencyStrengthPanel() {
         <div className="mx-4 mt-3 flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-500/8 border border-blue-500/20">
           <span className="text-blue-400 font-mono font-bold text-xs tracking-widest">DXY</span>
           <span className="text-white font-mono font-bold text-base">{dxyData.value.toFixed(2)}</span>
-          <span className={`text-xs font-mono font-bold ${dxyData.change1d >= 0 ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+          <span className={`text-xs font-mono font-bold ${dxyData.change1d >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
             {fmtChg(dxyData.change1d)}
           </span>
-          <span className="text-[#ffc040]/30 text-[10px] font-mono ml-auto">US Dollar Index · 1D</span>
+          <span className="text-[#3b8bf6]/30 text-[10px] font-mono ml-auto">US Dollar Index · 1D</span>
         </div>
       )}
 
       {/* ── View + Timeframe controls ── */}
-      <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-[#ffc040]/10">
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-[#3b8bf6]/10">
         <div className="flex gap-1">
           {(["strength", "pairs", "heatmap"] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-colors ${
-                view === v ? "bg-green-500 text-black" : "bg-[#221d13] text-[#ffc040]/58 hover:bg-[#2e2719]"
+                view === v ? "bg-green-500 text-black" : "bg-[#1a2235] text-[#3b8bf6]/58 hover:bg-[#1e2a40]"
               }`}>
               {v === "strength" ? "Strength" : v === "pairs" ? "28 Pairs" : "Heatmap"}
             </button>
@@ -1182,7 +1182,7 @@ function CurrencyStrengthPanel() {
           {(["1h", "4h", "1d", "1w"] as const).map(tf => (
             <button key={tf} onClick={() => setTimeframe(tf)}
               className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-colors ${
-                timeframe === tf ? "bg-[#181410]/805 text-white" : "bg-white/4 text-[#ffc040]/45 hover:bg-[#2e2719]"
+                timeframe === tf ? "bg-[#111827]/805 text-white" : "bg-white/4 text-[#3b8bf6]/45 hover:bg-[#1e2a40]"
               }`}>
               {tf.toUpperCase()}
             </button>
@@ -1197,20 +1197,20 @@ function CurrencyStrengthPanel() {
           {/* Top Signal Card */}
           {strongest && weakest && strongest.currency !== weakest.currency && (
             <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="rounded-lg bg-[#ffc040]/8 border border-[#ffc040]/28 p-2.5">
-                <div className="text-[9px] text-[#ffc040]/50 font-mono uppercase mb-1">Strongest</div>
+              <div className="rounded-lg bg-[#3b8bf6]/8 border border-[#3b8bf6]/28 p-2.5">
+                <div className="text-[9px] text-[#3b8bf6]/50 font-mono uppercase mb-1">Strongest</div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm">{FLAGS[strongest.currency]}</span>
-                  <span className="font-mono font-bold text-[#ffc040] text-sm">{strongest.currency}</span>
+                  <span className="font-mono font-bold text-[#3b8bf6] text-sm">{strongest.currency}</span>
                 </div>
-                <div className="font-mono text-[10px] text-[#ffc040]/60 mt-0.5">{sLabel(getStrength(strongest))}</div>
+                <div className="font-mono text-[10px] text-[#3b8bf6]/60 mt-0.5">{sLabel(getStrength(strongest))}</div>
               </div>
-              <div className="rounded-lg bg-yellow-500/5 border border-[#ffc040]/28 p-2.5 flex flex-col justify-center">
-                <div className="text-[9px] text-[#ffc040]/50 font-mono uppercase mb-1">Top Signal</div>
+              <div className="rounded-lg bg-yellow-500/5 border border-[#3b8bf6]/28 p-2.5 flex flex-col justify-center">
+                <div className="text-[9px] text-[#3b8bf6]/50 font-mono uppercase mb-1">Top Signal</div>
                 <div className="font-mono text-white text-[11px] font-bold">
                   {strongest.currency}/{weakest.currency}
                 </div>
-                <div className="text-[9px] font-mono text-[#ffc040]/45 mt-0.5">
+                <div className="text-[9px] font-mono text-[#3b8bf6]/45 mt-0.5">
                   {getStrength(strongest) - getStrength(weakest)} pt spread
                 </div>
               </div>
@@ -1236,15 +1236,15 @@ function CurrencyStrengthPanel() {
                   <div className="flex items-center gap-2">
                     <span className="text-base w-6">{FLAGS[c.currency]}</span>
                     <span className="font-mono font-bold text-white text-xs w-8">{c.currency}</span>
-                    <span className="text-[#ffc040]/30 font-mono text-[10px]">#{rank}</span>
+                    <span className="text-[#3b8bf6]/30 font-mono text-[10px]">#{rank}</span>
                     <span className="font-mono text-[10px]" style={{ color }}>{sLabel(strength)}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <span className={`text-[10px] font-mono mr-2 ${c.change1h >= 0 ? "text-[#ffc040]/60" : "text-[#ff5566]/60"}`}>
+                      <span className={`text-[10px] font-mono mr-2 ${c.change1h >= 0 ? "text-[#3b8bf6]/60" : "text-[#ff5566]/60"}`}>
                         {fmtChg(c.change1h)} 1H
                       </span>
-                      <span className={`text-[10px] font-mono ${c.change1d >= 0 ? "text-[#ffc040]/60" : "text-[#ff5566]/60"}`}>
+                      <span className={`text-[10px] font-mono ${c.change1d >= 0 ? "text-[#3b8bf6]/60" : "text-[#ff5566]/60"}`}>
                         {fmtChg(c.change1d)} 1D
                       </span>
                     </div>
@@ -1258,7 +1258,7 @@ function CurrencyStrengthPanel() {
             );
           })}
 
-          <div className="text-[#ffc040]/20 font-mono text-[9px] text-center pt-2">
+          <div className="text-[#3b8bf6]/20 font-mono text-[9px] text-center pt-2">
             28 major forex pairs · {pairsData?.length ?? 0} loaded · refreshes every 60s
           </div>
         </div>
@@ -1268,15 +1268,15 @@ function CurrencyStrengthPanel() {
       {view === "pairs" && (
         <div className="flex flex-col">
           {/* Currency filter pills */}
-          <div className="px-4 py-2 flex gap-1.5 flex-wrap border-b border-[#ffc040]/10">
+          <div className="px-4 py-2 flex gap-1.5 flex-wrap border-b border-[#3b8bf6]/10">
             <button onClick={() => setSelectedCur(null)}
               className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
-                !selectedCur ? "bg-[#181410]/800 text-white" : "bg-[#221d13] text-[#ffc040]/45 hover:bg-[#2e2719]"
+                !selectedCur ? "bg-[#111827]/800 text-white" : "bg-[#1a2235] text-[#3b8bf6]/45 hover:bg-[#1e2a40]"
               }`}>ALL</button>
             {["USD","EUR","GBP","JPY","CHF","AUD","CAD","NZD"].map(cur => (
               <button key={cur} onClick={() => setSelectedCur(cur === selectedCur ? null : cur)}
                 className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
-                  selectedCur === cur ? "text-black" : "bg-[#221d13] text-[#ffc040]/58 hover:bg-[#2e2719]"
+                  selectedCur === cur ? "text-black" : "bg-[#1a2235] text-[#3b8bf6]/58 hover:bg-[#1e2a40]"
                 }`}
                 style={selectedCur === cur ? { backgroundColor: CUR_COLORS[cur] } : {}}>
                 {FLAGS[cur]} {cur}
@@ -1287,11 +1287,11 @@ function CurrencyStrengthPanel() {
           {/* Pairs table */}
           <div className="px-2 py-1 overflow-x-auto">
             {!pairsData ? (
-              <div className="text-[#ffc040]/45 font-mono text-xs text-center py-8">Loading pairs...</div>
+              <div className="text-[#3b8bf6]/45 font-mono text-xs text-center py-8">Loading pairs...</div>
             ) : (
               <table className="w-full text-[11px] font-mono">
                 <thead>
-                  <tr className="text-[#ffc040]/38 text-[9px] uppercase border-b border-[#ffc040]/10">
+                  <tr className="text-[#3b8bf6]/38 text-[9px] uppercase border-b border-[#3b8bf6]/10">
                     <th className="text-left pl-2 py-2">Pair</th>
                     <th className="text-right py-2">Price</th>
                     <th className="text-right py-2">1H%</th>
@@ -1306,29 +1306,29 @@ function CurrencyStrengthPanel() {
                     const isJPY = p.quote === "JPY" || p.base === "JPY";
                     const baseColor = CUR_COLORS[p.base] || "#fff";
                     return (
-                      <tr key={p.symbol} className="border-b border-white/3 hover:bg-[#1e1a12] transition-colors">
+                      <tr key={p.symbol} className="border-b border-white/3 hover:bg-[#151e30] transition-colors">
                         <td className="pl-2 py-2">
                           <div className="flex items-center gap-1">
                             <span style={{ color: baseColor }} className="font-bold">{p.base}</span>
-                            <span className="text-[#ffc040]/30">/</span>
-                            <span className="text-[#ffc040]/78">{p.quote}</span>
+                            <span className="text-[#3b8bf6]/30">/</span>
+                            <span className="text-[#3b8bf6]/78">{p.quote}</span>
                           </div>
                         </td>
                         <td className="text-right text-white/80">{fmtPx(p.price, isJPY)}</td>
-                        <td className={`text-right ${p.change1h >= 0 ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                        <td className={`text-right ${p.change1h >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                           {fmtChg(p.change1h)}
                         </td>
-                        <td className={`text-right ${p.change4h >= 0 ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                        <td className={`text-right ${p.change4h >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                           {fmtChg(p.change4h)}
                         </td>
-                        <td className={`text-right ${p.change1d >= 0 ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                        <td className={`text-right ${p.change1d >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                           {fmtChg(p.change1d)}
                         </td>
-                        <td className={`text-right ${p.change1w >= 0 ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                        <td className={`text-right ${p.change1w >= 0 ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                           {fmtChg(p.change1w)}
                         </td>
                         <td className={`text-right pr-2 ${
-                          p.spread < 1.5 ? "text-[#ffc040]/60" : p.spread < 4 ? "text-[#ffc040]/60" : "text-[#ff5566]/60"
+                          p.spread < 1.5 ? "text-[#3b8bf6]/60" : p.spread < 4 ? "text-[#3b8bf6]/60" : "text-[#ff5566]/60"
                         }`}>{p.spread.toFixed(1)}</td>
                       </tr>
                     );
@@ -1343,11 +1343,11 @@ function CurrencyStrengthPanel() {
       {/* ══ HEATMAP VIEW ══ */}
       {view === "heatmap" && (
         <div className="px-4 py-3">
-          <div className="text-[#ffc040]/38 font-mono text-[10px] mb-3">
+          <div className="text-[#3b8bf6]/38 font-mono text-[10px] mb-3">
             Currency correlation matrix · green = positive · red = inverse
           </div>
           {!corrMatrix ? (
-            <div className="text-[#ffc040]/45 font-mono text-xs text-center py-8">Loading...</div>
+            <div className="text-[#3b8bf6]/45 font-mono text-xs text-center py-8">Loading...</div>
           ) : (() => {
             const curs = ["USD","EUR","GBP","JPY","CHF","AUD","CAD","NZD"];
             return (
@@ -1402,7 +1402,7 @@ function CurrencyStrengthPanel() {
                         <div className="font-mono text-[10px] font-bold" style={{ color: col }}>
                           #{i+1} · {s}
                         </div>
-                        <div className="font-mono text-[9px] text-[#ffc040]/45">{sLabel(s)}</div>
+                        <div className="font-mono text-[9px] text-[#3b8bf6]/45">{sLabel(s)}</div>
                       </div>
                     );
                   })}
@@ -1422,24 +1422,24 @@ function G1Modal({ text, onClose }: { text: string; onClose: () => void }) {
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
       <div className="g1-screen p-4 max-w-sm w-full" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-2 text-[#ffc040] text-xs font-mono">
+          <div className="flex items-center gap-2 text-[#3b8bf6] text-xs font-mono">
             <Glasses className="w-3 h-3" />
             <span>G2 HUD PREVIEW</span>
           </div>
-          <button onClick={onClose} className="text-[#ffc040]/60 hover:text-[#ffc040]"><X className="w-3 h-3" /></button>
+          <button onClick={onClose} className="text-[#3b8bf6]/60 hover:text-[#3b8bf6]"><X className="w-3 h-3" /></button>
         </div>
-        <pre className="text-[11px] font-mono text-[#ffd060] leading-relaxed whitespace-pre-wrap">{text}</pre>
+        <pre className="text-[11px] font-mono text-[#60a5fa] leading-relaxed whitespace-pre-wrap">{text}</pre>
         <button
-          className="mt-3 w-full text-center text-[10px] font-mono text-[#ffc040] border border-[#ffc040]/40 rounded py-1.5 hover:bg-[#ffc040]/10 transition-colors"
+          className="mt-3 w-full text-center text-[10px] font-mono text-[#3b8bf6] border border-[#3b8bf6]/40 rounded py-1.5 hover:bg-[#3b8bf6]/10 transition-colors"
           onClick={() => { navigator.clipboard?.writeText(text); }}
         >
           COPY TO CLIPBOARD
         </button>
-        <div className="mt-3 border-t border-[#ffc040]/28 pt-3 space-y-1">
-          <div className="text-[9px] font-mono text-[#ffc040]/50 uppercase tracking-wider mb-1">G2 Gesture Guide</div>
-          <div className="text-[9px] font-mono text-[#ffc040]/60">TAP LEFT &nbsp;&nbsp;&nbsp;= Scroll UP</div>
-          <div className="text-[9px] font-mono text-[#ffc040]/60">TAP RIGHT &nbsp;&nbsp;= Scroll DOWN</div>
-          <div className="text-[9px] font-mono text-[#ffc040]/60">DBL TAP LEFT = EXIT app</div>
+        <div className="mt-3 border-t border-[#3b8bf6]/28 pt-3 space-y-1">
+          <div className="text-[9px] font-mono text-[#3b8bf6]/50 uppercase tracking-wider mb-1">G2 Gesture Guide</div>
+          <div className="text-[9px] font-mono text-[#3b8bf6]/60">TAP LEFT &nbsp;&nbsp;&nbsp;= Scroll UP</div>
+          <div className="text-[9px] font-mono text-[#3b8bf6]/60">TAP RIGHT &nbsp;&nbsp;= Scroll DOWN</div>
+          <div className="text-[9px] font-mono text-[#3b8bf6]/60">DBL TAP LEFT = EXIT app</div>
         </div>
       </div>
     </div>
@@ -1478,13 +1478,13 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
   const cc = coinColor(sym);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#060402]/80" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#060c18]/80" onClick={onClose}>
       <div
-        className="bg-[#0d0b07] border border-[#ffc040]/20 rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-[#0d1120] border border-[#3b8bf6]/20 rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-[#0d0b07] border-b border-[#ffc040]/10 px-5 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-[#0d1120] border-b border-[#3b8bf6]/10 px-5 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
@@ -1494,7 +1494,7 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
             </div>
             <div>
               <div className="text-sm font-bold text-white">{tick.name}</div>
-              <div className="text-[10px] text-[#ffc040]/58 font-mono">{sym} · {tick.category.toUpperCase()}</div>
+              <div className="text-[10px] text-[#3b8bf6]/58 font-mono">{sym} · {tick.category.toUpperCase()}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1505,8 +1505,8 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
                   onClick={() => toggleFav(tick)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
                     isFav
-                      ? "bg-[#ffc040]/16 border-[#ffc040]/40 text-[#ffc040]"
-                      : "bg-[#221d13] border-[#ffc040]/20 text-[#ffc040]/58 hover:bg-[#ffc040]/12 hover:border-[#ffc040]/40 hover:text-[#ffc040]"
+                      ? "bg-[#3b8bf6]/16 border-[#3b8bf6]/40 text-[#3b8bf6]"
+                      : "bg-[#1a2235] border-[#3b8bf6]/20 text-[#3b8bf6]/58 hover:bg-[#3b8bf6]/12 hover:border-[#3b8bf6]/40 hover:text-[#3b8bf6]"
                   }`}
                 >
                   <Star className="w-3 h-3" fill={isFav ? "currentColor" : "none"} />
@@ -1519,55 +1519,55 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
                 onClick={() => { setShowOrderForm(s => !s); if (!orderEntry) setOrderEntry(String(tick.price)); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
                   showOrderForm
-                    ? "bg-[#ffc040]/18 border-[#ffc040]/50 text-[#ffd060]"
-                    : "bg-[#221d13] border-[#ffc040]/20 text-[#ffc040]/58 hover:bg-[#ffc040]/10 hover:border-[#ffc040]/40 hover:text-[#ffc040]"
+                    ? "bg-[#3b8bf6]/18 border-[#3b8bf6]/50 text-[#60a5fa]"
+                    : "bg-[#1a2235] border-[#3b8bf6]/20 text-[#3b8bf6]/58 hover:bg-[#3b8bf6]/10 hover:border-[#3b8bf6]/40 hover:text-[#3b8bf6]"
                 }`}
               >
                 <Target className="w-3 h-3" />
                 {showOrderForm ? "Cancel" : "Set Order"}
               </button>
             )}
-            <button onClick={onClose} className="text-[#ffc040]/58 hover:text-white"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} className="text-[#3b8bf6]/58 hover:text-white"><X className="w-5 h-5" /></button>
           </div>
         </div>
 
         {/* Limit Order Form */}
         {showOrderForm && onAddPosition && (
-          <div className="border-b border-[#ffc040]/15 px-5 py-4 bg-[#131009]">
-            <div className="text-[10px] font-mono text-[#ffc040] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+          <div className="border-b border-[#3b8bf6]/15 px-5 py-4 bg-[#101828]">
+            <div className="text-[10px] font-mono text-[#3b8bf6] uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Target className="w-3 h-3" /> Set Limit Order — {sym}
             </div>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
-                <label className="text-[9px] font-mono text-[#ffc040]/52 uppercase mb-1 block">Entry Price *</label>
+                <label className="text-[9px] font-mono text-[#3b8bf6]/52 uppercase mb-1 block">Entry Price *</label>
                 <input
                   type="number" step="any"
                   value={orderEntry}
                   onChange={e => setOrderEntry(e.target.value)}
                   placeholder={String(tick.price)}
-                  className="w-full bg-[#221d13] border border-[#ffc040]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+                  className="w-full bg-[#1a2235] border border-[#3b8bf6]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-mono text-[#ffc040]/52 uppercase mb-1 block">Quantity *</label>
+                <label className="text-[9px] font-mono text-[#3b8bf6]/52 uppercase mb-1 block">Quantity *</label>
                 <input
                   type="number" step="any"
                   value={orderQty}
                   onChange={e => setOrderQty(e.target.value)}
                   placeholder="0.1"
-                  className="w-full bg-[#221d13] border border-[#ffc040]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+                  className="w-full bg-[#1a2235] border border-[#3b8bf6]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
-                <label className="text-[9px] font-mono text-[#ffc040]/60 uppercase mb-1 block">Take Profit</label>
+                <label className="text-[9px] font-mono text-[#3b8bf6]/60 uppercase mb-1 block">Take Profit</label>
                 <input
                   type="number" step="any"
                   value={orderTarget}
                   onChange={e => setOrderTarget(e.target.value)}
                   placeholder="Target price"
-                  className="w-full bg-[#221d13] border border-[#ffc040]/28 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+                  className="w-full bg-[#1a2235] border border-[#3b8bf6]/28 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
                 />
               </div>
               <div>
@@ -1577,25 +1577,25 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
                   value={orderStop}
                   onChange={e => setOrderStop(e.target.value)}
                   placeholder="Stop price"
-                  className="w-full bg-[#221d13] border border-[#ff5566]/28 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ff5566]/45"
+                  className="w-full bg-[#1a2235] border border-[#ff5566]/28 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ff5566]/45"
                 />
               </div>
             </div>
             <div className="mb-3">
-              <label className="text-[9px] font-mono text-[#ffc040]/52 uppercase mb-1 block">Notes</label>
+              <label className="text-[9px] font-mono text-[#3b8bf6]/52 uppercase mb-1 block">Notes</label>
               <input
                 value={orderNotes}
                 onChange={e => setOrderNotes(e.target.value)}
                 placeholder="Reason for trade, strategy..."
-                className="w-full bg-[#221d13] border border-[#ffc040]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
+                className="w-full bg-[#1a2235] border border-[#3b8bf6]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-green-500/50"
               />
             </div>
             {/* Current price hint */}
-            <div className="flex items-center justify-between mb-3 text-[9px] font-mono text-[#ffc040]/38">
-              <span>Current live price: <span className="text-[#ffc040]/68">${fmtPrice(tick.price)}</span></span>
+            <div className="flex items-center justify-between mb-3 text-[9px] font-mono text-[#3b8bf6]/38">
+              <span>Current live price: <span className="text-[#3b8bf6]/68">${fmtPrice(tick.price)}</span></span>
               <button
                 onClick={() => setOrderEntry(String(tick.price))}
-                className="text-[#ffc040]/50 hover:text-[#ffc040] underline transition-colors"
+                className="text-[#3b8bf6]/50 hover:text-[#3b8bf6] underline transition-colors"
               >
                 Use current price
               </button>
@@ -1618,8 +1618,8 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
               }}
               className={`w-full py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
                 orderSaved
-                  ? "bg-[#ffc040]/22 border-green-500/50 text-[#ffd060]"
-                  : "bg-[#ffc040]/14 border-[#ffc040]/40 text-[#ffc040] hover:bg-[#ffc040]/22"
+                  ? "bg-[#3b8bf6]/22 border-green-500/50 text-[#60a5fa]"
+                  : "bg-[#3b8bf6]/14 border-[#3b8bf6]/40 text-[#3b8bf6] hover:bg-[#3b8bf6]/22"
               }`}
             >
               {orderSaved ? "✓ Saved to Positions" : `Add to Positions · ${sym}`}
@@ -1629,52 +1629,52 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
 
         <div className="p-5 space-y-5">
           {/* Price + stats */}
-          <div className={`rounded-xl border p-4 ${flash === "up" ? "bg-[#ffc040]/10 border-[#ffc040]/40" : flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/38" : "bg-[#181410]/80 border-[#ffc040]/10"} transition-all duration-300`}>
+          <div className={`rounded-xl border p-4 ${flash === "up" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/40" : flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/38" : "bg-[#111827]/80 border-[#3b8bf6]/10"} transition-all duration-300`}>
             <div className="flex items-baseline gap-3">
               <span className="font-mono text-2xl font-bold text-white">${fmtPrice(tick.price)}</span>
-              <span className={`font-mono text-sm font-semibold ${isUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+              <span className={`font-mono text-sm font-semibold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                 {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
               </span>
               {tick.category === "crypto" || tick.category === "futures" ? (
-                <span className="text-[10px] text-[#ffc040]/45 font-mono ml-auto">LIVE · {ago(tick.updatedAt)}</span>
+                <span className="text-[10px] text-[#3b8bf6]/45 font-mono ml-auto">LIVE · {ago(tick.updatedAt)}</span>
               ) : null}
             </div>
             <div className="grid grid-cols-3 gap-3 mt-3">
               <div>
-                <div className="text-[10px] text-[#ffc040]/45">24H HIGH</div>
-                <div className="text-xs font-mono text-[#ffc040]">${fmtPrice(tick.high)}</div>
+                <div className="text-[10px] text-[#3b8bf6]/45">24H HIGH</div>
+                <div className="text-xs font-mono text-[#3b8bf6]">${fmtPrice(tick.high)}</div>
               </div>
               <div>
-                <div className="text-[10px] text-[#ffc040]/45">24H LOW</div>
+                <div className="text-[10px] text-[#3b8bf6]/45">24H LOW</div>
                 <div className="text-xs font-mono text-[#ff5566]">${fmtPrice(tick.low)}</div>
               </div>
               <div>
-                <div className="text-[10px] text-[#ffc040]/45">VOLUME</div>
-                <div className="text-xs font-mono text-[#ffc040]/88">{fmtVol(tick.quoteVolume || tick.volume)}</div>
+                <div className="text-[10px] text-[#3b8bf6]/45">VOLUME</div>
+                <div className="text-xs font-mono text-[#3b8bf6]/88">{fmtVol(tick.quoteVolume || tick.volume)}</div>
               </div>
             </div>
           </div>
 
           {/* Sentiment */}
           {sent && (
-            <div className="rounded-xl border border-[#ffc040]/10 bg-[#181410]/80 p-4">
-              <div className="text-[11px] text-[#ffc040]/58 font-mono uppercase tracking-wider mb-3">Market Sentiment</div>
+            <div className="rounded-xl border border-[#3b8bf6]/10 bg-[#111827]/80 p-4">
+              <div className="text-[11px] text-[#3b8bf6]/58 font-mono uppercase tracking-wider mb-3">Market Sentiment</div>
               <SentimentDonut bull={sent.bullish} bear={sent.bearish} neut={sent.neutral} />
               {/* Buyer/Seller bars */}
               <div className="mt-4 space-y-2">
                 <div>
-                  <div className="flex justify-between text-[10px] text-[#ffc040]/58 mb-1">
-                    <span>BUYERS</span><span className="text-[#ffc040]">{sent.avgBuyerPressure}%</span>
+                  <div className="flex justify-between text-[10px] text-[#3b8bf6]/58 mb-1">
+                    <span>BUYERS</span><span className="text-[#3b8bf6]">{sent.avgBuyerPressure}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-[#221d13]">
+                  <div className="h-1.5 rounded-full bg-[#1a2235]">
                     <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${sent.avgBuyerPressure}%` }} />
                   </div>
                 </div>
                 <div>
-                  <div className="flex justify-between text-[10px] text-[#ffc040]/58 mb-1">
+                  <div className="flex justify-between text-[10px] text-[#3b8bf6]/58 mb-1">
                     <span>SELLERS</span><span className="text-[#ff5566]">{sent.avgSellerPressure}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-[#221d13]">
+                  <div className="h-1.5 rounded-full bg-[#1a2235]">
                     <div className="h-full rounded-full bg-red-500 transition-all duration-500" style={{ width: `${sent.avgSellerPressure}%` }} />
                   </div>
                 </div>
@@ -1684,10 +1684,10 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
 
           {/* High-impact alerts */}
           {detail?.highImpact && detail.highImpact.length > 0 && (
-            <div className="rounded-xl border border-[#ffc040]/28 bg-yellow-500/5 p-4">
+            <div className="rounded-xl border border-[#3b8bf6]/28 bg-yellow-500/5 p-4">
               <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-3.5 h-3.5 text-[#ffc040]" />
-                <span className="text-[11px] text-[#ffc040] font-mono uppercase tracking-wider">High Impact Alerts</span>
+                <AlertTriangle className="w-3.5 h-3.5 text-[#3b8bf6]" />
+                <span className="text-[11px] text-[#3b8bf6] font-mono uppercase tracking-wider">High Impact Alerts</span>
               </div>
               <div className="space-y-2">
                 {detail.highImpact.slice(0, 3).map(n => (
@@ -1708,14 +1708,14 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
           {/* Deep news */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[11px] text-[#ffc040]/58 font-mono uppercase tracking-wider">Deep News Research</div>
+              <div className="text-[11px] text-[#3b8bf6]/58 font-mono uppercase tracking-wider">Deep News Research</div>
               <div className="flex gap-1">
                 {(["all","bullish","bearish","neutral"] as const).map(f => (
                   <button
                     key={f}
                     onClick={() => setNewsFilter(f)}
                     className={`text-[10px] px-2 py-0.5 rounded font-mono border transition-colors ${
-                      newsFilter === f ? sentimentBg(f === "all" ? "neutral" : f) : "border-[#ffc040]/20 text-[#ffc040]/45 hover:text-[#ffc040]/78"
+                      newsFilter === f ? sentimentBg(f === "all" ? "neutral" : f) : "border-[#3b8bf6]/20 text-[#3b8bf6]/45 hover:text-[#3b8bf6]/78"
                     }`}
                   >
                     {f === "all" ? "ALL" : f.slice(0, 4).toUpperCase()}
@@ -1727,11 +1727,11 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
             {isLoading ? (
               <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
             ) : filtered.length === 0 ? (
-              <div className="text-center text-[#ffc040]/45 text-xs py-6 font-mono">No news articles found for {sym}</div>
+              <div className="text-center text-[#3b8bf6]/45 text-xs py-6 font-mono">No news articles found for {sym}</div>
             ) : (
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {filtered.slice(0, 20).map(n => (
-                  <div key={n.id} className="rounded-lg border border-[#ffc040]/10 bg-[#181410]/80 p-3">
+                  <div key={n.id} className="rounded-lg border border-[#3b8bf6]/10 bg-[#111827]/80 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1 flex-wrap">
@@ -1739,28 +1739,28 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
                             {n.sentiment.toUpperCase()}
                           </span>
                           {n.impactLevel === "high" && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#ffc040]/38 bg-[#ffc040]/12 text-[#ffc040]">HIGH</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#3b8bf6]/38 bg-[#3b8bf6]/12 text-[#3b8bf6]">HIGH</span>
                           )}
-                          <span className="text-[10px] text-[#ffc040]/58 font-mono">{n.source}</span>
-                          <span className="text-[10px] text-[#ffc040]/30">·</span>
-                          <span className="text-[10px] text-[#ffc040]/30 font-mono">{ago(n.publishedAt)}</span>
+                          <span className="text-[10px] text-[#3b8bf6]/58 font-mono">{n.source}</span>
+                          <span className="text-[10px] text-[#3b8bf6]/30">·</span>
+                          <span className="text-[10px] text-[#3b8bf6]/30 font-mono">{ago(n.publishedAt)}</span>
                         </div>
                         <a href={n.url} target="_blank" rel="noreferrer"
                           className="text-xs text-white/80 hover:text-white leading-snug line-clamp-2">
                           {n.title}
                         </a>
                         {n.summary && (
-                          <p className="text-[10px] text-[#ffc040]/58 mt-1 line-clamp-2 leading-relaxed">{n.summary}</p>
+                          <p className="text-[10px] text-[#3b8bf6]/58 mt-1 line-clamp-2 leading-relaxed">{n.summary}</p>
                         )}
                       </div>
                       <div className="flex flex-col gap-1 shrink-0">
                         <a href={n.url} target="_blank" rel="noreferrer"
-                          className="text-[#ffc040]/30 hover:text-[#ffc040]/78 transition-colors">
+                          className="text-[#3b8bf6]/30 hover:text-[#3b8bf6]/78 transition-colors">
                           <ExternalLink className="w-3 h-3" />
                         </a>
                         {n.g1Text && (
                           <button
-                            className="text-green-500/40 hover:text-[#ffc040] transition-colors"
+                            className="text-green-500/40 hover:text-[#3b8bf6] transition-colors"
                             onClick={() => setG1Text(n.g1Text)}
                             title="View G2 HUD preview"
                           >
@@ -1771,10 +1771,10 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
                     </div>
                     {/* Pressure mini-bars */}
                     <div className="flex gap-1 mt-2">
-                      <div className="flex-1 h-1 rounded-full bg-[#221d13]">
+                      <div className="flex-1 h-1 rounded-full bg-[#1a2235]">
                         <div className="h-full rounded-full bg-green-500/60" style={{ width: `${n.buyerPressure}%` }} />
                       </div>
-                      <span className="text-[9px] text-[#ffc040]/30 font-mono w-8 text-right">B{n.buyerPressure}%</span>
+                      <span className="text-[9px] text-[#3b8bf6]/30 font-mono w-8 text-right">B{n.buyerPressure}%</span>
                     </div>
                   </div>
                 ))}
@@ -1786,7 +1786,7 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
           <Button
             variant="outline"
             size="sm"
-            className="w-full text-[#ffc040] border-[#ffc040]/40 hover:bg-[#ffc040]/10 font-mono text-xs"
+            className="w-full text-[#3b8bf6] border-[#3b8bf6]/40 hover:bg-[#3b8bf6]/10 font-mono text-xs"
             onClick={() => {
               const lines = [
                 `${sym}/USDT  $${fmtPrice(tick.price).padStart(10)}`,
@@ -1937,17 +1937,17 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
       {/* Portfolio Summary Bar */}
       {openPositions.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
-          <div className="bg-[#1e1a12] border border-[#ffc040]/15 rounded-xl p-3">
-            <div className="text-[9px] font-mono text-[#ffc040]/45 uppercase mb-1">Total Invested</div>
+          <div className="bg-[#151e30] border border-[#3b8bf6]/15 rounded-xl p-3">
+            <div className="text-[9px] font-mono text-[#3b8bf6]/45 uppercase mb-1">Total Invested</div>
             <div className="text-sm font-bold font-mono text-white">${fmtPrice(summary.totalCost)}</div>
           </div>
-          <div className="bg-[#1e1a12] border border-[#ffc040]/15 rounded-xl p-3">
-            <div className="text-[9px] font-mono text-[#ffc040]/45 uppercase mb-1">Current Value</div>
+          <div className="bg-[#151e30] border border-[#3b8bf6]/15 rounded-xl p-3">
+            <div className="text-[9px] font-mono text-[#3b8bf6]/45 uppercase mb-1">Current Value</div>
             <div className="text-sm font-bold font-mono text-white">${summary.resolved > 0 ? fmtPrice(summary.totalValue) : "—"}</div>
           </div>
-          <div className={`border rounded-xl p-3 ${pnlUp ? "bg-[#ffc040]/8 border-[#ffc040]/28" : "bg-[#ff5566]/8 border-[#ff5566]/28"}`}>
-            <div className="text-[9px] font-mono text-[#ffc040]/45 uppercase mb-1">Total P&L</div>
-            <div className={`text-sm font-bold font-mono ${pnlUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+          <div className={`border rounded-xl p-3 ${pnlUp ? "bg-[#3b8bf6]/8 border-[#3b8bf6]/28" : "bg-[#ff5566]/8 border-[#ff5566]/28"}`}>
+            <div className="text-[9px] font-mono text-[#3b8bf6]/45 uppercase mb-1">Total P&L</div>
+            <div className={`text-sm font-bold font-mono ${pnlUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
               {summary.resolved > 0 ? `${pnlUp ? "+" : ""}${fmtPrice(summary.totalPnl)} (${pnlPct.toFixed(2)}%)` : "—"}
             </div>
           </div>
@@ -1956,30 +1956,30 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
 
       {/* Add / Edit Form */}
       {showForm && (
-        <div className="bg-[#131009] border border-[#ffc040]/22 rounded-xl p-4 space-y-3">
+        <div className="bg-[#101828] border border-[#3b8bf6]/22 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-bold text-white">{editId !== null ? "Edit Position" : "New Position"}</span>
-            <button onClick={resetForm} className="text-[#ffc040]/45 hover:text-white"><X className="w-4 h-4" /></button>
+            <button onClick={resetForm} className="text-[#3b8bf6]/45 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
 
           {/* Symbol + Quantity row */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[9px] font-mono text-[#ffc040]/58 uppercase mb-1 block">Coin / Symbol *</label>
+              <label className="text-[9px] font-mono text-[#3b8bf6]/58 uppercase mb-1 block">Coin / Symbol *</label>
               <input
                 value={fSymbol}
                 onChange={e => setFSymbol(e.target.value.toUpperCase())}
                 disabled={editId !== null}
                 placeholder="BTC, ETH, SOL..."
-                className="w-full bg-[#221d13] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50 disabled:opacity-50"
+                className="w-full bg-[#1a2235] border border-[#3b8bf6]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#3b8bf6]/50 disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="text-[9px] font-mono text-[#ffc040]/58 uppercase mb-1 block">Quantity *</label>
+              <label className="text-[9px] font-mono text-[#3b8bf6]/58 uppercase mb-1 block">Quantity *</label>
               <input
                 type="number" step="any" value={fQty} onChange={e => setFQty(e.target.value)}
                 placeholder="0.5"
-                className="w-full bg-[#221d13] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50"
+                className="w-full bg-[#1a2235] border border-[#3b8bf6]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#3b8bf6]/50"
               />
             </div>
           </div>
@@ -1987,21 +1987,21 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
           {/* Entry + Target + Stop row */}
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-[9px] font-mono text-[#ffc040]/58 uppercase mb-1 block">Entry Price *</label>
+              <label className="text-[9px] font-mono text-[#3b8bf6]/58 uppercase mb-1 block">Entry Price *</label>
               <input
                 type="number" step="any" value={fEntry}
                 onChange={e => setFEntry(e.target.value)}
                 disabled={editId !== null}
                 placeholder="42000"
-                className="w-full bg-[#221d13] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50 disabled:opacity-50"
+                className="w-full bg-[#1a2235] border border-[#3b8bf6]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#3b8bf6]/50 disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="text-[9px] font-mono text-[#ffc040]/60 uppercase mb-1 block">Take Profit</label>
+              <label className="text-[9px] font-mono text-[#3b8bf6]/60 uppercase mb-1 block">Take Profit</label>
               <input
                 type="number" step="any" value={fTarget} onChange={e => setFTarget(e.target.value)}
                 placeholder="50000"
-                className="w-full bg-[#221d13] border border-[#ffc040]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50"
+                className="w-full bg-[#1a2235] border border-[#3b8bf6]/22 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#3b8bf6]/50"
               />
             </div>
             <div>
@@ -2009,29 +2009,29 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
               <input
                 type="number" step="any" value={fStop} onChange={e => setFStop(e.target.value)}
                 placeholder="38000"
-                className="w-full bg-[#221d13] border border-[#ff5566]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ff5566]/45"
+                className="w-full bg-[#1a2235] border border-[#ff5566]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ff5566]/45"
               />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="text-[9px] font-mono text-[#ffc040]/58 uppercase mb-1 block">Notes (optional)</label>
+            <label className="text-[9px] font-mono text-[#3b8bf6]/58 uppercase mb-1 block">Notes (optional)</label>
             <input
               value={fNotes} onChange={e => setFNotes(e.target.value)}
               placeholder="Reason for entry, strategy..."
-              className="w-full bg-[#221d13] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50"
+              className="w-full bg-[#1a2235] border border-[#3b8bf6]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#3b8bf6]/50"
             />
           </div>
 
           <div className="flex gap-2 pt-1">
             <button
               onClick={submitForm}
-              className="flex-1 bg-[#ffc040]/14 border border-[#ffc040]/40 text-[#ffc040] font-mono text-xs font-bold py-2 rounded-lg hover:bg-[#ffc040]/22 transition-colors"
+              className="flex-1 bg-[#3b8bf6]/14 border border-[#3b8bf6]/40 text-[#3b8bf6] font-mono text-xs font-bold py-2 rounded-lg hover:bg-[#3b8bf6]/22 transition-colors"
             >
               {editId !== null ? "Save Changes" : "Add Position"}
             </button>
-            <button onClick={resetForm} className="px-4 text-xs font-mono text-[#ffc040]/58 border border-[#ffc040]/20 rounded-lg hover:text-white transition-colors">
+            <button onClick={resetForm} className="px-4 text-xs font-mono text-[#3b8bf6]/58 border border-[#3b8bf6]/20 rounded-lg hover:text-white transition-colors">
               Cancel
             </button>
           </div>
@@ -2040,13 +2040,13 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
 
       {/* Open Positions */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono text-[#ffc040]/58 uppercase tracking-wider">
+        <span className="text-[10px] font-mono text-[#3b8bf6]/58 uppercase tracking-wider">
           Open Positions ({openPositions.length})
         </span>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-1.5 text-[10px] font-mono text-[#ffc040] border border-[#ffc040]/35 px-2.5 py-1 rounded-lg hover:bg-[#ffc040]/10 transition-colors"
+            className="flex items-center gap-1.5 text-[10px] font-mono text-[#3b8bf6] border border-[#3b8bf6]/35 px-2.5 py-1 rounded-lg hover:bg-[#3b8bf6]/10 transition-colors"
           >
             <PlusCircle className="w-3 h-3" />
             Add Position
@@ -2055,10 +2055,10 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
       </div>
 
       {openPositions.length === 0 && !showForm ? (
-        <div className="flex flex-col items-center justify-center py-12 text-[#ffc040]/30 text-xs font-mono">
+        <div className="flex flex-col items-center justify-center py-12 text-[#3b8bf6]/30 text-xs font-mono">
           <Target className="w-10 h-10 mb-3 opacity-20" />
           <div className="text-sm">No open positions</div>
-          <div className="text-[10px] mt-1 text-[#ffc040]/20">Track your entries, targets, and stops</div>
+          <div className="text-[10px] mt-1 text-[#3b8bf6]/20">Track your entries, targets, and stops</div>
         </div>
       ) : (
         <div className="space-y-2">
@@ -2082,14 +2082,14 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
               <div
                 key={p.id}
                 className={`relative rounded-xl border p-3 transition-all ${
-                  hitTarget ? "border-green-400/50 bg-[#ffc040]/8 ring-1 ring-[#ffc040]/25" :
+                  hitTarget ? "border-green-400/50 bg-[#3b8bf6]/8 ring-1 ring-[#3b8bf6]/25" :
                   hitStop   ? "border-red-400/50 bg-[#ff5566]/8 ring-1 ring-red-500/20" :
-                  "border-[#ffc040]/15 bg-[#181410]/80 hover:border-[#ffc040]/28"
+                  "border-[#3b8bf6]/15 bg-[#111827]/80 hover:border-[#3b8bf6]/28"
                 }`}
               >
                 {/* Hit badge */}
                 {hitTarget && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1 text-[9px] font-mono font-bold text-[#ffc040] bg-[#ffc040]/14 border border-[#ffc040]/40 px-1.5 py-0.5 rounded animate-pulse">
+                  <div className="absolute top-2 right-2 flex items-center gap-1 text-[9px] font-mono font-bold text-[#3b8bf6] bg-[#3b8bf6]/14 border border-[#3b8bf6]/40 px-1.5 py-0.5 rounded animate-pulse">
                     <CheckCircle className="w-2.5 h-2.5" /> TARGET HIT
                   </div>
                 )}
@@ -2102,17 +2102,17 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
                 {/* Top row: symbol + live price */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-[#ffc040]/14 flex items-center justify-center text-[9px] font-bold text-[#ffc040]">
+                    <div className="w-7 h-7 rounded-full bg-[#3b8bf6]/14 flex items-center justify-center text-[9px] font-bold text-[#3b8bf6]">
                       {p.symbol.slice(0,2)}
                     </div>
                     <div>
                       <div className="text-xs font-bold text-white">{p.symbol}</div>
-                      <div className="text-[9px] font-mono text-[#ffc040]/45">{p.quantity} units · ${fmtPrice(cost)} in</div>
+                      <div className="text-[9px] font-mono text-[#3b8bf6]/45">{p.quantity} units · ${fmtPrice(cost)} in</div>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-xs font-bold font-mono text-white">{live !== null ? `$${fmtPrice(live)}` : "—"}</div>
-                    <div className={`text-[9px] font-mono font-bold ${isUp === true ? "text-[#ffc040]" : isUp === false ? "text-[#ff5566]" : "text-[#ffc040]/45"}`}>
+                    <div className={`text-[9px] font-mono font-bold ${isUp === true ? "text-[#3b8bf6]" : isUp === false ? "text-[#ff5566]" : "text-[#3b8bf6]/45"}`}>
                       {pnl !== null ? `${isUp ? "+" : ""}$${fmtPrice(Math.abs(pnl))} (${pnlPct!.toFixed(2)}%)` : "Loading..."}
                     </div>
                   </div>
@@ -2121,10 +2121,10 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
                 {/* Price levels bar */}
                 {(p.stopLoss || p.targetPrice) && live && (
                   <div className="mb-2">
-                    <div className="flex justify-between text-[8px] font-mono text-[#ffc040]/38 mb-0.5">
+                    <div className="flex justify-between text-[8px] font-mono text-[#3b8bf6]/38 mb-0.5">
                       <span className="text-[#ff5566]/70">{p.stopLoss ? `SL $${fmtPrice(p.stopLoss)}` : ""}</span>
-                      <span className="text-[#ffc040]/58">ENTRY ${fmtPrice(p.entryPrice)}</span>
-                      <span className="text-[#ffc040]/70">{p.targetPrice ? `TP $${fmtPrice(p.targetPrice)}` : ""}</span>
+                      <span className="text-[#3b8bf6]/58">ENTRY ${fmtPrice(p.entryPrice)}</span>
+                      <span className="text-[#3b8bf6]/70">{p.targetPrice ? `TP $${fmtPrice(p.targetPrice)}` : ""}</span>
                     </div>
                     {/* Visual range bar */}
                     {p.stopLoss && p.targetPrice && (() => {
@@ -2136,15 +2136,15 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
                       const stopPct  = ((p.stopLoss - lo) / range) * 100;
                       const tgtPct   = ((p.targetPrice - lo) / range) * 100;
                       return (
-                        <div className="relative h-1.5 bg-[#2a2318] rounded-full">
+                        <div className="relative h-1.5 bg-[#1e2a40] rounded-full">
                           {/* Stop zone */}
                           <div className="absolute top-0 bottom-0 bg-red-500/25 rounded-l-full" style={{ left: 0, width: `${Math.max(stopPct,0)}%` }} />
                           {/* Target zone */}
-                          <div className="absolute top-0 bottom-0 bg-[#ffc040]/22 rounded-r-full" style={{ left: `${Math.min(tgtPct,100)}%`, right: 0 }} />
+                          <div className="absolute top-0 bottom-0 bg-[#3b8bf6]/22 rounded-r-full" style={{ left: `${Math.min(tgtPct,100)}%`, right: 0 }} />
                           {/* Entry marker */}
                           <div className="absolute top-0 bottom-0 w-0.5 bg-white/40 -translate-x-1/2" style={{ left: `${Math.min(Math.max(entryPct,0),100)}%` }} />
                           {/* Live price dot */}
-                          <div className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full ring-1 ring-[#060502] ${isUp ? "bg-green-400" : "bg-red-400"}`}
+                          <div className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full ring-1 ring-[#05080f] ${isUp ? "bg-green-400" : "bg-red-400"}`}
                             style={{ left: `${Math.min(Math.max(livePct,0),100)}%` }} />
                         </div>
                       );
@@ -2156,7 +2156,7 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
                 {(toTarget !== null || toStop !== null) && (
                   <div className="flex gap-3 mb-2">
                     {toTarget !== null && (
-                      <span className="text-[8px] font-mono text-[#ffc040]/60">
+                      <span className="text-[8px] font-mono text-[#3b8bf6]/60">
                         ↑ {Math.abs(toTarget).toFixed(2)}% to TP
                       </span>
                     )}
@@ -2170,21 +2170,21 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
 
                 {/* Notes */}
                 {p.notes && (
-                  <div className="text-[9px] font-mono text-[#ffc040]/38 italic mb-2 border-l-2 border-[#ffc040]/20 pl-2">{p.notes}</div>
+                  <div className="text-[9px] font-mono text-[#3b8bf6]/38 italic mb-2 border-l-2 border-[#3b8bf6]/20 pl-2">{p.notes}</div>
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-1.5 pt-1 border-t border-[#ffc040]/10">
+                <div className="flex gap-1.5 pt-1 border-t border-[#3b8bf6]/10">
                   <button
                     onClick={() => startEdit(p)}
-                    className="flex items-center gap-1 text-[9px] font-mono text-[#ffc040]/45 hover:text-[#ffc040]/88 px-2 py-1 rounded border border-[#ffc040]/15 hover:border-[#ffc040]/35 transition-colors"
+                    className="flex items-center gap-1 text-[9px] font-mono text-[#3b8bf6]/45 hover:text-[#3b8bf6]/88 px-2 py-1 rounded border border-[#3b8bf6]/15 hover:border-[#3b8bf6]/35 transition-colors"
                   >
                     <Edit3 className="w-2.5 h-2.5" /> Edit
                   </button>
                   {live && (
                     <button
                       onClick={() => update(p.id, { closePrice: live })}
-                      className="flex items-center gap-1 text-[9px] font-mono text-[#ffc040]/60 hover:text-[#ffc040] px-2 py-1 rounded border border-[#ffc040]/20 hover:border-[#ffc040]/38 transition-colors"
+                      className="flex items-center gap-1 text-[9px] font-mono text-[#3b8bf6]/60 hover:text-[#3b8bf6] px-2 py-1 rounded border border-[#3b8bf6]/20 hover:border-[#3b8bf6]/38 transition-colors"
                     >
                       <CheckCircle className="w-2.5 h-2.5" /> Close at ${fmtPrice(live)}
                     </button>
@@ -2207,7 +2207,7 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
         <div>
           <button
             onClick={() => setShowClosed(s => !s)}
-            className="flex items-center gap-1.5 text-[10px] font-mono text-[#ffc040]/45 hover:text-[#ffc040]/78 transition-colors mb-2"
+            className="flex items-center gap-1.5 text-[10px] font-mono text-[#3b8bf6]/45 hover:text-[#3b8bf6]/78 transition-colors mb-2"
           >
             <ChevronDown className={`w-3 h-3 transition-transform ${showClosed ? "rotate-180" : ""}`} />
             Closed Positions ({closedPositions.length})
@@ -2219,17 +2219,17 @@ function PositionsTab({ ticks }: { ticks: Map<string, Tick> }) {
                 const pnlPct = pnl !== null ? (pnl / (p.entryPrice * p.quantity)) * 100 : null;
                 const isUp = pnl !== null ? pnl >= 0 : null;
                 return (
-                  <div key={p.id} className="flex items-center justify-between bg-[#181410]/80 border border-[#ffc040]/10 rounded-lg px-3 py-2 opacity-60">
+                  <div key={p.id} className="flex items-center justify-between bg-[#111827]/80 border border-[#3b8bf6]/10 rounded-lg px-3 py-2 opacity-60">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold font-mono text-[#ffc040]/68">{p.symbol}</span>
-                      <span className="text-[9px] font-mono text-[#ffc040]/30">Entry ${fmtPrice(p.entryPrice)}</span>
-                      <span className="text-[9px] font-mono text-[#ffc040]/30">→ Close ${p.closePrice ? fmtPrice(p.closePrice) : "—"}</span>
+                      <span className="text-xs font-bold font-mono text-[#3b8bf6]/68">{p.symbol}</span>
+                      <span className="text-[9px] font-mono text-[#3b8bf6]/30">Entry ${fmtPrice(p.entryPrice)}</span>
+                      <span className="text-[9px] font-mono text-[#3b8bf6]/30">→ Close ${p.closePrice ? fmtPrice(p.closePrice) : "—"}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-mono font-bold ${isUp ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                      <span className={`text-[9px] font-mono font-bold ${isUp ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                         {pnl !== null ? `${isUp ? "+" : ""}$${fmtPrice(Math.abs(pnl))} (${pnlPct!.toFixed(2)}%)` : "—"}
                       </span>
-                      <button onClick={() => remove(p.id)} className="text-[#ffc040]/20 hover:text-[#ff5566] transition-colors">
+                      <button onClick={() => remove(p.id)} className="text-[#3b8bf6]/20 hover:text-[#ff5566] transition-colors">
                         <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
@@ -2323,20 +2323,20 @@ function NewsAlertBanner() {
 
   const borderColor = isHigh
     ? "border-orange-500/50"
-    : isBull ? "border-[#ffc040]/50"
+    : isBull ? "border-[#3b8bf6]/50"
     : isBear ? "border-[#ff5566]/45"
-    : "border-[#ffc040]/28";
+    : "border-[#3b8bf6]/28";
 
   const bgColor = isHigh
-    ? "bg-[#0d0b07]"
-    : isBull ? "bg-[#0d0b07]"
-    : "bg-[#0d0b07]";
+    ? "bg-[#0d1120]"
+    : isBull ? "bg-[#0d1120]"
+    : "bg-[#0d1120]";
 
   const accentBar = isHigh
     ? "bg-orange-500"
     : isBull ? "bg-green-500"
     : isBear ? "bg-red-500"
-    : "bg-[#181410]/800";
+    : "bg-[#111827]/800";
 
   return (
     <div
@@ -2355,7 +2355,7 @@ function NewsAlertBanner() {
         <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${accentBar}`} />
 
         {/* Progress bar — 8s timer */}
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#221d13]">
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1a2235]">
           <div
             className={`h-full ${accentBar} opacity-60`}
             style={{
@@ -2369,12 +2369,12 @@ function NewsAlertBanner() {
           {/* Top row */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
-              {isHigh && <Flame className="w-3 h-3 text-[#ffaa40]" />}
-              <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#ffc040]/58">
+              {isHigh && <Flame className="w-3 h-3 text-[#60a5fa]" />}
+              <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#3b8bf6]/58">
                 {isHigh ? "BREAKING" : "MARKET NEWS"} · {alert.source}
               </span>
             </div>
-            <button onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss(); }} className="text-[#ffc040]/38 hover:text-[#ffc040]/78 transition-colors ml-2">
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss(); }} className="text-[#3b8bf6]/38 hover:text-[#3b8bf6]/78 transition-colors ml-2">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2388,22 +2388,22 @@ function NewsAlertBanner() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
-                isBull ? "text-[#ffc040] border-[#ffc040]/35 bg-[#ffc040]/10"
+                isBull ? "text-[#3b8bf6] border-[#3b8bf6]/35 bg-[#3b8bf6]/10"
                 : isBear ? "text-[#ff5566] border-[#ff5566]/32 bg-[#ff5566]/10"
-                : "text-[#ffc040]/52 border-[#ffc040]/20 bg-[#221d13]"
+                : "text-[#3b8bf6]/52 border-[#3b8bf6]/20 bg-[#1a2235]"
               }`}>
                 {alert.sentiment}
               </span>
               {/* Mini pressure bar */}
               <div className="flex items-center gap-0.5">
-                <div className="w-8 h-1 bg-[#2a2318] rounded-full overflow-hidden flex">
+                <div className="w-8 h-1 bg-[#1e2a40] rounded-full overflow-hidden flex">
                   <div className="h-full bg-green-500/70" style={{ width: `${alert.buyerPressure}%` }} />
                   <div className="h-full bg-red-500/70" style={{ width: `${alert.sellerPressure}%` }} />
                 </div>
-                <span className="text-[9px] font-mono text-[#ffc040]">{alert.buyerPressure}%</span>
+                <span className="text-[9px] font-mono text-[#3b8bf6]">{alert.buyerPressure}%</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[#ffc040]/30 group-hover:text-[#ffc040]/60 transition-colors">
+            <div className="flex items-center gap-1 text-[#3b8bf6]/30 group-hover:text-[#3b8bf6]/60 transition-colors">
               <span className="text-[9px] font-mono">{ago(new Date(alert.publishedAt).getTime())}</span>
               <ArrowUpRight className="w-3 h-3" />
             </div>
@@ -2454,32 +2454,32 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
   });
 
   const sentColor = (s: string) =>
-    s === "bullish" ? "text-[#ffc040]" : s === "bearish" ? "text-[#ff5566]" : "text-[#ffc040]/58";
+    s === "bullish" ? "text-[#3b8bf6]" : s === "bearish" ? "text-[#ff5566]" : "text-[#3b8bf6]/58";
   const sentBg = (s: string) =>
-    s === "bullish" ? "bg-[#ffc040]/10 border-[#ffc040]/28" : s === "bearish" ? "bg-[#ff5566]/10 border-[#ff5566]/28" : "bg-[#1e1a12] border-[#ffc040]/15";
+    s === "bullish" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/28" : s === "bearish" ? "bg-[#ff5566]/10 border-[#ff5566]/28" : "bg-[#151e30] border-[#3b8bf6]/15";
 
   return (
-    <div className="fixed inset-0 z-[100] flex justify-end bg-[#030201]/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex justify-end bg-[#03060d]/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="h-full w-full max-w-sm bg-[#060502] border-l border-[#ffc040]/15 flex flex-col shadow-2xl"
+        className="h-full w-full max-w-sm bg-[#05080f] border-l border-[#3b8bf6]/15 flex flex-col shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Panel Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#ffc040]/15 bg-[#0d0b07]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#3b8bf6]/15 bg-[#0d1120]">
           <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-[#ffc040]" />
+            <Bell className="w-4 h-4 text-[#3b8bf6]" />
             <span className="text-sm font-bold text-white">Market News</span>
-            <span className="text-[9px] font-mono text-[#ffc040]/45 bg-[#221d13] px-1.5 py-0.5 rounded">{articles.length}</span>
+            <span className="text-[9px] font-mono text-[#3b8bf6]/45 bg-[#1a2235] px-1.5 py-0.5 rounded">{articles.length}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => refetch()}
-              className="text-[#ffc040]/45 hover:text-[#ffc040]/88 p-1 rounded transition-colors"
+              className="text-[#3b8bf6]/45 hover:text-[#3b8bf6]/88 p-1 rounded transition-colors"
               title="Refresh"
             >
               <Clock className="w-3.5 h-3.5" />
             </button>
-            <button onClick={onClose} className="text-[#ffc040]/45 hover:text-white p-1 rounded transition-colors">
+            <button onClick={onClose} className="text-[#3b8bf6]/45 hover:text-white p-1 rounded transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -2491,8 +2491,8 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
             onSubmit={e => { e.preventDefault(); setDeepSearch(inputVal); }}
             className="flex items-center gap-2"
           >
-            <div className="flex-1 flex items-center gap-2 bg-[#221d13] border border-[#ffc040]/15 rounded-lg px-3 py-1.5">
-              <Search className="w-3 h-3 text-[#ffc040]/45 flex-shrink-0" />
+            <div className="flex-1 flex items-center gap-2 bg-[#1a2235] border border-[#3b8bf6]/15 rounded-lg px-3 py-1.5">
+              <Search className="w-3 h-3 text-[#3b8bf6]/45 flex-shrink-0" />
               <input
                 type="text"
                 value={inputVal}
@@ -2501,14 +2501,14 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
                 className="bg-transparent text-xs text-white placeholder-white/25 outline-none w-full"
               />
               {inputVal && (
-                <button type="button" onClick={() => { setInputVal(""); setDeepSearch(""); }} className="text-[#ffc040]/45 hover:text-[#ffc040]/88">
+                <button type="button" onClick={() => { setInputVal(""); setDeepSearch(""); }} className="text-[#3b8bf6]/45 hover:text-[#3b8bf6]/88">
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
             <button
               type="submit"
-              className="bg-[#ffc040]/14 border border-[#ffc040]/35 text-[#ffc040] text-[10px] font-mono px-2.5 py-1.5 rounded-lg hover:bg-[#ffc040]/22 transition-colors"
+              className="bg-[#3b8bf6]/14 border border-[#3b8bf6]/35 text-[#3b8bf6] text-[10px] font-mono px-2.5 py-1.5 rounded-lg hover:bg-[#3b8bf6]/22 transition-colors"
             >
               GO
             </button>
@@ -2523,11 +2523,11 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
               onClick={() => setFilter(f)}
               className={`text-[10px] font-mono px-2 py-1 rounded border transition-all ${
                 filter === f
-                  ? f === "bullish" ? "bg-[#ffc040]/14 border-[#ffc040]/40 text-[#ffc040]"
+                  ? f === "bullish" ? "bg-[#3b8bf6]/14 border-[#3b8bf6]/40 text-[#3b8bf6]"
                   : f === "bearish" ? "bg-[#ff5566]/14 border-[#ff5566]/38 text-[#ff5566]"
-                  : f === "high"    ? "bg-[#ff9020]/15 border-[#ff9020]/35 text-[#ffaa40]"
-                  : "bg-[#2e2719] border-[#ffc040]/35 text-white"
-                  : "bg-transparent border-[#ffc040]/15 text-[#ffc040]/52 hover:text-[#ffc040]/88 hover:border-[#ffc040]/35"
+                  : f === "high"    ? "bg-[#3b8bf6]/15 border-[#3b8bf6]/35 text-[#60a5fa]"
+                  : "bg-[#1e2a40] border-[#3b8bf6]/35 text-white"
+                  : "bg-transparent border-[#3b8bf6]/15 text-[#3b8bf6]/52 hover:text-[#3b8bf6]/88 hover:border-[#3b8bf6]/35"
               }`}
             >
               {f === "all" ? "All" : f === "bullish" ? "🟢 Bull" : f === "bearish" ? "🔴 Bear" : "🔥 Impact"}
@@ -2540,11 +2540,11 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
           {isLoading ? (
             <div className="space-y-2 mt-1">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-20 bg-[#1e1a12] rounded-lg animate-pulse" />
+                <div key={i} className="h-20 bg-[#151e30] rounded-lg animate-pulse" />
               ))}
             </div>
           ) : articles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-[#ffc040]/38 text-xs font-mono">
+            <div className="flex flex-col items-center justify-center py-16 text-[#3b8bf6]/38 text-xs font-mono">
               <Globe className="w-8 h-8 mb-2 opacity-30" />
               No news found
             </div>
@@ -2555,30 +2555,30 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
                 href={article.url || "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`block rounded-lg border p-3 hover:border-[#ffc040]/35 transition-all group ${sentBg(article.sentiment)}`}
+                className={`block rounded-lg border p-3 hover:border-[#3b8bf6]/35 transition-all group ${sentBg(article.sentiment)}`}
               >
                 {/* Top row: source + time + sentiment */}
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[9px] font-mono text-[#ffc040]/45 uppercase tracking-wider">{article.source}</span>
+                  <span className="text-[9px] font-mono text-[#3b8bf6]/45 uppercase tracking-wider">{article.source}</span>
                   <div className="flex items-center gap-1.5">
                     {article.impactLevel === "high" && (
-                      <span title="High Impact"><Flame className="w-3 h-3 text-[#ffaa40]" /></span>
+                      <span title="High Impact"><Flame className="w-3 h-3 text-[#60a5fa]" /></span>
                     )}
                     <span className={`text-[9px] font-mono font-bold uppercase ${sentColor(article.sentiment)}`}>
                       {article.sentiment}
                     </span>
-                    <span className="text-[9px] font-mono text-[#ffc040]/30">{ago(new Date(article.publishedAt).getTime())}</span>
+                    <span className="text-[9px] font-mono text-[#3b8bf6]/30">{ago(new Date(article.publishedAt).getTime())}</span>
                   </div>
                 </div>
 
                 {/* Title */}
-                <div className="text-xs font-semibold text-white leading-snug mb-1.5 group-hover:text-[#ffd060] transition-colors">
+                <div className="text-xs font-semibold text-white leading-snug mb-1.5 group-hover:text-[#60a5fa] transition-colors">
                   {article.title}
                 </div>
 
                 {/* Summary */}
                 {article.summary && (
-                  <div className="text-[10px] text-[#ffc040]/58 leading-snug line-clamp-2 mb-2">
+                  <div className="text-[10px] text-[#3b8bf6]/58 leading-snug line-clamp-2 mb-2">
                     {article.summary}
                   </div>
                 )}
@@ -2587,10 +2587,10 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <div className="flex justify-between text-[9px] font-mono mb-0.5">
-                      <span className="text-[#ffc040]">BUY {article.buyerPressure}%</span>
+                      <span className="text-[#3b8bf6]">BUY {article.buyerPressure}%</span>
                       <span className="text-[#ff5566]">SELL {article.sellerPressure}%</span>
                     </div>
-                    <div className="h-1 bg-[#2a2318] rounded-full overflow-hidden flex">
+                    <div className="h-1 bg-[#1e2a40] rounded-full overflow-hidden flex">
                       <div
                         className="h-full bg-green-500/70 rounded-l-full transition-all"
                         style={{ width: `${article.buyerPressure}%` }}
@@ -2601,14 +2601,14 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
                       />
                     </div>
                   </div>
-                  <ArrowUpRight className="w-3 h-3 text-[#ffc040]/20 group-hover:text-[#ffc040]/68 transition-colors flex-shrink-0" />
+                  <ArrowUpRight className="w-3 h-3 text-[#3b8bf6]/20 group-hover:text-[#3b8bf6]/68 transition-colors flex-shrink-0" />
                 </div>
 
                 {/* Tags */}
                 {article.tags && article.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {article.tags.slice(0, 4).map(tag => (
-                      <span key={tag} className="text-[8px] font-mono px-1.5 py-0.5 bg-[#221d13] border border-[#ffc040]/15 text-[#ffc040]/38 rounded">
+                      <span key={tag} className="text-[8px] font-mono px-1.5 py-0.5 bg-[#1a2235] border border-[#3b8bf6]/15 text-[#3b8bf6]/38 rounded">
                         {tag}
                       </span>
                     ))}
@@ -2620,11 +2620,11 @@ function NewsPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-[#ffc040]/15 px-4 py-2 flex items-center justify-between">
-          <span className="text-[9px] font-mono text-[#ffc040]/30">Auto-refresh 90s · Deep search powered</span>
+        <div className="border-t border-[#3b8bf6]/15 px-4 py-2 flex items-center justify-between">
+          <span className="text-[9px] font-mono text-[#3b8bf6]/30">Auto-refresh 90s · Deep search powered</span>
           <button
             onClick={() => refetch()}
-            className="text-[9px] font-mono text-[#ffc040]/60 hover:text-[#ffc040] transition-colors flex items-center gap-1"
+            className="text-[9px] font-mono text-[#3b8bf6]/60 hover:text-[#3b8bf6] transition-colors flex items-center gap-1"
           >
             <Clock className="w-2.5 h-2.5" /> Refresh now
           </button>
@@ -2667,8 +2667,8 @@ function StarBtn({ tick, favSet, toggle }: { tick: Tick; favSet: Set<string>; to
       onClick={e => { e.stopPropagation(); toggle(tick); }}
       className={`absolute top-1 right-1 p-1 rounded-md transition-all z-10 ${
         isFav
-          ? "text-[#ffc040] bg-[#ffc040]/12"
-          : "text-[#ffc040]/45 hover:text-[#ffc040] hover:bg-[#ffc040]/12 bg-[#0d0a04]/40"
+          ? "text-[#3b8bf6] bg-[#3b8bf6]/12"
+          : "text-[#3b8bf6]/45 hover:text-[#3b8bf6] hover:bg-[#3b8bf6]/12 bg-[#0d1120]/40"
       }`}
       title={isFav ? "Remove from Watchlist" : "Add to Watchlist"}
     >
@@ -2763,68 +2763,68 @@ function PriceAlertsPanel({ ticks, onClose }: { ticks: Map<string, Tick>; onClos
   const done   = alerts.filter(a =>  a.triggered);
 
   return (
-    <div className="fixed inset-0 z-[100] flex justify-end bg-[#030201]/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="h-full w-full max-w-sm bg-[#060502] border-l border-[#ffc040]/15 flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#ffc040]/15 bg-[#0d0b07]">
+    <div className="fixed inset-0 z-[100] flex justify-end bg-[#03060d]/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="h-full w-full max-w-sm bg-[#05080f] border-l border-[#3b8bf6]/15 flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#3b8bf6]/15 bg-[#0d1120]">
           <div className="flex items-center gap-2">
-            <BellRing className="w-4 h-4 text-[#ffc040]" />
+            <BellRing className="w-4 h-4 text-[#3b8bf6]" />
             <span className="text-sm font-bold text-white">Price Alerts</span>
-            {active.length > 0 && <span className="text-[9px] font-mono text-[#ffc040]/45 bg-[#221d13] px-1.5 py-0.5 rounded">{active.length} active</span>}
+            {active.length > 0 && <span className="text-[9px] font-mono text-[#3b8bf6]/45 bg-[#1a2235] px-1.5 py-0.5 rounded">{active.length} active</span>}
           </div>
-          <button onClick={onClose} className="text-[#ffc040]/45 hover:text-white"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="text-[#3b8bf6]/45 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
-        <div className="px-4 py-3 border-b border-[#ffc040]/10 space-y-2">
-          <div className="text-[9px] font-mono text-[#ffc040]/45 uppercase tracking-widest mb-1">New Alert</div>
+        <div className="px-4 py-3 border-b border-[#3b8bf6]/10 space-y-2">
+          <div className="text-[9px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest mb-1">New Alert</div>
           <div className="flex gap-2">
             <input value={sym} onChange={e => setSym(e.target.value.toUpperCase())}
               placeholder="BTC, ETH..."
-              className="flex-1 bg-[#181410] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50" />
+              className="flex-1 bg-[#111827] border border-[#3b8bf6]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#3b8bf6]/50" />
             <input value={price} onChange={e => setPrice(e.target.value)} type="number" step="any"
               placeholder="Target $"
-              className="flex-1 bg-[#181410] border border-[#ffc040]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#ffc040]/50" />
+              className="flex-1 bg-[#111827] border border-[#3b8bf6]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-white/20 outline-none focus:border-[#3b8bf6]/50" />
           </div>
           <div className="flex gap-2">
             <button onClick={() => setDir("above")}
-              className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-colors ${dir === "above" ? "bg-[#ffc040]/16 border-[#ffc040]/40 text-[#ffc040]" : "bg-[#181410] border-[#ffc040]/15 text-[#ffc040]/45"}`}>↑ Above</button>
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-colors ${dir === "above" ? "bg-[#3b8bf6]/16 border-[#3b8bf6]/40 text-[#3b8bf6]" : "bg-[#111827] border-[#3b8bf6]/15 text-[#3b8bf6]/45"}`}>↑ Above</button>
             <button onClick={() => setDir("below")}
-              className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-colors ${dir === "below" ? "bg-[#ff5566]/16 border-[#ff5566]/40 text-[#ff5566]" : "bg-[#181410] border-[#ffc040]/15 text-[#ffc040]/45"}`}>↓ Below</button>
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-colors ${dir === "below" ? "bg-[#ff5566]/16 border-[#ff5566]/40 text-[#ff5566]" : "bg-[#111827] border-[#3b8bf6]/15 text-[#3b8bf6]/45"}`}>↓ Below</button>
           </div>
           <button onClick={handleAdd}
-            className="w-full py-2 rounded-lg bg-[#ffc040]/14 border border-[#ffc040]/35 text-[#ffc040] text-xs font-mono font-bold hover:bg-[#ffc040]/22 transition-colors">
+            className="w-full py-2 rounded-lg bg-[#3b8bf6]/14 border border-[#3b8bf6]/35 text-[#3b8bf6] text-xs font-mono font-bold hover:bg-[#3b8bf6]/22 transition-colors">
             Set Alert
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
           {active.length === 0 && done.length === 0 && (
-            <div className="text-center py-12 text-[#ffc040]/30 text-xs font-mono">
+            <div className="text-center py-12 text-[#3b8bf6]/30 text-xs font-mono">
               <BellRing className="w-8 h-8 mx-auto mb-2 opacity-20" />
               No alerts set
             </div>
           )}
           {active.map(a => (
-            <div key={a.id} className="flex items-center justify-between bg-[#181410] border border-[#ffc040]/15 rounded-xl px-3 py-2.5">
+            <div key={a.id} className="flex items-center justify-between bg-[#111827] border border-[#3b8bf6]/15 rounded-xl px-3 py-2.5">
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-bold font-mono text-white">{a.symbol}</span>
-                  <span className={`text-[9px] font-mono font-bold ${a.direction === "above" ? "text-[#ffc040]" : "text-[#ff5566]"}`}>
+                  <span className={`text-[9px] font-mono font-bold ${a.direction === "above" ? "text-[#3b8bf6]" : "text-[#ff5566]"}`}>
                     {a.direction === "above" ? "↑" : "↓"} ${a.targetPrice.toLocaleString()}
                   </span>
                 </div>
-                <div className="text-[9px] font-mono text-[#ffc040]/35">{a.name}</div>
+                <div className="text-[9px] font-mono text-[#3b8bf6]/35">{a.name}</div>
               </div>
-              <button onClick={() => remove(a.id)} className="text-[#ffc040]/25 hover:text-[#ff5566] transition-colors"><X className="w-3.5 h-3.5" /></button>
+              <button onClick={() => remove(a.id)} className="text-[#3b8bf6]/25 hover:text-[#ff5566] transition-colors"><X className="w-3.5 h-3.5" /></button>
             </div>
           ))}
           {done.length > 0 && (
             <>
-              <div className="text-[9px] font-mono text-[#ffc040]/30 uppercase tracking-widest pt-2">Triggered</div>
+              <div className="text-[9px] font-mono text-[#3b8bf6]/30 uppercase tracking-widest pt-2">Triggered</div>
               {done.map(a => (
-                <div key={a.id} className="flex items-center justify-between bg-[#0d0a06] border border-[#ffc040]/8 rounded-xl px-3 py-2.5 opacity-50">
+                <div key={a.id} className="flex items-center justify-between bg-[#0d1120] border border-[#3b8bf6]/8 rounded-xl px-3 py-2.5 opacity-50">
                   <div className="flex items-center gap-1.5">
-                    <CheckCircle className="w-3 h-3 text-[#ffc040]" />
-                    <span className="text-xs font-mono text-[#ffc040]/68">{a.symbol} {a.direction === "above" ? "↑" : "↓"} ${a.targetPrice.toLocaleString()}</span>
+                    <CheckCircle className="w-3 h-3 text-[#3b8bf6]" />
+                    <span className="text-xs font-mono text-[#3b8bf6]/68">{a.symbol} {a.direction === "above" ? "↑" : "↓"} ${a.targetPrice.toLocaleString()}</span>
                   </div>
-                  <button onClick={() => remove(a.id)} className="text-[#ffc040]/20 hover:text-[#ff5566] transition-colors"><X className="w-3 h-3" /></button>
+                  <button onClick={() => remove(a.id)} className="text-[#3b8bf6]/20 hover:text-[#ff5566] transition-colors"><X className="w-3 h-3" /></button>
                 </div>
               ))}
             </>
@@ -2857,7 +2857,7 @@ function MarketHeatmap({ ticks }: { ticks: Map<string, Tick> }) {
   return (
     <div className="px-4 py-3">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest">24H Change Heatmap</span>
+        <span className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest">24H Change Heatmap</span>
         <div className="flex items-center gap-1 text-[9px] font-mono">
           {[[-6,"≤-5%"],[-3,"-2%"],[-1,"flat"],[3,"+2%"],[6,"≥+5%"]].map(([v,l]) => {
             const {bg,text} = heatColor(Number(v));
@@ -2915,16 +2915,16 @@ function SentimentTable({ ticks }: { ticks: Map<string, Tick> }) {
 
   return (
     <div className="px-2 py-3">
-      <div className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest px-2 mb-2">All Coins Sentiment</div>
+      <div className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest px-2 mb-2">All Coins Sentiment</div>
       <div className="overflow-x-auto">
         <table className="w-full text-[10px] font-mono">
           <thead>
-            <tr className="text-[#ffc040]/38 text-[9px] uppercase border-b border-[#ffc040]/10">
+            <tr className="text-[#3b8bf6]/38 text-[9px] uppercase border-b border-[#3b8bf6]/10">
               <th className="text-left pl-2 py-2">Asset</th>
               <th className="text-right py-2 pr-1">24H%</th>
               {TIMEFRAMES.map(tf => (
                 <th key={tf} onClick={() => setSortCol(tf)}
-                  className={`text-right py-2 px-1 cursor-pointer transition-colors ${sortCol===tf ? "text-[#ffc040]" : "text-[#ffc040]/38 hover:text-[#ffc040]/68"}`}>
+                  className={`text-right py-2 px-1 cursor-pointer transition-colors ${sortCol===tf ? "text-[#3b8bf6]" : "text-[#3b8bf6]/38 hover:text-[#3b8bf6]/68"}`}>
                   {tf}{sortCol===tf?" ▼":""}
                 </th>
               ))}
@@ -2933,12 +2933,12 @@ function SentimentTable({ ticks }: { ticks: Map<string, Tick> }) {
           </thead>
           <tbody>
             {sorted.map(r => (
-              <tr key={r.sym} className="border-b border-white/3 hover:bg-[#1e1a12] transition-colors">
+              <tr key={r.sym} className="border-b border-white/3 hover:bg-[#151e30] transition-colors">
                 <td className="pl-2 py-1.5">
                   <div className="font-bold text-white">{r.sym}</div>
-                  <div className="text-[8px] text-[#ffc040]/35 truncate max-w-[60px]">{r.name}</div>
+                  <div className="text-[8px] text-[#3b8bf6]/35 truncate max-w-[60px]">{r.name}</div>
                 </td>
-                <td className={`text-right pr-1 font-bold ${r.changePercent>=0?"text-[#ffc040]":"text-[#ff5566]"}`}>
+                <td className={`text-right pr-1 font-bold ${r.changePercent>=0?"text-[#3b8bf6]":"text-[#ff5566]"}`}>
                   {r.changePercent>=0?"+":""}{r.changePercent.toFixed(2)}%
                 </td>
                 {TIMEFRAMES.map(tf => {
@@ -2951,7 +2951,7 @@ function SentimentTable({ ticks }: { ticks: Map<string, Tick> }) {
                   );
                 })}
                 <td className="text-right pr-2">
-                  <span className={`font-bold ${r.divergence>=30?"text-[#ffc040]":"text-[#ffc040]/30"}`}>
+                  <span className={`font-bold ${r.divergence>=30?"text-[#3b8bf6]":"text-[#3b8bf6]/30"}`}>
                     {r.divergence>=30?"⚡":""}{r.divergence}
                   </span>
                 </td>
@@ -2960,7 +2960,7 @@ function SentimentTable({ ticks }: { ticks: Map<string, Tick> }) {
           </tbody>
         </table>
       </div>
-      <div className="text-[8px] font-mono text-[#ffc040]/20 px-2 mt-2">DIV = 5M vs 1D divergence · ⚡ = conflict signal · click timeframe to sort</div>
+      <div className="text-[8px] font-mono text-[#3b8bf6]/20 px-2 mt-2">DIV = 5M vs 1D divergence · ⚡ = conflict signal · click timeframe to sort</div>
     </div>
   );
 }
@@ -3066,7 +3066,7 @@ function EconomicCalendar() {
 
   function impactDot(i: string) {
     if (i==="high")   return { dot:"bg-red-500", badge:"bg-red-500/12 border-red-500/30 text-red-400" };
-    if (i==="medium") return { dot:"bg-[#ffc040]", badge:"bg-[#ffc040]/10 border-[#ffc040]/28 text-[#ffc040]" };
+    if (i==="medium") return { dot:"bg-[#3b8bf6]", badge:"bg-[#3b8bf6]/10 border-[#3b8bf6]/28 text-[#3b8bf6]" };
     return                   { dot:"bg-blue-400", badge:"bg-blue-500/10 border-blue-400/28 text-blue-400" };
   }
   function daysUntil(d: string) {
@@ -3079,10 +3079,10 @@ function EconomicCalendar() {
     <div className="px-4 py-3">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Calendar className="w-3.5 h-3.5 text-[#ffc040]" />
-          <span className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest">Economic Calendar</span>
+          <Calendar className="w-3.5 h-3.5 text-[#3b8bf6]" />
+          <span className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest">Economic Calendar</span>
         </div>
-        <div className="flex items-center gap-1.5 text-[9px] font-mono text-[#ffc040]/38">
+        <div className="flex items-center gap-1.5 text-[9px] font-mono text-[#3b8bf6]/38">
           <BellRing className="w-3 h-3" />
           Alerts: 1hr · 15min · live
         </div>
@@ -3098,29 +3098,29 @@ function EconomicCalendar() {
           return (
             <div key={i}>
               {showDate && (
-                <div className={`text-[9px] font-mono uppercase tracking-widest px-1 py-1 mt-2 ${isToday?"text-[#ffc040] font-bold":"text-[#ffc040]/30"}`}>
+                <div className={`text-[9px] font-mono uppercase tracking-widest px-1 py-1 mt-2 ${isToday?"text-[#3b8bf6] font-bold":"text-[#3b8bf6]/30"}`}>
                   {new Date(ev.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}{isToday?" — TODAY":""}
                 </div>
               )}
               <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
                 isLive     ? "bg-red-500/12 border-red-500/50 animate-pulse" :
-                isImminent ? "bg-[#ffc040]/8 border-[#ffc040]/35" :
-                isToday    ? "bg-[#ffc040]/4 border-[#ffc040]/15" :
-                             "bg-[#181410]/60 border-[#ffc040]/8 hover:border-[#ffc040]/20"
+                isImminent ? "bg-[#3b8bf6]/8 border-[#3b8bf6]/35" :
+                isToday    ? "bg-[#3b8bf6]/4 border-[#3b8bf6]/15" :
+                             "bg-[#111827]/60 border-[#3b8bf6]/8 hover:border-[#3b8bf6]/20"
               }`}>
                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot} ${isLive ? "animate-ping" : ""}`} />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-white font-medium truncate">{ev.event}</div>
-                  <div className="text-[9px] font-mono text-[#ffc040]/38">{ev.currency} · {ev.time} ET</div>
+                  <div className="text-[9px] font-mono text-[#3b8bf6]/38">{ev.currency} · {ev.time} ET</div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${badge}`}>{ev.impact.toUpperCase()}</span>
                   {isLive ? (
                     <span className="text-[8px] font-mono font-bold text-red-400 animate-pulse">🔴 LIVE</span>
                   ) : isImminent && mins !== null ? (
-                    <span className="text-[8px] font-mono font-bold text-[#ffc040]">{mins}m away</span>
+                    <span className="text-[8px] font-mono font-bold text-[#3b8bf6]">{mins}m away</span>
                   ) : (
-                    <span className={`text-[8px] font-mono font-bold ${isToday?"text-[#ffc040]":"text-[#ffc040]/30"}`}>{daysUntil(ev.date)}</span>
+                    <span className={`text-[8px] font-mono font-bold ${isToday?"text-[#3b8bf6]":"text-[#3b8bf6]/30"}`}>{daysUntil(ev.date)}</span>
                   )}
                 </div>
               </div>
@@ -3128,7 +3128,7 @@ function EconomicCalendar() {
           );
         })}
       </div>
-      <div className="text-[8px] font-mono text-[#ffc040]/18 mt-3 text-center">Times in ET · Alerts fire 1hr + 15min before each event</div>
+      <div className="text-[8px] font-mono text-[#3b8bf6]/18 mt-3 text-center">Times in ET · Alerts fire 1hr + 15min before each event</div>
     </div>
   );
 }
@@ -3149,22 +3149,22 @@ function DivergenceAlerts({ ticks }: { ticks: Map<string, Tick> }) {
   if (!alerts.length) return null;
 
   return (
-    <div className="mx-4 mt-3 rounded-xl border border-[#ffc040]/25 bg-[#ffc040]/5 p-3">
+    <div className="mx-4 mt-3 rounded-xl border border-[#3b8bf6]/25 bg-[#3b8bf6]/5 p-3">
       <div className="flex items-center gap-2 mb-2">
-        <AlertCircle className="w-3.5 h-3.5 text-[#ffc040]" />
-        <span className="text-[10px] font-mono font-bold text-[#ffc040] uppercase tracking-wider">Sentiment Divergence</span>
-        <span className="text-[9px] font-mono text-[#ffc040]/45">{alerts.length} signals</span>
+        <AlertCircle className="w-3.5 h-3.5 text-[#3b8bf6]" />
+        <span className="text-[10px] font-mono font-bold text-[#3b8bf6] uppercase tracking-wider">Sentiment Divergence</span>
+        <span className="text-[9px] font-mono text-[#3b8bf6]/45">{alerts.length} signals</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {alerts.map(a => (
-          <div key={a.sym} className="bg-[#181410] border border-[#ffc040]/15 rounded-lg px-2.5 py-2">
+          <div key={a.sym} className="bg-[#111827] border border-[#3b8bf6]/15 rounded-lg px-2.5 py-2">
             <div className="text-xs font-bold font-mono text-white mb-1">{a.sym}</div>
             <div className="flex items-center justify-between text-[9px] font-mono">
               <span className={a.short>=50?"text-white":"text-[#ff5566]"}>5M {a.short}%</span>
-              <span className="text-[#ffc040]/30">vs</span>
+              <span className="text-[#3b8bf6]/30">vs</span>
               <span className={a.long>=50?"text-white":"text-[#ff5566]"}>1D {a.long}%</span>
             </div>
-            <div className="text-[8px] font-mono text-[#ffc040]/40 mt-0.5">
+            <div className="text-[8px] font-mono text-[#3b8bf6]/40 mt-0.5">
               {a.short>a.long?"Short-term bull vs long bear":"Short-term bear vs long bull"}
             </div>
           </div>
@@ -3292,7 +3292,7 @@ export default function Dashboard() {
   const isLoading = ticks.size === 0;
 
   return (
-    <div className="min-h-screen text-white" style={{ background: "radial-gradient(ellipse 90% 50% at 0% 0%, rgba(255,192,64,0.06) 0%, transparent 55%), radial-gradient(ellipse 60% 30% at 100% 100%, rgba(255,192,64,0.04) 0%, transparent 50%), #060502", fontFamily: "'Satoshi', sans-serif" }} >
+    <div className="min-h-screen text-white" style={{ background: "radial-gradient(ellipse 90% 50% at 0% 0%, rgba(59,139,246,0.06) 0%, transparent 55%), radial-gradient(ellipse 60% 30% at 100% 100%, rgba(59,139,246,0.04) 0%, transparent 50%), #05080f", fontFamily: "'Satoshi', sans-serif" }} >
       {/* Ticker tape */}
       <TickerTape allTicks={ticks} />
 
@@ -3300,17 +3300,17 @@ export default function Dashboard() {
       <NewsAlertBanner />
 
       {/* Header */}
-      <header className="border-b border-[#ffc040]/30 px-4 py-3 flex items-center justify-between sticky top-8 z-30 bg-[#030201]/98 backdrop-blur-md shadow-[0_1px_0_rgba(255,192,64,0.15)]" style={{ top: "32px" }}>
+      <header className="border-b border-[#3b8bf6]/30 px-4 py-3 flex items-center justify-between sticky top-8 z-30 bg-[#03060d]/98 backdrop-blur-md shadow-[0_1px_0_rgba(59,139,246,0.15)]" style={{ top: "32px" }}>
         <div className="flex items-center gap-3">
           {/* Logo */}
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Market Intel">
-            <rect width="28" height="28" rx="6" fill="rgba(255,192,64,0.18)" />
-            <path d="M8 14a6 6 0 1 1 6 6H8v-3h4a3 3 0 1 0-3-3H8v-3z" fill="#ffc040" />
-            <rect x="18" y="8" width="2.5" height="12" rx="1.25" fill="#ffc040" />
+            <rect width="28" height="28" rx="6" fill="rgba(59,139,246,0.18)" />
+            <path d="M8 14a6 6 0 1 1 6 6H8v-3h4a3 3 0 1 0-3-3H8v-3z" fill="#3b8bf6" />
+            <rect x="18" y="8" width="2.5" height="12" rx="1.25" fill="#3b8bf6" />
           </svg>
           <div>
-            <div className="text-sm font-bold text-[#fff8e8] leading-none tracking-wide">Market Intel</div>
-            <div className="text-[10px] text-[#ffc040]/45 font-mono leading-none mt-0.5">
+            <div className="text-sm font-bold text-[#f0f4ff] leading-none tracking-wide">Market Intel</div>
+            <div className="text-[10px] text-[#3b8bf6]/45 font-mono leading-none mt-0.5">
               {ticks.size.toLocaleString()} ticks live
             </div>
           </div>
@@ -3320,10 +3320,10 @@ export default function Dashboard() {
           {/* Connection indicator */}
           <div className={`flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded border ${
             connected
-              ? "border-[#ffc040]/40 bg-[#ffc040]/10 text-[#ffc040]"
-              : "border-[#ffc040]/38 bg-[#ffc040]/12 text-[#ffc040]"
+              ? "border-[#3b8bf6]/40 bg-[#3b8bf6]/10 text-[#3b8bf6]"
+              : "border-[#3b8bf6]/38 bg-[#3b8bf6]/12 text-[#3b8bf6]"
           }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-[#ffc040] animate-pulse shadow-[0_0_6px_rgba(255,192,64,0.8)]" : "bg-[#ff5566]"}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-[#3b8bf6] animate-pulse shadow-[0_0_6px_rgba(59,139,246,0.8)]" : "bg-[#ff5566]"}`} />
             {connected ? "LIVE" : "CONNECTING"}
           </div>
 
@@ -3331,11 +3331,11 @@ export default function Dashboard() {
           <button
             data-testid="open-search"
             onClick={() => setShowSearch(true)}
-            className="flex items-center gap-2 text-xs font-mono border border-[#ffc040]/20 px-3 py-1.5 rounded-lg text-[#ffc040]/68 hover:text-white hover:border-[#ffc040]/50 hover:bg-[#ffc040]/6 transition-all"
+            className="flex items-center gap-2 text-xs font-mono border border-[#3b8bf6]/20 px-3 py-1.5 rounded-lg text-[#3b8bf6]/68 hover:text-white hover:border-[#3b8bf6]/50 hover:bg-[#3b8bf6]/6 transition-all"
           >
             <Search className="w-3 h-3" />
             <span className="hidden sm:inline">Search</span>
-            <kbd className="hidden sm:inline text-[9px] border border-[#ffc040]/20 px-1 rounded text-[#ffc040]/38">⌘K</kbd>
+            <kbd className="hidden sm:inline text-[9px] border border-[#3b8bf6]/20 px-1 rounded text-[#3b8bf6]/38">⌘K</kbd>
           </button>
 
           {/* Price Alerts */}
@@ -3343,8 +3343,8 @@ export default function Dashboard() {
             onClick={() => setShowAlerts(a => !a)}
             className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-2 py-1 rounded transition-all ${
               showAlerts
-                ? "border-[#ffc040]/50 bg-[#ffc040]/10 text-[#ffc040]"
-                : "border-[#ffc040]/20 text-[#ffc040]/58 hover:text-white hover:border-[#ffc040]/35"
+                ? "border-[#3b8bf6]/50 bg-[#3b8bf6]/10 text-[#3b8bf6]"
+                : "border-[#3b8bf6]/20 text-[#3b8bf6]/58 hover:text-white hover:border-[#3b8bf6]/35"
             }`}
             title="Price Alerts"
           >
@@ -3358,8 +3358,8 @@ export default function Dashboard() {
             onClick={() => setShowNews(n => !n)}
             className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-2 py-1 rounded transition-all ${
               showNews
-                ? "border-[#ffc040]/50 bg-[#ffc040]/10 text-[#ffc040]"
-                : "border-[#ffc040]/20 text-[#ffc040]/58 hover:text-white hover:border-[#ffc040]/35"
+                ? "border-[#3b8bf6]/50 bg-[#3b8bf6]/10 text-[#3b8bf6]"
+                : "border-[#3b8bf6]/20 text-[#3b8bf6]/58 hover:text-white hover:border-[#3b8bf6]/35"
             }`}
             title="Market News"
           >
@@ -3368,7 +3368,7 @@ export default function Dashboard() {
           </button>
 
           {/* G2 Glasses icon */}
-          <div className="flex items-center gap-1.5 text-[10px] font-mono border border-[#ffc040]/20 px-2 py-1 rounded text-[#ffc040]/58">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono border border-[#3b8bf6]/20 px-2 py-1 rounded text-[#3b8bf6]/58">
             <Glasses className="w-3 h-3" />
             G2
           </div>
@@ -3376,7 +3376,7 @@ export default function Dashboard() {
       </header>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#ffc040]/20 sticky z-20 bg-[#040301]" style={{ top: "calc(32px + 57px)" }}>
+      <div className="flex border-b border-[#3b8bf6]/20 sticky z-20 bg-[#04070f]" style={{ top: "calc(32px + 57px)" }}>
         {tabs.map(t => {
           const Icon = t.icon;
           return (
@@ -3386,14 +3386,14 @@ export default function Dashboard() {
               onClick={() => { setTab(t.id); setSearch(""); }}
               className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold border-b-2 transition-all ${
                 tab === t.id
-                  ? "border-green-500 text-[#ffc040]"
-                  : "border-transparent text-[#ffc040]/58 hover:text-[#ffc040]/88"
+                  ? "border-green-500 text-[#3b8bf6]"
+                  : "border-transparent text-[#3b8bf6]/58 hover:text-[#3b8bf6]/88"
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
               {t.label}
               {t.count > 0 && (
-                <span className={`text-[9px] font-mono px-1 rounded ${tab === t.id ? "bg-[#ffc040]/18 text-[#ffc040]" : "bg-[#221d13] text-[#ffc040]/45"}`}>
+                <span className={`text-[9px] font-mono px-1 rounded ${tab === t.id ? "bg-[#3b8bf6]/18 text-[#3b8bf6]" : "bg-[#1a2235] text-[#3b8bf6]/45"}`}>
                   {t.count}
                 </span>
               )}
@@ -3409,14 +3409,14 @@ export default function Dashboard() {
       {tab !== "currency" && <div className="px-4 pt-3 pb-2 flex items-center gap-2">
         <button
           onClick={() => setShowSearch(true)}
-          className="flex items-center gap-2 flex-1 max-w-sm text-left text-xs font-mono border border-[#ffc040]/15 rounded-lg px-3 h-8 bg-[#181410]/80 text-[#ffc040]/38 hover:border-[#ffc040]/40 hover:bg-green-500/4 hover:text-[#ffc040]/68 transition-all"
+          className="flex items-center gap-2 flex-1 max-w-sm text-left text-xs font-mono border border-[#3b8bf6]/15 rounded-lg px-3 h-8 bg-[#111827]/80 text-[#3b8bf6]/38 hover:border-[#3b8bf6]/40 hover:bg-green-500/4 hover:text-[#3b8bf6]/68 transition-all"
           data-testid="search-bar-trigger"
         >
           <Search className="w-3 h-3 shrink-0" />
           <span>Search {tab}... any symbol or name</span>
-          <kbd className="ml-auto text-[9px] border border-[#ffc040]/20 px-1 rounded text-[#ffc040]/30">⌘K</kbd>
+          <kbd className="ml-auto text-[9px] border border-[#3b8bf6]/20 px-1 rounded text-[#3b8bf6]/30">⌘K</kbd>
         </button>
-        <span className="text-[10px] text-[#ffc040]/30 font-mono shrink-0">
+        <span className="text-[10px] text-[#3b8bf6]/30 font-mono shrink-0">
           {tab === 'positions' ? '' : `${currentTicks.length.toLocaleString()} coins`}
         </span>
       </div>}
@@ -3464,18 +3464,18 @@ export default function Dashboard() {
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-2">
             {Array.from({ length: 24 }).map((_, i) => (
-              <Skeleton key={i} className="h-[88px] rounded-lg bg-[#1e1a12]" />
+              <Skeleton key={i} className="h-[88px] rounded-lg bg-[#151e30]" />
             ))}
           </div>
         ) : currentTicks.length === 0 ? (
           tab === "favorites" ? (
             <div className="text-center py-20">
               <Star className="w-10 h-10 text-white/10 mx-auto mb-4" />
-              <div className="text-[#ffc040]/45 text-sm font-mono mb-2">Your watchlist is empty</div>
-              <div className="text-[#ffc040]/20 text-xs font-mono">Hover any coin card and click the ★ to add it here</div>
+              <div className="text-[#3b8bf6]/45 text-sm font-mono mb-2">Your watchlist is empty</div>
+              <div className="text-[#3b8bf6]/20 text-xs font-mono">Hover any coin card and click the ★ to add it here</div>
             </div>
           ) : (
-            <div className="text-center text-[#ffc040]/45 text-sm py-16 font-mono">
+            <div className="text-center text-[#3b8bf6]/45 text-sm py-16 font-mono">
               {search ? `No results for "${search}"` : `Waiting for ${tab} data...`}
             </div>
           )
@@ -3534,7 +3534,7 @@ export default function Dashboard() {
       {showAlerts && <PriceAlertsPanel ticks={ticks} onClose={() => setShowAlerts(false)} />}
 
       {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-[#0d0a06]/98 border-t border-[#ffc040]/20 backdrop-blur-md flex items-center justify-around px-2 py-2 safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-[#0d1120]/98 border-t border-[#3b8bf6]/20 backdrop-blur-md flex items-center justify-around px-2 py-2 safe-area-bottom">
         {[
           { id: "crypto" as Tab,    icon: Bitcoin,     label: "Crypto" },
           { id: "favorites" as Tab, icon: Star,        label: "Watch" },
@@ -3545,8 +3545,8 @@ export default function Dashboard() {
           <button key={id} onClick={() => setTab(id)}
             className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
               tab === id
-                ? "bg-[#ffc040]/12 text-[#ffc040]"
-                : "text-[#ffc040]/40 hover:text-[#ffc040]/68"
+                ? "bg-[#3b8bf6]/12 text-[#3b8bf6]"
+                : "text-[#3b8bf6]/40 hover:text-[#3b8bf6]/68"
             }`}
           >
             <Icon className="w-4 h-4" />
