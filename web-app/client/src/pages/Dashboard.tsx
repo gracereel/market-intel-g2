@@ -694,10 +694,10 @@ function getSentimentForTick(tick: Tick, tf: string): { label: string; score: nu
 
 function sentColor(label: string) {
   if (label === "Strong Bull") return "#ffffff";
-  if (label === "Bullish") return "#e8e8e8";
+  if (label === "Bullish") return "#ffffff";
   if (label === "Strong Bear") return "#ff2233";
-  if (label === "Bearish") return "#ff5566";
-  return "#ffc040";
+  if (label === "Bearish") return "#ff2233";
+  return "#ffffff"; // Neutral — default white
 }
 function sentBgStyle(label: string): React.CSSProperties {
   if (label === "Strong Bull") return { background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.4)", color: "#22c55e" };
@@ -845,7 +845,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
               const displayPct = single ? pct : Math.round((bull / total) * 100);
-              const color = sentColor(label);
+              const color = displayPct >= 50 ? "#ffffff" : "#ff2233";
               const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
               return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={130} />;
             })}
@@ -854,7 +854,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
             {/* Final */}
             {(() => {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
-              const color = sentColor(verdict);
+              const color = pct >= 50 ? "#ffffff" : "#ff2233";
               const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
               return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={160} />;
             })()}
