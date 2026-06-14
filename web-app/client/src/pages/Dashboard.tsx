@@ -734,6 +734,232 @@ function getSentimentForTick(tick: Tick, tf: string): { label: string; score: nu
   }
 }
 
+// ─── Confidence Scoring Engine ───────────────────────────────────────────────
+// Returns how many of the 5 key factors are aligned with the signal direction
+// Used for the signal strength meter and confluence filter
+function getSignalConfidence(tick: Tick, tf: string): {
+  score: number; label: string; confidence: number; factorsAligned: number;
+  factors: { name: string; signal: "bull" | "bear" | "neutral"; strength: number }[];
+  confluenceAlert: boolean;
+} {
+  const base = getSentimentForTick(tick, tf);
+  const direction = base.score > 0 ? 1 : base.score < 0 ? -1 : 0;
+
+  // Build factor breakdown
+  const change = tick.changePercent ?? 0;
+  const price  = tick.price ?? 0;
+  const high   = tick.high ?? price;
+  const low    = tick.low  ?? price;
+  const open   = tick.open ?? price;
+  const range  = high - low;
+  const bid    = tick.bid ?? 0;
+  const ask    = tick.ask ?? 0;
+  const tfSens: Record<string, number> = { "5M":0.3,"15M":0.6,"1H":1.2,"4H":2.0,"12H":3.5,"1D":5.0,"1W":10.0 };
+  const sens = tfSens[tf] ?? 1.0;
+  const mom = Math.max(-1, Math.min(1, change / sens));
+  const rangePos = range > 0 ? (price - low) / range : 0.5;
+  const rangeS = (rangePos - 0.5) * 2;
+  let bkout = 0;
+  if (range > 0) {
+    const dH = (high - price) / range, dL = (price - low) / range;
+    if (dH < 0.05) bkout = 1; else if (dL < 0.05) bkout = -1;
+    else if (dH < 0.15) bkout = 0.5; else if (dL < 0.15) bkout = -0.5;
+  }
+  let op = 0;
+  if (bid > 0 && ask > 0) {
+    const spread = ask - bid;
+    const mid = (bid + ask) / 2;
+    op = spread > 0 ? Math.max(-1, Math.min(1, (price - mid) / (spread / 2))) : 0;
+  }
+  const cvdS  = tick.cvdSignal ?? 0;
+  const oiS   = tick.oiSignal  ?? 0;
+  const frS   = tick.fundingRate !== undefined ? Math.max(-1, Math.min(1, -(tick.fundingRate) * 1000)) : 0;
+  const adx   = tick.adx ?? 25;
+
+  const factorsList = [
+    { name: "Momentum",      raw: mom,    weight: 0.28 },
+    { name: "Open Interest", raw: oiS,    weight: 0.14 },
+    { name: "Bid/Ask Flow",  raw: op,     weight: 0.18 },
+    { name: "CVD",           raw: cvdS,   weight: 0.09 },
+    { name: "Breakout",      raw: bkout,  weight: 0.16 },
+    { name: "Range Pos.",    raw: rangeS, weight: 0.12 },
+    { name: "Funding Rate",  raw: frS,    weight: 0.03 },
+  ];
+
+  const factors = factorsList.map(f => ({
+    name: f.name,
+    signal: (f.raw > 0.1 ? "bull" : f.raw < -0.1 ? "bear" : "neutral") as "bull"|"bear"|"neutral",
+    strength: Math.abs(f.raw),
+  }));
+
+  // Count factors aligned with final signal direction
+  const aligned = factors.filter(f =>
+    (direction > 0 && f.signal === "bull") ||
+    (direction < 0 && f.signal === "bear") ||
+    direction === 0
+  );
+  const factorsAligned = aligned.length;
+
+  // Confidence: weighted alignment score 0-100
+  // Base: factor alignment + ADX regime boost
+  let conf = (factorsAligned / factors.length) * 100;
+
+  // ADX boost: trending market raises confidence
+  if (adx >= 40)      conf = Math.min(100, conf * 1.20);
+  else if (adx >= 30) conf = Math.min(100, conf * 1.10);
+  else if (adx < 20)  conf = Math.min(100, conf * 0.70);
+
+  // OI confirmation: rising OI in trend direction → +8%
+  if ((direction > 0 && oiS > 0.2) || (direction < 0 && oiS < -0.2)) conf = Math.min(100, conf + 8);
+
+  // CVD confirmation: aggressive flow matches direction → +6%
+  if ((direction > 0 && cvdS > 0.2) || (direction < 0 && cvdS < -0.2)) conf = Math.min(100, conf + 6);
+
+  // Confluence alert: 5+ factors agree = high-confidence trade
+  const confluenceAlert = factorsAligned >= 5 && adx >= 25 && Math.abs(base.score) > 0.3;
+
+  return {
+    score: base.score,
+    label: base.label,
+    confidence: Math.round(conf),
+    factorsAligned,
+    factors,
+    confluenceAlert,
+  };
+}
+
+// ─── Multi-Timeframe Confluence ───────────────────────────────────────────────
+// Returns the number of timeframes agreeing on direction + overall confluence label
+function getMultiTFConfluence(tick: Tick, tfs: string[]): {
+  bullTFs: string[]; bearTFs: string[]; neutTFs: string[];
+  confluenceDirection: "bull" | "bear" | "neutral";
+  confluenceStrength: number; // 0-100
+  highConfluence: boolean;    // true when 5+ TFs agree
+} {
+  const bullTFs: string[] = [], bearTFs: string[] = [], neutTFs: string[] = [];
+  for (const tf of tfs) {
+    const s = getSentimentForTick(tick, tf);
+    if (s.score > 0.1) bullTFs.push(tf);
+    else if (s.score < -0.1) bearTFs.push(tf);
+    else neutTFs.push(tf);
+  }
+  const total = tfs.length;
+  const bullPct = bullTFs.length / total;
+  const bearPct = bearTFs.length / total;
+  const dir = bullTFs.length > bearTFs.length ? "bull" : bearTFs.length > bullTFs.length ? "bear" : "neutral";
+  const strength = Math.round(Math.max(bullPct, bearPct) * 100);
+  return {
+    bullTFs, bearTFs, neutTFs,
+    confluenceDirection: dir,
+    confluenceStrength: strength,
+    highConfluence: Math.max(bullTFs.length, bearTFs.length) >= 5,
+  };
+}
+
+// ─── Signal Strength Meter Component ─────────────────────────────────────────
+function SignalStrengthMeter({ tick, tf, newsSentiment }: {
+  tick: Tick; tf: string;
+  newsSentiment?: { bullish: number; bearish: number; neutral: number; total: number } | null;
+}) {
+  const conf = getSignalConfidence(tick, tf);
+  const tfs = ["5M","15M","1H","4H","12H","1D","1W"];
+  const mtf = getMultiTFConfluence(tick, tfs);
+
+  // News fusion: if news strongly agrees with signal, boost confidence display
+  let newsBoost = 0;
+  let newsFusionLabel = "";
+  if (newsSentiment && newsSentiment.total >= 3) {
+    const newsBull = newsSentiment.bullish / newsSentiment.total;
+    const newsBear = newsSentiment.bearish / newsSentiment.total;
+    if (conf.score > 0 && newsBull > 0.55) { newsBoost = 8; newsFusionLabel = "News Confirms"; }
+    else if (conf.score < 0 && newsBear > 0.55) { newsBoost = 8; newsFusionLabel = "News Confirms"; }
+    else if (conf.score > 0 && newsBear > 0.55) { newsBoost = -10; newsFusionLabel = "News Diverges"; }
+    else if (conf.score < 0 && newsBull > 0.55) { newsBoost = -10; newsFusionLabel = "News Diverges"; }
+  }
+
+  const finalConf = Math.max(0, Math.min(100, conf.confidence + newsBoost));
+  const confColor = finalConf >= 75 ? "#00ff88" : finalConf >= 55 ? "#ffd060" : "#ff5566";
+  const signalDir = conf.score > 0 ? "LONG" : conf.score < 0 ? "SHORT" : "NEUTRAL";
+  const signalColor = conf.score > 0 ? "#00ff88" : conf.score < 0 ? "#ff2233" : "#3b8bf6";
+
+  return (
+    <div className="rounded-xl border border-[#3b8bf6]/20 bg-[#080e1c] p-3 space-y-3">
+      {/* Header: Signal + Confidence */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono font-bold" style={{ color: signalColor }}>{signalDir}</span>
+          {conf.confluenceAlert && (
+            <span className="text-[8px] font-mono px-1.5 py-0.5 rounded border animate-pulse"
+              style={{ color: "#00ff88", borderColor: "#00ff8844", background: "#00ff8811" }}>
+              ⚡ HIGH CONF
+            </span>
+          )}
+          {mtf.highConfluence && (
+            <span className="text-[8px] font-mono px-1.5 py-0.5 rounded border"
+              style={{ color: "#60a5fa", borderColor: "#60a5fa44", background: "#60a5fa11" }}>
+              {mtf.confluenceDirection === "bull" ? mtf.bullTFs.length : mtf.bearTFs.length}/7 TFs
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {newsFusionLabel && (
+            <span className="text-[8px] font-mono" style={{ color: newsBoost > 0 ? "#00ff88" : "#ff5566" }}>
+              {newsFusionLabel}
+            </span>
+          )}
+          <span className="text-[13px] font-mono font-black" style={{ color: confColor }}>{finalConf}%</span>
+        </div>
+      </div>
+
+      {/* Confidence bar */}
+      <div className="h-1.5 rounded-full bg-[#0d1525]">
+        <div className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${finalConf}%`, background: `linear-gradient(90deg, ${confColor}88, ${confColor})`,
+            boxShadow: finalConf >= 70 ? `0 0 8px ${confColor}66` : "none" }} />
+      </div>
+
+      {/* Factor breakdown — 7 pills */}
+      <div className="flex flex-wrap gap-1">
+        {conf.factors.map(f => (
+          <span key={f.name} className="text-[7px] font-mono px-1.5 py-0.5 rounded border"
+            style={{
+              color: f.signal === "bull" ? "#00ff88" : f.signal === "bear" ? "#ff5566" : "#3b8bf6",
+              borderColor: (f.signal === "bull" ? "#00ff88" : f.signal === "bear" ? "#ff5566" : "#3b8bf6") + "33",
+              background: (f.signal === "bull" ? "#00ff88" : f.signal === "bear" ? "#ff5566" : "#3b8bf6") + "10",
+              opacity: f.strength < 0.1 ? 0.45 : 1,
+            }}>
+            {f.signal === "bull" ? "▲" : f.signal === "bear" ? "▼" : "–"} {f.name}
+          </span>
+        ))}
+      </div>
+
+      {/* MTF confluence bar */}
+      <div>
+        <div className="text-[7px] font-mono text-[#3b8bf6]/40 mb-1 uppercase tracking-wider">Multi-TF Confluence</div>
+        <div className="flex gap-0.5">
+          {["5M","15M","1H","4H","12H","1D","1W"].map(t => {
+            const isBull = mtf.bullTFs.includes(t);
+            const isBear = mtf.bearTFs.includes(t);
+            const isActive = t === tf;
+            return (
+              <div key={t} className="flex-1 rounded-sm overflow-hidden"
+                style={{ height: 16, border: isActive ? "1px solid #3b8bf6" : "1px solid transparent" }}>
+                <div className="w-full h-full flex items-center justify-center text-[6px] font-mono font-bold"
+                  style={{
+                    background: isBull ? "#00ff8820" : isBear ? "#ff226620" : "#1a2235",
+                    color: isBull ? "#00ff88" : isBear ? "#ff2233" : "#3b8bf6",
+                  }}>
+                  {t}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function sentColor(label: string) {
   if (label === "Strong Bull") return "#00ff88";
   if (label === "Bullish") return "#00ff88";
@@ -907,6 +1133,31 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
 
           {/* Gauge row */}
           <div style={{ display:"flex", alignItems:"center", gap:4, overflowX:"hidden", overflowY:"visible", flex:1, paddingBottom:4, paddingTop:4, flexWrap:"nowrap", justifyContent:"space-between" }}>
+            {/* Confluence Alert Banner */}
+            {selectedTick && (() => {
+              const mtf = getMultiTFConfluence(selectedTick, ["5M","15M","1H","4H","12H","1D","1W"]);
+              const conf1h = getSignalConfidence(selectedTick, "1H");
+              if (!mtf.highConfluence && !conf1h.confluenceAlert) return null;
+              const dir = mtf.confluenceDirection;
+              const count = dir === "bull" ? mtf.bullTFs.length : mtf.bearTFs.length;
+              return (
+                <div className="mx-2 mb-1 px-3 py-1.5 rounded-lg border flex items-center gap-2 animate-pulse"
+                  style={{
+                    background: dir === "bull" ? "rgba(0,255,136,0.06)" : "rgba(255,34,51,0.06)",
+                    borderColor: dir === "bull" ? "rgba(0,255,136,0.3)" : "rgba(255,34,51,0.3)",
+                  }}>
+                  <span className="text-[10px]">{dir === "bull" ? "⚡" : "⚡"}</span>
+                  <span className="text-[9px] font-mono font-bold" style={{ color: dir === "bull" ? "#00ff88" : "#ff2233" }}>
+                    CONFLUENCE ALERT — {count}/7 timeframes {dir === "bull" ? "BULLISH" : "BEARISH"}
+                  </span>
+                  {conf1h.confluenceAlert && (
+                    <span className="text-[8px] font-mono ml-auto" style={{ color: "#60a5fa" }}>
+                      {conf1h.confidence}% confidence
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
             {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
@@ -1725,6 +1976,8 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
             <div className="rounded-xl border border-[#3b8bf6]/10 bg-[#111827]/80 p-4">
               <div className="text-[11px] text-[#3b8bf6]/58 font-mono uppercase tracking-wider mb-3">Market Sentiment</div>
               <SentimentDonut bull={sent.bullish} bear={sent.bearish} neut={sent.neutral} />
+              {/* Signal Strength Meter with news fusion */}
+              <SignalStrengthMeter tick={tick} tf="1H" newsSentiment={sent} />
               {/* Buyer/Seller bars */}
               <div className="mt-4 space-y-2">
                 <div>
@@ -3240,6 +3493,79 @@ function DivergenceAlerts({ ticks }: { ticks: Map<string, Tick> }) {
 }
 
 
+// ─── High Confidence Signals Panel ───────────────────────────────────────────
+function HighConfidenceSignals({ ticks }: { ticks: Tick[] }) {
+  const TIMEFRAMES = ["5M","15M","1H","4H","12H","1D","1W"];
+
+  const signals = useMemo(() => {
+    const results: {
+      tick: Tick; direction: "bull" | "bear"; confidence: number;
+      factorsAligned: number; mtfCount: number; tf: string;
+    }[] = [];
+
+    for (const tick of ticks.slice(0, 60)) { // check top 60 by volume
+      const mtf = getMultiTFConfluence(tick, TIMEFRAMES);
+      if (!mtf.highConfluence) continue; // need 5+ TFs agreeing
+      // Use the dominant timeframe direction
+      const tf = mtf.confluenceDirection === "bull" ? "4H" : "4H";
+      const conf = getSignalConfidence(tick, tf);
+      if (conf.confidence < 60) continue; // min 60% confidence
+      results.push({
+        tick,
+        direction: mtf.confluenceDirection as "bull" | "bear",
+        confidence: conf.confidence,
+        factorsAligned: conf.factorsAligned,
+        mtfCount: mtf.confluenceDirection === "bull" ? mtf.bullTFs.length : mtf.bearTFs.length,
+        tf,
+      });
+    }
+    return results.sort((a, b) => b.confidence - a.confidence).slice(0, 8);
+  }, [ticks]);
+
+  if (signals.length === 0) return null;
+
+  return (
+    <div className="mx-3 mb-3">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-[#00ff88] animate-pulse" />
+        <span className="text-[9px] font-mono uppercase tracking-widest text-[#3b8bf6]/60">High Confidence Signals</span>
+        <span className="text-[8px] font-mono text-[#3b8bf6]/35">{signals.length} found</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+        {signals.map(({ tick, direction, confidence, factorsAligned, mtfCount }) => {
+          const sym = tick.symbol.replace("USDT", "");
+          const isLong = direction === "bull";
+          const confColor = confidence >= 75 ? "#00ff88" : "#ffd060";
+          return (
+            <div key={sym} className="rounded-lg border p-2 flex flex-col gap-1"
+              style={{
+                background: isLong ? "rgba(0,255,136,0.04)" : "rgba(255,34,51,0.04)",
+                borderColor: isLong ? "rgba(0,255,136,0.22)" : "rgba(255,34,51,0.22)",
+              }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono font-bold text-[#f0f4ff]">{sym}</span>
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded"
+                  style={{ background: isLong ? "rgba(0,255,136,0.15)" : "rgba(255,34,51,0.15)",
+                    color: isLong ? "#00ff88" : "#ff2233" }}>
+                  {isLong ? "LONG" : "SHORT"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[8px] font-mono" style={{ color: confColor }}>{confidence}% conf</span>
+                <span className="text-[7px] font-mono text-[#3b8bf6]/50">{mtfCount}/7 TFs · {factorsAligned}/7 factors</span>
+              </div>
+              <div className="h-1 rounded-full bg-[#0d1525]">
+                <div className="h-full rounded-full" style={{ width: `${confidence}%`,
+                  background: `linear-gradient(90deg, ${confColor}66, ${confColor})` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -3488,6 +3814,13 @@ export default function Dashboard() {
 
       {/* Divergence Alerts */}
       {(tab === "crypto" || tab === "futures") && <DivergenceAlerts ticks={ticks} />}
+
+      {/* High Confidence Signals */}
+      {(tab === "crypto" || tab === "futures") && (
+        <HighConfidenceSignals ticks={Array.from(ticks.values()).filter(t =>
+          tab === "crypto" ? t.category === "crypto" : t.category === "futures"
+        ).sort((a, b) => b.quoteVolume - a.quoteVolume)} />
+      )}
 
       {/* Heatmap Panel */}
       {tab === "heatmap" && (
