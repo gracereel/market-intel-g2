@@ -2981,10 +2981,88 @@ const ECON_EVENTS: { date: string; time: string; event: string; impact: "high"|"
   { date:"2026-08-05",time:"08:30",event:"US Non-Farm Payrolls",     impact:"high",  currency:"USD" },
 ];
 
+function useEconAlerts() {
+  const firedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (Notification.permission === "default") Notification.requestPermission();
+
+    function playChime(isHigh: boolean) {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const playTone = (freq: number, t: number, dur: number, vol: number) => {
+          const osc = ctx.createOscillator(); const g = ctx.createGain();
+          osc.connect(g); g.connect(ctx.destination);
+          osc.type = "sine"; osc.frequency.setValueAtTime(freq, t);
+          g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          osc.start(t); osc.stop(t + dur);
+        };
+        const t = ctx.currentTime;
+        if (isHigh) {
+          playTone(880, t, 0.2, 0.2); playTone(1100, t+0.18, 0.18, 0.18); playTone(1320, t+0.36, 0.25, 0.22);
+        } else {
+          playTone(660, t, 0.18, 0.12); playTone(880, t+0.18, 0.22, 0.10);
+        }
+      } catch {}
+    }
+
+    function check() {
+      const now = new Date();
+      // Convert current time to ET offset (UTC-4 in summer, UTC-5 in winter)
+      const etOffset = -4; // EDT
+      const nowET = new Date(now.getTime() + (now.getTimezoneOffset() + etOffset * 60) * 60000);
+      const todayET = nowET.toISOString().slice(0,10);
+
+      ECON_EVENTS.forEach(ev => {
+        if (ev.date !== todayET) return;
+        const [hh, mm] = ev.time.split(":").map(Number);
+        const evET = new Date(nowET);
+        evET.setHours(hh, mm, 0, 0);
+        const diffMin = (evET.getTime() - nowET.getTime()) / 60000;
+
+        const fire = (label: string, key: string) => {
+          if (firedRef.current.has(key)) return;
+          firedRef.current.add(key);
+          playChime(ev.impact === "high");
+          try {
+            if (Notification.permission === "granted") {
+              new Notification(`📅 ${label}: ${ev.event}`, {
+                body: `${ev.currency} · ${ev.time} ET · Impact: ${ev.impact.toUpperCase()}`,
+                icon: "/favicon.ico",
+              });
+            }
+          } catch {}
+        };
+
+        if (diffMin >= 59 && diffMin <= 61) fire("1 Hour Warning", `${ev.date}-${ev.time}-60`);
+        if (diffMin >= 14 && diffMin <= 16) fire("15 Min Warning", `${ev.date}-${ev.time}-15`);
+        if (diffMin >= -1 && diffMin <= 1)  fire("NOW LIVE", `${ev.date}-${ev.time}-0`);
+      });
+    }
+
+    check();
+    const interval = setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, []);
+}
+
 function EconomicCalendar() {
+  useEconAlerts();
+
   const today = new Date();
   const todayStr = today.toISOString().slice(0,10);
   const upcoming = ECON_EVENTS.filter(e => e.date >= todayStr).slice(0,10);
+
+  // minutes until event (for today's events)
+  function minsUntil(date: string, time: string): number | null {
+    if (date !== todayStr) return null;
+    const etOffset = -4;
+    const nowET = new Date(today.getTime() + (today.getTimezoneOffset() + etOffset * 60) * 60000);
+    const [hh, mm] = time.split(":").map(Number);
+    const evET = new Date(nowET); evET.setHours(hh, mm, 0, 0);
+    return Math.round((evET.getTime() - nowET.getTime()) / 60000);
+  }
 
   function impactDot(i: string) {
     if (i==="high")   return { dot:"bg-red-500", badge:"bg-red-500/12 border-red-500/30 text-red-400" };
@@ -2999,15 +3077,24 @@ function EconomicCalendar() {
   let lastDate = "";
   return (
     <div className="px-4 py-3">
-      <div className="flex items-center gap-2 mb-3">
-        <Calendar className="w-3.5 h-3.5 text-[#ffc040]" />
-        <span className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest">Economic Calendar</span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-3.5 h-3.5 text-[#ffc040]" />
+          <span className="text-[10px] font-mono text-[#ffc040]/45 uppercase tracking-widest">Economic Calendar</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[9px] font-mono text-[#ffc040]/38">
+          <BellRing className="w-3 h-3" />
+          Alerts: 1hr · 15min · live
+        </div>
       </div>
       <div className="space-y-1">
         {upcoming.map((ev,i) => {
           const { dot, badge } = impactDot(ev.impact);
           const showDate = ev.date !== lastDate; lastDate = ev.date;
           const isToday = ev.date === todayStr;
+          const mins = minsUntil(ev.date, ev.time);
+          const isImminent = mins !== null && mins >= 0 && mins <= 60;
+          const isLive     = mins !== null && mins >= -5 && mins <= 5;
           return (
             <div key={i}>
               {showDate && (
@@ -3015,22 +3102,33 @@ function EconomicCalendar() {
                   {new Date(ev.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}{isToday?" — TODAY":""}
                 </div>
               )}
-              <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${isToday?"bg-[#ffc040]/6 border-[#ffc040]/20":"bg-[#181410]/60 border-[#ffc040]/8 hover:border-[#ffc040]/20"}`}>
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+              <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
+                isLive     ? "bg-red-500/12 border-red-500/50 animate-pulse" :
+                isImminent ? "bg-[#ffc040]/8 border-[#ffc040]/35" :
+                isToday    ? "bg-[#ffc040]/4 border-[#ffc040]/15" :
+                             "bg-[#181410]/60 border-[#ffc040]/8 hover:border-[#ffc040]/20"
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot} ${isLive ? "animate-ping" : ""}`} />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-white font-medium truncate">{ev.event}</div>
                   <div className="text-[9px] font-mono text-[#ffc040]/38">{ev.currency} · {ev.time} ET</div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${badge}`}>{ev.impact.toUpperCase()}</span>
-                  <span className={`text-[8px] font-mono font-bold ${isToday?"text-[#ffc040]":"text-[#ffc040]/30"}`}>{daysUntil(ev.date)}</span>
+                  {isLive ? (
+                    <span className="text-[8px] font-mono font-bold text-red-400 animate-pulse">🔴 LIVE</span>
+                  ) : isImminent && mins !== null ? (
+                    <span className="text-[8px] font-mono font-bold text-[#ffc040]">{mins}m away</span>
+                  ) : (
+                    <span className={`text-[8px] font-mono font-bold ${isToday?"text-[#ffc040]":"text-[#ffc040]/30"}`}>{daysUntil(ev.date)}</span>
+                  )}
                 </div>
               </div>
             </div>
           );
         })}
       </div>
-      <div className="text-[8px] font-mono text-[#ffc040]/18 mt-3 text-center">Times in ET · High impact = potential volatility spike</div>
+      <div className="text-[8px] font-mono text-[#ffc040]/18 mt-3 text-center">Times in ET · Alerts fire 1hr + 15min before each event</div>
     </div>
   );
 }
