@@ -514,7 +514,7 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
-  const isFinal = size >= 110;
+  const isFinal = size >= 90;
   // Uses stroke-dasharray trick: no arc endpoint math = no clipping ever.
   // The semicircle is always the FULL track path.
   // We reveal pct% of it via dashoffset. The SVG is just a rectangle.
@@ -824,7 +824,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
 
       {/* Bar */}
       <div style={{ background: "#060401", borderTop: "1px solid rgba(255,192,64,0.12)", borderBottom: "1px solid rgba(255,192,64,0.12)" }}>
-        <div style={{ padding: "20px 16px 12px 16px", display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ padding: "10px 12px 8px 12px", display:"flex", alignItems:"center", gap:8 }}>
 
           {/* Selector button */}
           <div className="flex items-center gap-2 shrink-0">
@@ -841,23 +841,23 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, overflowX:"auto", overflowY:"visible", flex:1, paddingBottom:4, paddingTop:4, paddingLeft:4 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:4, overflowX:"hidden", overflowY:"visible", flex:1, paddingBottom:4, paddingTop:4, flexWrap:"nowrap", justifyContent:"space-between" }}>
             {rows.map(({ tf, label, score, bull, bear, neut, single }) => {
               const pct = Math.round(((score + 1) / 2) * 100);
               const total = bull + bear + neut || 1;
               const displayPct = single ? pct : Math.round((bull / total) * 100);
               const color = displayPct >= 50 ? "#00ff88" : "#ff2233";
               const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
-              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={130} />;
+              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={78} />;
             })}
             {/* Divider */}
-            <div style={{ width:1, height:80, background:"rgba(255,192,64,0.12)", flexShrink:0 }} />
+            <div style={{ width:1, height:60, background:"rgba(255,192,64,0.12)", flexShrink:0 }} />
             {/* Final */}
             {(() => {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
               const color = pct >= 50 ? "#00ff88" : "#ff2233";
               const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
-              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={160} />;
+              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={95} />;
             })()}
             {/* Live price */}
             {selectedTick && (
