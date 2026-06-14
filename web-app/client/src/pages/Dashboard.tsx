@@ -11,7 +11,7 @@ import {
   ChevronRight, Activity, Command, Star,
   Bell, Filter, Flame, Clock, ArrowUpRight, Globe,
   Target, PlusCircle, Trash2, Edit3, CheckCircle, TrendingUp as TrendUp, ChevronDown,
-  BellRing, Map, Calendar, TrendingDown as TrendDn, LayoutGrid, Zap as ZapIcon, AlertCircle, Home
+  BellRing, Calendar, TrendingDown as TrendDn, LayoutGrid, Zap as ZapIcon, AlertCircle, Home
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
