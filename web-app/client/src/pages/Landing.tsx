@@ -219,15 +219,16 @@ export default function Landing() {
         </div>
 
         <h1 className="text-5xl sm:text-6xl font-bold text-[#f0f4ff] leading-tight mb-6" style={{ fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em" }}>
-          Your Market Terminal,<br />
-          <span style={{ background: "linear-gradient(135deg, #3b8bf6, #ffd970)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Anywhere You Trade
+          Trade With Data,<br />
+          <span style={{ background: "linear-gradient(135deg, #3b8bf6, #60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            Not Your Emotions.
           </span>
         </h1>
 
         <p className="text-base text-[#3b8bf6]/65 max-w-2xl mx-auto leading-relaxed mb-10">
-          Real-time crypto, stocks, futures and forex — streamed live with zero delay on web and mobile.
-          Deep news search, AI sentiment, position tracking, and breaking sound alerts. Built for serious traders.
+          Real-time crypto, stocks, futures, and forex — streamed live with zero delay on web and mobile.
+          AI-powered sentiment, multi-timeframe confluence signals, live news, and institutional-grade analytics.
+          Built for traders who decide with data, not instinct.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
