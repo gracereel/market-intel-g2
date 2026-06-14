@@ -575,23 +575,63 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
 }
 
 // ─── Market Sentiment Panel ──────────────────────────────────────────────────
-const TF_SCALE: Record<string, number> = {
-  "5M": 5.0, "15M": 2.5, "1H": 1.5, "4H": 1.0, "12H": 0.7, "1D": 0.5, "1W": 0.3,
-};
 const TIMEFRAMES = ["5M","15M","1H","4H","12H","1D","1W"];
 
-function getSentimentForTick(change: number, tf: string) {
-  const scaled = change * (TF_SCALE[tf] ?? 1.0);
-  const abs = Math.abs(scaled);
-  if (abs < 0.4) return { label: "Neutral", score: 0 };
-  if (scaled > 0) {
-    if (abs >= 6.0) return { label: "Strong Bull", score: 1.0 };
-    if (abs >= 2.5) return { label: "Bullish", score: 0.7 };
-    return { label: "Bullish", score: 0.4 };
+// Multi-factor sentiment — uses price action, range position, volume, and momentum
+// Each timeframe has different sensitivity so short TFs react faster than weekly
+function getSentimentForTick(tick: Tick, tf: string): { label: string; score: number } {
+  const change = tick.changePercent ?? 0;
+  const price  = tick.price  ?? 0;
+  const high   = tick.high   ?? price;
+  const low    = tick.low    ?? price;
+  const open   = tick.open   ?? price;
+
+  // 1. Momentum: how strong is the move relative to timeframe sensitivity
+  //    Short TFs need smaller moves to register; longer TFs need bigger moves
+  const tfSensitivity: Record<string, number> = {
+    "5M": 0.3, "15M": 0.6, "1H": 1.2, "4H": 2.0, "12H": 3.5, "1D": 5.0, "1W": 10.0,
+  };
+  const sens = tfSensitivity[tf] ?? 1.0;
+  // Normalize change to [-1, 1] based on timeframe sensitivity
+  const momentum = Math.max(-1, Math.min(1, change / sens));
+
+  // 2. Price position in day's range (Williams %R style)
+  // 1.0 = at high (bullish), 0.0 = at low (bearish), 0.5 = middle (neutral)
+  const range = high - low;
+  const rangePos = range > 0 ? (price - low) / range : 0.5;
+  const rangeSignal = (rangePos - 0.5) * 2; // [-1, 1]
+
+  // 3. Open vs Close (candlestick body direction)
+  const bodySignal = open > 0 ? Math.max(-1, Math.min(1, (price - open) / open * 20)) : 0;
+
+  // 4. Breakout signal: price near or breaking day high/low
+  //    If price >= 98% of high → bullish breakout (+1)
+  //    If price <= 102% of low → bearish breakout (-1)
+  //    Scaled by how close to the level (0 if in middle of range)
+  let breakout = 0;
+  if (high > 0 && low > 0 && range > 0) {
+    const distFromHigh = (high - price) / range;  // 0 = at high, 1 = at low
+    const distFromLow  = (price - low)  / range;  // 0 = at low,  1 = at high
+    if (distFromHigh < 0.05) breakout =  1.0;      // within 5% of high = bullish breakout
+    else if (distFromLow < 0.05) breakout = -1.0;  // within 5% of low  = bearish breakout
+    else if (distFromHigh < 0.15) breakout =  0.5; // approaching high
+    else if (distFromLow  < 0.15) breakout = -0.5; // approaching low
+  }
+
+  // 5. Combine: momentum 50%, range position 20%, body 10%, breakout 20%
+  const raw = momentum * 0.50 + rangeSignal * 0.20 + bodySignal * 0.10 + breakout * 0.20;
+  const score = Math.max(-1, Math.min(1, raw));
+
+  const abs = Math.abs(score);
+  if (abs < 0.15) return { label: "Neutral", score: 0 };
+  if (score > 0) {
+    if (abs >= 0.65) return { label: "Strong Bull", score };
+    if (abs >= 0.35) return { label: "Bullish", score };
+    return { label: "Bullish", score };
   } else {
-    if (abs >= 6.0) return { label: "Strong Bear", score: -1.0 };
-    if (abs >= 2.5) return { label: "Bearish", score: -0.7 };
-    return { label: "Bearish", score: -0.4 };
+    if (abs >= 0.65) return { label: "Strong Bear", score };
+    if (abs >= 0.35) return { label: "Bearish", score };
+    return { label: "Bearish", score };
   }
 }
 
@@ -628,11 +668,11 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
 
   const rows = useMemo(() => TIMEFRAMES.map(tf => {
     if (selectedTick) {
-      return { tf, ...getSentimentForTick(selectedTick.changePercent ?? 0, tf), bull: 0, bear: 0, neut: 0, single: true };
+      return { tf, ...getSentimentForTick(selectedTick, tf), bull: 0, bear: 0, neut: 0, single: true };
     }
     let bull = 0, bear = 0, neut = 0;
     allTicks.forEach(t => {
-      const s = getSentimentForTick(t.changePercent ?? 0, tf);
+      const s = getSentimentForTick(t, tf);
       if (s.score > 0) bull++; else if (s.score < 0) bear++; else neut++;
     });
     const total = bull + bear + neut || 1;
