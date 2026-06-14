@@ -336,6 +336,123 @@ export async function registerRoutes(_: Server, app: Express) {
   });
 
   // ── Live SSE stream ────────────────────────────────────────────────────────
+
+  // ── AI Market Chat ────────────────────────────────────────────────────────
+  app.post("/api/chat", async (req: Request, res: Response) => {
+    const { message } = req.body;
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "message required" });
+    }
+
+    // Build live market context from current tick data
+    const cryptoTicks = getCryptoTicks().slice(0, 15);
+    const futuresTicks = getFuturesTicks().slice(0, 8);
+
+    const formatTick = (t: any) => {
+      const chg = t.changePercent >= 0 ? `+${t.changePercent.toFixed(2)}%` : `${t.changePercent.toFixed(2)}%`;
+      const adx = t.adx ? ` ADX:${t.adx.toFixed(0)}` : "";
+      const oi = t.oiSignal ? ` OI:${t.oiSignal > 0 ? "+" : ""}${t.oiSignal.toFixed(2)}` : "";
+      return `${t.symbol}: $${Number(t.price).toLocaleString()} (${chg})${adx}${oi}`;
+    };
+
+    const contextLines = [
+      "=== LIVE MARKET DATA (right now) ===",
+      "-- Crypto --",
+      ...cryptoTicks.map(formatTick),
+      "-- Futures --",
+      ...futuresTicks.map(formatTick),
+    ].join("\n");
+
+    const systemPrompt = `You are Market Intel AI, an institutional-grade market analyst assistant embedded inside the Market Intel trading platform. You have access to real-time market data streamed directly from the platform.
+
+Your role:
+- Answer market questions with precision and confidence
+- Reference the live data when relevant
+- Provide actionable trading insights
+- Keep responses concise (2-4 paragraphs max) unless a detailed breakdown is requested
+- Use professional trading terminology
+- Never give financial advice disclaimers unless directly asked for investment advice
+
+${contextLines}`;
+
+    const apiKey = process.env.PERPLEXITY_API_KEY;
+
+    if (apiKey) {
+      // Use Perplexity Sonar for real web-search grounded answers
+      try {
+        const resp = await fetch("https://api.perplexity.ai/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "sonar",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message },
+            ],
+            max_tokens: 600,
+            temperature: 0.2,
+          }),
+        });
+        if (!resp.ok) throw new Error(`Perplexity API error: ${resp.status}`);
+        const data = await resp.json() as any;
+        const answer = data.choices?.[0]?.message?.content || "No response";
+        return res.json({ answer });
+      } catch (err) {
+        console.error("Perplexity API error:", err);
+        // Fall through to built-in analyst
+      }
+    }
+
+    // Built-in analyst: rule-based smart responses using live data
+    const q = message.toLowerCase();
+    const allTicks = [...cryptoTicks, ...futuresTicks];
+
+    // Find mentioned ticker
+    const mentionedTick = allTicks.find(t =>
+      q.includes(t.symbol.toLowerCase()) ||
+      q.includes(t.symbol.replace("USDT","").toLowerCase()) ||
+      (t.name && q.includes(t.name.toLowerCase()))
+    );
+
+    let answer = "";
+
+    if (mentionedTick) {
+      const t = mentionedTick;
+      const dir = t.changePercent >= 0 ? "up" : "down";
+      const strength = Math.abs(t.changePercent) > 3 ? "strongly" : Math.abs(t.changePercent) > 1 ? "moderately" : "slightly";
+      const adxStr = t.adx ? (t.adx >= 25 ? `The ADX reading of ${t.adx.toFixed(0)} confirms a trending regime.` : `ADX at ${t.adx.toFixed(0)} suggests ranging/choppy conditions — lower signal reliability.`) : "";
+      const oiStr = t.oiSignal ? (t.oiSignal > 0.2 ? "Open interest is rising, suggesting new money is entering this move." : t.oiSignal < -0.2 ? "Open interest is declining — the move may be driven by position liquidation rather than conviction." : "") : "";
+      answer = `**${t.symbol}** is currently trading at **$${Number(t.price).toLocaleString()}**, ${strength} ${dir} ${Math.abs(t.changePercent).toFixed(2)}% on the session. ${adxStr} ${oiStr}\n\nKey levels to watch: support near $${(t.low * 0.995).toFixed(2)} and resistance at $${(t.high * 1.005).toFixed(2)} based on today's range. The 24h range spans $${(t.high - t.low).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}.`;
+    } else if (q.includes("top") || q.includes("best") || q.includes("mover") || q.includes("gainer")) {
+      const sorted = [...allTicks].sort((a, b) => b.changePercent - a.changePercent);
+      const top3 = sorted.slice(0, 3).map(t => `**${t.symbol}** +${t.changePercent.toFixed(2)}%`).join(", ");
+      answer = `Today's top movers: ${top3}.\n\nStrong momentum in these names could indicate sector rotation or macro catalysts driving risk appetite. Watch for follow-through volume on the leader — sustained ADX above 25 is the key confirmation.`;
+    } else if (q.includes("worst") || q.includes("loser") || q.includes("bear") || q.includes("dump") || q.includes("drop")) {
+      const sorted = [...allTicks].sort((a, b) => a.changePercent - b.changePercent);
+      const bot3 = sorted.slice(0, 3).map(t => `**${t.symbol}** ${t.changePercent.toFixed(2)}%`).join(", ");
+      answer = `Weakest performers today: ${bot3}.\n\nPersistent selling pressure in these pairs may reflect macro risk-off sentiment or asset-specific negative catalysts. Monitor if the broader crypto market follows — a sector-wide decline suggests macro drivers rather than idiosyncratic news.`;
+    } else if (q.includes("btc") || q.includes("bitcoin")) {
+      const btc = allTicks.find(t => t.symbol === "BTCUSDT" || t.symbol === "BTC");
+      if (btc) {
+        answer = `Bitcoin is currently at **$${Number(btc.price).toLocaleString()}**, ${btc.changePercent >= 0 ? "+" : ""}${btc.changePercent.toFixed(2)}% on the day. As the market leader, BTC price action typically sets the tone for altcoin sentiment. ${btc.adx ? (btc.adx >= 25 ? `The trending ADX (${btc.adx.toFixed(0)}) suggests the current directional move has conviction.` : `A low ADX (${btc.adx.toFixed(0)}) indicates consolidation — expect range-bound price action until a breakout.`) : ""}\n\nKey institutional levels: round numbers ($${Math.round(btc.price / 1000) * 1000}k) often act as psychological support/resistance.`;
+      } else {
+        answer = "Bitcoin data is currently loading. Check the dashboard for the latest BTC price.";
+      }
+    } else if (q.includes("market") || q.includes("overview") || q.includes("summary")) {
+      const gainers = allTicks.filter(t => t.changePercent > 0).length;
+      const losers = allTicks.filter(t => t.changePercent < 0).length;
+      const sentiment = gainers > losers ? "risk-on" : gainers < losers ? "risk-off" : "mixed";
+      answer = `**Market Overview:** ${gainers} assets are up, ${losers} are down — overall sentiment is **${sentiment}**.\n\nTop crypto leaders are ${allTicks.slice(0,3).map(t => `${t.symbol} (${t.changePercent >= 0 ? "+" : ""}${t.changePercent.toFixed(1)}%)`).join(", ")}. Cross-asset correlation is a key factor to monitor — if BTC, SPX futures, and gold are all moving in the same direction, macro forces are dominant.`;
+    } else {
+      answer = `Based on current live data across ${allTicks.length} tracked instruments, the market is showing mixed signals. To get a specific analysis, ask me about a particular asset (e.g., "What's BTC doing?"), sector (e.g., "How are futures performing?"), or condition (e.g., "Who are today's top movers?").\n\nThe High Confidence Signals panel on your dashboard highlights pairs where 5+ timeframes align — those are the highest-probability setups right now.`;
+    }
+
+    return res.json({ answer });
+  });
+
   app.get("/api/live/stream", (req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");

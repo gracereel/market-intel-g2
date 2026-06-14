@@ -11,7 +11,8 @@ import {
   ChevronRight, Activity, Command, Star,
   Bell, Filter, Flame, Clock, ArrowUpRight, Globe,
   Target, PlusCircle, Trash2, Edit3, CheckCircle, TrendingUp as TrendUp, ChevronDown,
-  BellRing, Calendar, TrendingDown as TrendDn, LayoutGrid, Zap as ZapIcon, AlertCircle, Home
+  BellRing, Calendar, TrendingDown as TrendDn, LayoutGrid, Zap as ZapIcon, AlertCircle, Home,
+  MessageCircle, Send, Bot, Loader2 as Loader, ChevronDown as ChevDown, Sparkles
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -3566,6 +3567,237 @@ function HighConfidenceSignals({ ticks }: { ticks: Tick[] }) {
   );
 }
 
+// ─── AI Chat Bubble ──────────────────────────────────────────────────────────
+
+interface ChatMsg { role: "user" | "ai"; text: string; }
+
+function AIChatBubble() {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<ChatMsg[]>([
+    { role: "ai", text: "Hey! I'm your Market Intel AI analyst. Ask me about any asset, today's movers, market sentiment, or trading setups." }
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setUnread(0);
+      setTimeout(() => inputRef.current?.focus(), 120);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, open]);
+
+  async function sendMessage(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
+    if (!text || loading) return;
+    setInput("");
+    setOpen(true);
+    setMessages(prev => [...prev, { role: "user", text }]);
+    setLoading(true);
+    try {
+      const resp = await apiRequest("POST", "/api/chat", { message: text });
+      const data = await resp.json();
+      const answer = data.answer || "Sorry, I couldn't get a response. Try again.";
+      setMessages(prev => [...prev, { role: "ai", text: answer }]);
+      if (!open) setUnread(u => u + 1);
+    } catch {
+      setMessages(prev => [...prev, { role: "ai", text: "Connection error. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function renderText(text: string) {
+    return text.split(/\n/).map((line, li, arr) => {
+      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      const rendered = parts.map((p, i) =>
+        p.startsWith("**") && p.endsWith("**")
+          ? <strong key={i} className="text-[#3b8bf6] font-semibold">{p.slice(2, -2)}</strong>
+          : <span key={i}>{p}</span>
+      );
+      return li < arr.length - 1 ? <>{rendered}<br /></> : <>{rendered}</>;
+    });
+  }
+
+  const SUGGESTIONS = ["What's BTC doing?", "Top movers today?", "Market overview", "ETH analysis"];
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        data-testid="button-ai-chat"
+        aria-label="AI Market Analyst"
+        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95"
+        style={{
+          background: "linear-gradient(135deg, #1a2a5e 0%, #3b8bf6 100%)",
+          boxShadow: "0 0 28px rgba(59,139,246,0.5), 0 4px 20px rgba(0,0,0,0.7)"
+        }}
+      >
+        {open ? (
+          <ChevDown className="w-6 h-6 text-white" />
+        ) : (
+          <>
+            <Sparkles className="w-6 h-6 text-white" />
+            {unread > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[#ff2233] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                {unread}
+              </span>
+            )}
+          </>
+        )}
+      </button>
+
+      {/* Chat panel */}
+      {open && (
+        <div
+          className="fixed bottom-36 right-4 sm:bottom-24 sm:right-6 z-50 w-[340px] sm:w-[390px] flex flex-col rounded-2xl overflow-hidden"
+          style={{
+            background: "#060c1c",
+            border: "1px solid rgba(59,139,246,0.3)",
+            boxShadow: "0 24px 72px rgba(0,0,0,0.8), 0 0 48px rgba(59,139,246,0.1)",
+            maxHeight: "520px",
+          }}
+        >
+          {/* Header */}
+          <div
+            className="flex items-center gap-2.5 px-4 py-3 border-b border-[#3b8bf6]/15"
+            style={{ background: "linear-gradient(90deg, #0a1020 0%, #0f1c38 100%)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #1a2a5e, #3b8bf6)" }}
+            >
+              <Bot className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-semibold text-[#f0f4ff]">Market Intel AI</div>
+              <div className="text-[10px] text-[#3b8bf6] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00ff88] inline-block animate-pulse" />
+                Live data connected
+              </div>
+            </div>
+            <button
+              onClick={() => setOpen(false)}
+              className="text-[#3b8bf6]/50 hover:text-white transition-colors ml-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5" style={{ minHeight: 0, maxHeight: "340px" }}>
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-start gap-2`}>
+                {msg.role === "ai" && (
+                  <div
+                    className="w-6 h-6 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center"
+                    style={{ background: "linear-gradient(135deg, #1a2a5e, #3b8bf6)" }}
+                  >
+                    <Sparkles className="w-3 h-3 text-white" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-[82%] px-3 py-2 rounded-xl text-[12px] leading-relaxed ${
+                    msg.role === "user"
+                      ? "text-white rounded-tr-sm"
+                      : "text-[#c8d8f8] rounded-tl-sm"
+                  }`}
+                  style={{
+                    background: msg.role === "user"
+                      ? "linear-gradient(135deg, #1a2a5e, #2a3f80)"
+                      : "rgba(59,139,246,0.07)",
+                    border: msg.role === "ai" ? "1px solid rgba(59,139,246,0.18)" : "none",
+                  }}
+                >
+                  {renderText(msg.text)}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start items-start gap-2">
+                <div
+                  className="w-6 h-6 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, #1a2a5e, #3b8bf6)" }}
+                >
+                  <Sparkles className="w-3 h-3 text-white" />
+                </div>
+                <div
+                  className="px-3 py-2.5 rounded-xl rounded-tl-sm flex items-center gap-2"
+                  style={{ background: "rgba(59,139,246,0.07)", border: "1px solid rgba(59,139,246,0.18)" }}
+                >
+                  <Loader className="w-3.5 h-3.5 text-[#3b8bf6] animate-spin" />
+                  <span className="text-[11px] text-[#3b8bf6]/70">Analyzing...</span>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Quick suggestions */}
+          {messages.length <= 1 && (
+            <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+              {SUGGESTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  className="text-[10.5px] px-2.5 py-1 rounded-full border border-[#3b8bf6]/30 text-[#3b8bf6] hover:bg-[#3b8bf6]/10 transition-colors whitespace-nowrap"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input bar */}
+          <div
+            className="px-3 py-3 border-t border-[#3b8bf6]/15"
+            style={{ background: "rgba(6,12,28,0.98)" }}
+          >
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl"
+              style={{ background: "rgba(59,139,246,0.06)", border: "1px solid rgba(59,139,246,0.25)" }}
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder="Ask about any market..."
+                data-testid="input-ai-chat"
+                className="flex-1 bg-transparent text-[12px] text-[#f0f4ff] placeholder-[#3b8bf6]/35 outline-none"
+              />
+              <button
+                onClick={() => sendMessage()}
+                disabled={!input.trim() || loading}
+                data-testid="button-ai-send"
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 hover:scale-110 active:scale-95"
+                style={{ background: input.trim() && !loading ? "#3b8bf6" : "rgba(59,139,246,0.2)" }}
+              >
+                <Send className="w-3.5 h-3.5 text-white" />
+              </button>
+            </div>
+            <div className="text-[9px] text-[#3b8bf6]/25 text-center mt-1.5">
+              Powered by live market data
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -3954,6 +4186,9 @@ export default function Dashboard() {
       </nav>
       {/* Bottom padding for mobile nav */}
       <div className="h-16 sm:hidden" />
+
+      {/* AI Chat Bubble */}
+      <AIChatBubble />
     </div>
   );
 }
