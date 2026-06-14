@@ -99,17 +99,35 @@ app.get('/auth/logout', (_req: Request, res: Response) => {
 // Auth middleware — protects all routes except /login, /auth, /api, root / (landing page), and static assets
 app.use((req: Request, res: Response, next: NextFunction) => {
   const isPublic =
-    req.path.startsWith('/api') ||
     req.path.startsWith('/auth') ||
     req.path.startsWith('/assets') ||
     req.path === '/login' ||
-    req.path === '/favicon.ico' ||
-    req.path === '/' ||
-    req.path === '';  // Landing + Admin use their own auth (hash routing serves index.html)
+    req.path === '/favicon.ico';
   if (isPublic) return next();
+
   const cookie = req.cookies?.[AUTH_COOKIE];
-  if (cookie === 'ok') return next();
-  res.redirect('/login');
+  const authed = cookie === 'ok';
+
+  // API routes: return 401 JSON (not redirect) so frontend can handle it
+  if (req.path.startsWith('/api')) {
+    // /api/me is the session check — always allow but return authed status
+    if (req.path === '/api/me') {
+      res.json({ authed });
+      return;
+    }
+    if (!authed) {
+      res.status(401).json({ error: 'Unauthorized', redirect: '/login' });
+      return;
+    }
+    return next();
+  }
+
+  // All other routes (/, /#/dashboard etc) — redirect to login if not authed
+  if (!authed) {
+    res.redirect('/login');
+    return;
+  }
+  return next();
 });
 
 // ── Global CORS — required for Even Hub G2 WebView and any cross-origin client
