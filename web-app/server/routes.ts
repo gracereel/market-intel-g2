@@ -411,9 +411,18 @@ export async function registerRoutes(_: Server, app: Express) {
       if (msgLow.includes(kw)) { detectedSym = sym; break; }
     }
     // Also detect raw symbols like "AAPL", "ETH", "BTC" written in caps
+    // Only match if the symbol actually exists in our tick store (avoid false positives)
     if (!detectedSym) {
       const symMatch = message.match(/\b([A-Z]{2,6})\b/);
-      if (symMatch) detectedSym = symMatch[1];
+      if (symMatch) {
+        const candidate = symMatch[1];
+        const allT = [...getCryptoTicks(), ...getFuturesTicks(), ...getStockTicks(), ...getOilTicks()];
+        const exists = allT.find(t =>
+          t.symbol.toUpperCase() === candidate ||
+          t.symbol.toUpperCase().replace('USDT','') === candidate
+        );
+        if (exists) detectedSym = candidate;
+      }
     }
 
     // Fetch TA for detected asset (1D + 4H in parallel, timeout 6s)
@@ -650,10 +659,35 @@ ${contextLines}${taSection}`;
       const top  = [...allTicks].sort((a,b)=>b.changePercent-a.changePercent)[0];
       const btc  = allTicks.find(t=>t.symbol==="BTC"||t.symbol==="BTCUSDT");
       answer = `**Market Overview:** ${up} up / ${down} down — overall tone is **${tone}**.\n\n${btc?`BTC: $${Number(btc.price).toLocaleString()} (${btc.changePercent>=0?"+":""}${btc.changePercent.toFixed(2)}%)\n`:""}\nLeader: **${top?.symbol.replace("USDT","")}** +${top?.changePercent.toFixed(2)}%`;
+    } else if (/fed|federal reserve|fomc|interest rate|rate hike|rate cut|powell|boj|ecb|central bank|monetary policy/.test(q)) {
+      // Fed / macro question — synthesize from live data
+      const btc  = allTicks.find(t=>t.symbol==="BTC"||t.symbol==="BTCUSDT");
+      const gold = allTicks.find(t=>t.symbol==="GC"||t.symbol==="GC=F"||t.symbol==="GOLD");
+      const dxy  = allTicks.find(t=>t.symbol==="DXY"||t.symbol==="EURUSD");
+      const nq   = allTicks.find(t=>t.symbol==="NQ"||t.symbol==="NQ=F");
+      const btcChg = btc ? Number(btc.changePercent) : 0;
+      const goldChg = gold ? Number(gold.changePercent) : 0;
+      const tone = btcChg > 1 && goldChg > 0.3 ? "risk-on / dovish expectations" : btcChg < -1 ? "risk-off / hawkish concerns" : "cautious / data-dependent";
+      answer = `**Federal Reserve & Macro Context:**\n\nMarkets are currently pricing a **${tone}** stance based on live asset positioning:\n\n${btc ? `• **BTC** $${Number(btc.price).toLocaleString()} (${btcChg>=0?"+":""}${btcChg.toFixed(2)}%) — crypto risk appetite ${btcChg>0?"positive":"negative"}` : ""}\n${gold ? `• **Gold** $${Number(gold.price).toLocaleString()} (${goldChg>=0?"+":""}${goldChg.toFixed(2)}%) — safe-haven ${goldChg>0?"bid":"selling"}` : ""}\n${nq ? `• **Nasdaq** $${Number(nq.price).toLocaleString()} (${Number(nq.changePercent)>=0?"+":""}${Number(nq.changePercent).toFixed(2)}%) — growth/tech sentiment` : ""}\n\nThe Fed is currently in a **data-dependent** mode — watching CPI, PCE, and jobs data before moving. Rate cuts are expected later in 2025 if inflation continues cooling. Use the **Economic Calendar** on the dashboard for upcoming FOMC dates.`;
+    } else if (/inflation|cpi|pce|deflation|price level/.test(q)) {
+      const gold = allTicks.find(t=>t.symbol==="GC"||t.symbol==="GC=F");
+      const oil  = allTicks.find(t=>t.symbol==="CL"||t.symbol==="CL=F");
+      answer = `**Inflation Indicators (Live):**\n\n${gold ? `• **Gold** at $${Number(gold.price).toLocaleString()} (${Number(gold.changePercent)>=0?"+":""}${Number(gold.changePercent).toFixed(2)}%) — traditional inflation hedge` : ""}\n${oil ? `• **Oil (WTI)** at $${Number(oil.price).toLocaleString()} (${Number(oil.changePercent)>=0?"+":""}${Number(oil.changePercent).toFixed(2)}%) — key inflation input` : ""}\n\nMarkets watch CPI (monthly) and PCE (Fed's preferred gauge). Rising oil/gold with falling bonds typically signals inflation concern. Check the Economic Calendar for upcoming CPI releases.`;
+    } else if (/recession|crash|bear market|crisis|collapse/.test(q)) {
+      const up   = allTicks.filter(t=>t.changePercent>0).length;
+      const down = allTicks.filter(t=>t.changePercent<0).length;
+      const btc  = allTicks.find(t=>t.symbol==="BTC"||t.symbol==="BTCUSDT");
+      const tone = up > down * 1.5 ? "not pricing recession risk — risk appetite is healthy" : down > up * 1.5 ? "showing some risk-off behavior" : "mixed — no clear recession signal";
+      answer = `**Recession / Bear Market Risk:**\n\nCurrent market breadth: **${up} up / ${down} down** — markets are **${tone}**.\n\n${btc ? `BTC at $${Number(btc.price).toLocaleString()} (${Number(btc.changePercent)>=0?"+":""}${Number(btc.changePercent).toFixed(2)}%).` : ""}\n\nKey recession signals to watch: inverted yield curve, rising unemployment, falling PMI, and credit spreads widening. None of those are visible in live market data right now.`;
+    } else if (/buy|sell|trade|entry|position|long|short/.test(q)) {
+      const up   = allTicks.filter(t=>t.changePercent>0).length;
+      const down = allTicks.filter(t=>t.changePercent<0).length;
+      const top3 = [...allTicks].sort((a,b)=>b.changePercent-a.changePercent).slice(0,3);
+      answer = `**Trading Outlook:**\n\nMarket breadth: **${up} up / ${down} down**.\n\nTop performers right now:\n${top3.map(t=>`• **${t.symbol.replace("USDT","").replace("=F","")}** ${Number(t.changePercent)>=0?"+":""}${Number(t.changePercent).toFixed(2)}% at $${Number(t.price).toLocaleString()}`).join("\n")}\n\nFor specific trade setups, ask about a specific asset: **"Analyze BTC"**, **"Is ETH a buy?"**, **"Gold setup"**, etc.`;
     } else {
       const up  = allTicks.filter(t=>t.changePercent>0).length;
       const btc = allTicks.find(t=>t.symbol==="BTC"||t.symbol==="BTCUSDT");
-      answer = `I can answer questions about any asset on your dashboard. Try:\n\n• **"Analyze BTC"** or **"What's ETH doing?"**\n• **"Top movers today"**\n• **"Futures overview"**\n• **"Market sentiment"**\n• **"Is gold bullish?"**\n\nRight now: **${up}** assets up. ${btc?`BTC at $${Number(btc.price).toLocaleString()} (${btc.changePercent>=0?"+":""}${btc.changePercent.toFixed(2)}%).`:""}`;
+      answer = `I can answer questions about any market or asset. Try:\n\n• **"Analyze BTC"** / **"Is ETH a buy?"** / **"Gold setup"**\n• **"Top movers today"** / **"Biggest losers"**\n• **"Market overview"** / **"Futures snapshot"**\n• **"What is the Fed doing?"** / **"Inflation outlook"**\n• **"Is the stock market going up?"**\n\nRight now: **${up}** assets are up. ${btc?`BTC at $${Number(btc.price).toLocaleString()} (${Number(btc.changePercent)>=0?"+":""}${Number(btc.changePercent).toFixed(2)}%).`:""}`;
     }
 
     return res.json({ answer });
