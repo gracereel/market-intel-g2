@@ -352,47 +352,100 @@ export async function registerRoutes(_: Server, app: Express) {
 
   // ── AI Market Chat ────────────────────────────────────────────────────────
   app.post("/api/chat", async (req: Request, res: Response) => {
-    const { message } = req.body;
+    const { message, history } = req.body;
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "message required" });
     }
 
-    // Build live market context from current tick data
-    const cryptoTicks = getCryptoTicks().slice(0, 15);
-    const futuresTicks = getFuturesTicks().slice(0, 8);
+    // ── Build comprehensive live market context ───────────────────────────
+    const cryptoTicks  = getCryptoTicks();
+    const futuresTicks = getFuturesTicks();
+    const stockTicks   = getStockTicks();
+    const oilTicks     = getOilTicks();
+    const forexTicks   = getForexTicks();
 
-    const formatTick = (t: any) => {
-      const chg = t.changePercent >= 0 ? `+${t.changePercent.toFixed(2)}%` : `${t.changePercent.toFixed(2)}%`;
-      const adx = t.adx ? ` ADX:${t.adx.toFixed(0)}` : "";
-      const oi = t.oiSignal ? ` OI:${t.oiSignal > 0 ? "+" : ""}${t.oiSignal.toFixed(2)}` : "";
-      return `${t.symbol}: $${Number(t.price).toLocaleString()} (${chg})${adx}${oi}`;
+    const fmtTick = (t: any) => {
+      const chg  = `${t.changePercent >= 0 ? "+" : ""}${Number(t.changePercent).toFixed(2)}%`;
+      const adx  = t.adx     != null ? ` ADX:${Number(t.adx).toFixed(0)}`                                           : "";
+      const oi   = t.oiSignal!= null ? ` OI:${t.oiSignal > 0 ? "+" : ""}${Number(t.oiSignal).toFixed(2)}`          : "";
+      const cvd  = t.cvdSignal!=null  ? ` CVD:${t.cvdSignal > 0 ? "+" : ""}${Number(t.cvdSignal).toFixed(2)}`      : "";
+      const fund = t.fundingRate!=null? ` FR:${(t.fundingRate*100).toFixed(4)}%`                                     : "";
+      const vol  = t.quoteVolume > 0  ? ` Vol:$${(t.quoteVolume/1e6).toFixed(1)}M`                                  : "";
+      const rng  = (t.high && t.low)  ? ` H:${Number(t.high).toFixed(4)} L:${Number(t.low).toFixed(4)}`            : "";
+      return `  ${t.symbol}|${t.name || t.symbol}: $${Number(t.price).toLocaleString(undefined,{maximumFractionDigits:6})} (${chg})${adx}${oi}${cvd}${fund}${vol}${rng}`;
     };
 
+    const fmtForex = (t: any) => {
+      const chg = `${t.change1d >= 0 ? "+" : ""}${Number(t.change1d).toFixed(3)}%`;
+      return `  ${t.symbol}: ${Number(t.price).toFixed(5)} (${chg}) spread:${t.spread}pip`;
+    };
+
+    // Top 30 crypto by volume, all futures, top 20 stocks, all oil, top 20 forex
+    const topCrypto  = [...cryptoTicks].sort((a,b) => (b.quoteVolume||0)-(a.quoteVolume||0)).slice(0,30);
+    const topStocks  = stockTicks.slice(0,20);
+    const topForex   = Array.isArray(forexTicks) ? forexTicks.slice(0,20) : [];
+
     const contextLines = [
-      "=== LIVE MARKET DATA (right now) ===",
-      "-- Crypto --",
-      ...cryptoTicks.map(formatTick),
-      "-- Futures --",
-      ...futuresTicks.map(formatTick),
+      "=== LIVE MARKET DATA (streaming now) ===",
+      `Timestamp: ${new Date().toUTCString()}`,
+      "",
+      "── CRYPTO (top 30 by volume) ──",
+      ...topCrypto.map(fmtTick),
+      "",
+      "── FUTURES / COMMODITIES ──",
+      ...futuresTicks.map(fmtTick),
+      "",
+      "── OIL ──",
+      ...oilTicks.map(fmtTick),
+      "",
+      "── STOCKS ──",
+      ...topStocks.map(fmtTick),
+      "",
+      "── FOREX ──",
+      ...topForex.map(fmtForex),
     ].join("\n");
 
-    const systemPrompt = `You are Market Intel AI, an institutional-grade market analyst assistant embedded inside the Market Intel trading platform. You have access to real-time market data streamed directly from the platform.
+    const systemPrompt = `You are Market Intel AI — an elite, institutional-grade market analyst built into the Market Intel G2 trading platform. You are deeply knowledgeable in:
 
-Your role:
-- Answer market questions with precision and confidence
-- Reference the live data when relevant
-- Provide actionable trading insights
-- Keep responses concise (2-4 paragraphs max) unless a detailed breakdown is requested
-- Use professional trading terminology
-- Never give financial advice disclaimers unless directly asked for investment advice
+• Technical Analysis: support/resistance, trend structure, breakouts, momentum, RSI, MACD, Bollinger Bands, volume analysis, candlestick patterns
+• On-chain & Derivatives: funding rates, open interest, CVD (Cumulative Volume Delta), liquidation levels, perpetual basis
+• Macro & Fundamentals: Fed policy, DXY correlation, risk-on/risk-off dynamics, sector rotation, earnings, economic data
+• Crypto-specific: BTC dominance, altcoin cycles, Layer 1/2 narratives, DeFi, NFT markets, whale activity
+• Forex: central bank policy, carry trades, economic calendar, currency strength
+• Equities: earnings, sector analysis, index structure, growth vs value rotation
+
+You have access to REAL-TIME data from the platform streamed seconds ago. Use it to give precise, current answers.
+
+BEHAVIOR:
+- Answer ANY market question — there is no question you can't address
+- Always reference the live data when applicable (prices, % changes, ADX, OI, CVD, funding rates)
+- For specific assets: give price, trend direction, key levels (based on H/L range), momentum bias, and a clear directional view
+- For macro questions: synthesize across asset classes using the live data
+- For "should I buy/sell" questions: give a professional technical analysis view with key levels and risk factors
+- Be direct, concise, and confident — like a trading desk analyst
+- Use markdown formatting: **bold** for key numbers and conclusions, bullet points for lists
+- Keep responses focused: 3-6 sentences for simple questions, structured breakdown for complex ones
+- Include relevant data fields (ADX trend strength, OI direction, CVD pressure, funding rate) when available
+- ADX interpretation: <20=ranging/choppy, 20-25=weak trend, 25-40=trending, 40+=strong trend
+- OI signal: positive=rising OI (new money in), negative=declining OI (liquidation)
+- CVD signal: positive=aggressive buying, negative=aggressive selling
+- Funding rate: positive=longs paying (overheated), negative=shorts paying (oversold)
 
 ${contextLines}`;
 
     const apiKey = process.env.PERPLEXITY_API_KEY;
 
     if (apiKey) {
-      // Use Perplexity Sonar for real web-search grounded answers
       try {
+        // Build message history for multi-turn context
+        const msgs: any[] = [{ role: "system", content: systemPrompt }];
+        if (Array.isArray(history)) {
+          for (const h of history.slice(-6)) { // last 6 turns for context
+            if (h.role && h.content) msgs.push({ role: h.role, content: h.content });
+          }
+        }
+        msgs.push({ role: "user", content: message });
+
         const resp = await fetch("https://api.perplexity.ai/chat/completions", {
           method: "POST",
           headers: {
@@ -400,233 +453,148 @@ ${contextLines}`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "sonar",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: message },
-            ],
-            max_tokens: 600,
-            temperature: 0.2,
+            model: "sonar-pro",
+            messages: msgs,
+            max_tokens: 1024,
+            temperature: 0.15,
           }),
         });
-        if (!resp.ok) throw new Error(`Perplexity API error: ${resp.status}`);
+        if (!resp.ok) throw new Error(`Perplexity API ${resp.status}: ${await resp.text()}`);
         const data = await resp.json() as any;
-        const answer = data.choices?.[0]?.message?.content || "No response";
+        const answer = data.choices?.[0]?.message?.content || "No response received.";
         return res.json({ answer });
       } catch (err) {
-        console.error("Perplexity API error:", err);
+        console.error("Perplexity sonar-pro error:", err);
         // Fall through to built-in analyst
       }
     }
 
-    // Built-in analyst: smarter matching with alias map + rich analysis
+    // ── Built-in analyst fallback (no API key) ───────────────────────────
     const q = message.toLowerCase();
-    const allTicks = [...cryptoTicks, ...futuresTicks];
+    const allTicks = [...cryptoTicks, ...futuresTicks, ...stockTicks, ...oilTicks];
 
-    // ── Alias map: common names / tickers → symbol patterns to search ──────
-    const ALIAS_MAP: Record<string, string[]> = {
-      bitcoin:   ["BTCUSDT","BTC"],
-      btc:       ["BTCUSDT","BTC"],
-      ethereum:  ["ETHUSDT","ETH"],
-      eth:       ["ETHUSDT","ETH"],
-      solana:    ["SOLUSDT","SOL"],
-      sol:       ["SOLUSDT","SOL"],
-      polygon:   ["MATICUSDT","POLUSDT","MATIC","POL"],
-      matic:     ["MATICUSDT","MATIC"],
-      pol:       ["POLUSDT","MATICUSDT","POL","MATIC"],
-      xrp:       ["XRPUSDT","XRP"],
-      ripple:    ["XRPUSDT","XRP"],
-      cardano:   ["ADAUSDT","ADA"],
-      ada:       ["ADAUSDT","ADA"],
-      dogecoin:  ["DOGEUSDT","DOGE"],
-      doge:      ["DOGEUSDT","DOGE"],
-      shiba:     ["SHIBUSDT","SHIB"],
-      shib:      ["SHIBUSDT","SHIB"],
-      avalanche: ["AVAXUSDT","AVAX"],
-      avax:      ["AVAXUSDT","AVAX"],
-      chainlink: ["LINKUSDT","LINK"],
-      link:      ["LINKUSDT","LINK"],
-      polkadot:  ["DOTUSDT","DOT"],
-      dot:       ["DOTUSDT","DOT"],
-      uniswap:   ["UNIUSDT","UNI"],
-      uni:       ["UNIUSDT","UNI"],
-      litecoin:  ["LTCUSDT","LTC"],
-      ltc:       ["LTCUSDT","LTC"],
-      bnb:       ["BNBUSDT","BNB"],
-      binance:   ["BNBUSDT","BNB"],
-      tron:      ["TRXUSDT","TRX"],
-      trx:       ["TRXUSDT","TRX"],
-      near:      ["NEARUSDT","NEAR"],
-      atom:      ["ATOMUSDT","ATOM"],
-      cosmos:    ["ATOMUSDT","ATOM"],
-      filecoin:  ["FILUSDT","FIL"],
-      fil:       ["FILUSDT","FIL"],
-      aave:      ["AAVEUSDT","AAVE"],
-      maker:     ["MKRUSDT","MKR"],
-      mkr:       ["MKRUSDT","MKR"],
-      pepe:      ["PEPEUSDT","PEPE"],
-      wif:       ["WIFUSDT","WIF"],
-      bonk:      ["BONKUSDT","BONK"],
-      aptos:     ["APTUSDT","APT"],
-      apt:       ["APTUSDT","APT"],
-      sui:       ["SUIUSDT","SUI"],
-      injective: ["INJUSDT","INJ"],
-      inj:       ["INJUSDT","INJ"],
-      arbitrum:  ["ARBUSDT","ARB"],
-      arb:       ["ARBUSDT","ARB"],
-      optimism:  ["OPUSDT","OP"],
-      // futures
-      gold:      ["GC=F","GOLD"],
-      oil:       ["CL=F","OIL","WTI"],
-      crude:     ["CL=F","OIL"],
-      wti:       ["CL=F"],
-      sp500:     ["ES=F","SPX","SPY"],
-      spx:       ["ES=F","SPX"],
-      nasdaq:    ["NQ=F","NAS100"],
-      nq:        ["NQ=F"],
-      dow:       ["YM=F","DJI"],
-      russell:   ["RTY=F","RUT"],
-      eurusd:    ["EURUSD"],
-      euro:      ["EURUSD"],
-      gbpusd:    ["GBPUSD"],
-      pound:     ["GBPUSD"],
-      usdjpy:    ["USDJPY"],
-      yen:       ["USDJPY"],
+    const ALIAS: Record<string, string[]> = {
+      bitcoin:["BTC"],ethereum:["ETH"],solana:["SOL"],ripple:["XRP"],xrp:["XRP"],
+      cardano:["ADA"],dogecoin:["DOGE"],doge:["DOGE"],shiba:["SHIB"],shib:["SHIB"],
+      avalanche:["AVAX"],avax:["AVAX"],chainlink:["LINK"],link:["LINK"],
+      polkadot:["DOT"],dot:["DOT"],uniswap:["UNI"],uni:["UNI"],
+      litecoin:["LTC"],ltc:["LTC"],bnb:["BNB"],binance:["BNB"],
+      tron:["TRX"],trx:["TRX"],near:["NEAR"],atom:["ATOM"],cosmos:["ATOM"],
+      pepe:["PEPE"],wif:["WIF"],bonk:["BONK"],aptos:["APT"],apt:["APT"],
+      sui:["SUI"],injective:["INJ"],inj:["INJ"],arbitrum:["ARB"],arb:["ARB"],
+      optimism:["OP"],polygon:["MATIC","POL"],matic:["MATIC"],
+      gold:["GC=F","GC"],oil:["CL=F","CL"],crude:["CL=F","CL"],wti:["CL=F","CL"],
+      silver:["SI=F","SI"],"sp500":["ES=F","ES"],spx:["ES=F","ES"],
+      nasdaq:["NQ=F","NQ"],nq:["NQ=F","NQ"],dow:["YM=F","YM"],
+      russell:["RTY=F","RTY"],apple:["AAPL"],tesla:["TSLA"],nvidia:["NVDA"],
+      microsoft:["MSFT"],amazon:["AMZN"],google:["GOOGL"],meta:["META"],
+      eurusd:["EURUSD"],euro:["EURUSD"],gbpusd:["GBPUSD"],pound:["GBPUSD"],
+      usdjpy:["USDJPY"],yen:["USDJPY"],
     };
 
-    // Find tick via alias map first, then fallback to symbol/name scan
     function findTick(query: string) {
-      // Check each alias key
-      for (const [alias, symbols] of Object.entries(ALIAS_MAP)) {
+      for (const [alias, syms] of Object.entries(ALIAS)) {
         if (query.includes(alias)) {
-          for (const sym of symbols) {
+          for (const s of syms) {
             const found = allTicks.find(t =>
-              t.symbol.toUpperCase() === sym.toUpperCase() ||
-              t.symbol.toUpperCase().includes(sym.toUpperCase())
+              t.symbol.toUpperCase() === s ||
+              t.symbol.toUpperCase().replace("USDT","") === s ||
+              t.symbol.toUpperCase().replace("=F","") === s
             );
             if (found) return found;
           }
         }
       }
-      // Fallback: direct symbol match or name match
       return allTicks.find(t => {
-        const sym = t.symbol.toLowerCase();
-        const base = sym.replace("usdt","").replace("=f","");
-        return query.includes(sym) || query.includes(base) ||
-               (t.name && query.includes(t.name.toLowerCase()));
+        const s = t.symbol.toLowerCase().replace("usdt","").replace("=f","");
+        return query.includes(s) || (t.name && query.includes(t.name.toLowerCase()));
       }) || null;
     }
 
-    const mentionedTick = findTick(q);
-
-    // ── Rich analysis for a specific asset ──────────────────────────────────
     function analyzeTick(t: any): string {
-      const price = Number(t.price);
+      const price  = Number(t.price);
       const chgPct = Number(t.changePercent);
-      const dir = chgPct >= 0 ? "up" : "down";
-      const strength = Math.abs(chgPct) > 5 ? "sharply" : Math.abs(chgPct) > 2 ? "strongly" : Math.abs(chgPct) > 0.8 ? "moderately" : "slightly";
       const chgStr = `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%`;
-      const displayName = t.name ? `**${t.name} (${t.symbol})**` : `**${t.symbol}**`;
+      const name   = t.name ? `**${t.name} (${t.symbol.replace("USDT","")})` : `**${t.symbol.replace("USDT","")}**`;
+      const rangeSize = (t.high||0) - (t.low||0);
+      const rangePos  = rangeSize > 0 ? Math.round(((price - t.low) / rangeSize) * 100) : 50;
+      const nearHigh  = rangePos > 80, nearLow = rangePos < 20;
 
-      // ADX regime
-      const adxStr = t.adx != null
-        ? (t.adx >= 40 ? `ADX at ${t.adx.toFixed(0)} signals a **strong trend** — high directional conviction.`
-         : t.adx >= 25 ? `ADX at ${t.adx.toFixed(0)} confirms a **trending regime** — signals are reliable.`
-         : t.adx >= 20 ? `ADX at ${t.adx.toFixed(0)} shows **weak trend** — use tighter stops.`
-         : `ADX at ${t.adx.toFixed(0)} means **ranging/choppy** conditions — breakout signals carry lower confidence.`)
+      const adxLine = t.adx != null
+        ? (t.adx >= 40 ? `ADX ${t.adx.toFixed(0)} — **strong trend**, high directional conviction.`
+         : t.adx >= 25 ? `ADX ${t.adx.toFixed(0)} — **trending** regime, signals are reliable.`
+         : t.adx >= 20 ? `ADX ${t.adx.toFixed(0)} — **weak trend**, use caution.`
+         : `ADX ${t.adx.toFixed(0)} — **ranging/choppy**, low confidence for trend trades.`) : "";
+
+      const oiLine = t.oiSignal != null
+        ? (t.oiSignal > 0.3  ? "OI rising sharply — **new institutional money** entering."
+         : t.oiSignal > 0.1  ? "OI rising — move has **institutional participation**."
+         : t.oiSignal < -0.3 ? "OI falling sharply — **liquidation driven**, not conviction."
+         : t.oiSignal < -0.1 ? "OI declining — participants exiting."
+         : "") : "";
+
+      const cvdLine = t.cvdSignal != null
+        ? (t.cvdSignal > 0.3  ? "CVD: **aggressive buyers** dominating order flow."
+         : t.cvdSignal < -0.3 ? "CVD: **aggressive sellers** in control."
+         : "") : "";
+
+      const fundLine = t.fundingRate != null
+        ? (t.fundingRate > 0.001  ? `Funding ${(t.fundingRate*100).toFixed(4)}% — **longs overheated**, squeeze risk.`
+         : t.fundingRate < -0.001 ? `Funding ${(t.fundingRate*100).toFixed(4)}% — **shorts overheated**, squeeze risk.`
+         : "") : "";
+
+      const rangeLine = rangeSize > 0
+        ? `At **${rangePos}%** of daily range ($${t.low.toLocaleString()} – $${t.high.toLocaleString()}). ${nearHigh ? "Near session high — watch for resistance." : nearLow ? "Near session low — watch for support." : "Mid-range — no immediate key level."}`
         : "";
 
-      // OI signal
-      const oiStr = t.oiSignal != null
-        ? (t.oiSignal > 0.3 ? "Open interest is **rising sharply** — new money flowing in confirms the move."
-         : t.oiSignal > 0.1 ? "Open interest is rising — the move has institutional participation."
-         : t.oiSignal < -0.3 ? "Open interest is **falling sharply** — this looks like liquidation, not a conviction move."
-         : t.oiSignal < -0.1 ? "Open interest is declining — some participants are exiting positions."
-         : "Open interest is neutral — no clear institutional bias.")
-        : "";
+      const bullCount = [chgPct>0, (t.oiSignal||0)>0.1, (t.cvdSignal||0)>0.2, rangePos>60].filter(Boolean).length;
+      const bearCount = [chgPct<0, (t.oiSignal||0)<-0.1, (t.cvdSignal||0)<-0.2, rangePos<40].filter(Boolean).length;
+      const bias = bullCount >= 3 ? "**Bias: BULLISH** — majority of factors align upside."
+                 : bearCount >= 3 ? "**Bias: BEARISH** — majority of factors align downside."
+                 : "**Bias: NEUTRAL/MIXED** — wait for clearer confluence.";
 
-      // CVD signal
-      const cvdStr = t.cvdSignal != null
-        ? (t.cvdSignal > 0.3 ? "CVD order flow is **bullish** — aggressive buyers are dominating."
-         : t.cvdSignal < -0.3 ? "CVD order flow is **bearish** — aggressive sellers are in control."
-         : "")
-        : "";
-
-      // Range position
-      const rangeSize = t.high - t.low;
-      const rangePos = rangeSize > 0 ? ((price - t.low) / rangeSize * 100).toFixed(0) : "50";
-      const rangeStr = `Price sits at **${rangePos}%** of today's range ($${t.low.toFixed(2)} – $${t.high.toFixed(2)}).`;
-
-      // Bias conclusion
-      const bullFactors = [chgPct > 0, t.oiSignal > 0.1, t.cvdSignal > 0.2, Number(rangePos) > 60].filter(Boolean).length;
-      const bearFactors = [chgPct < 0, t.oiSignal < -0.1, t.cvdSignal < -0.2, Number(rangePos) < 40].filter(Boolean).length;
-      const bias = bullFactors >= 3 ? "**Bias: Bullish** — multiple factors align to the upside."
-                 : bearFactors >= 3 ? "**Bias: Bearish** — multiple factors align to the downside."
-                 : "**Bias: Neutral/Mixed** — conflicting signals, wait for a clearer setup.";
-
-      const lines = [
-        `${displayName} is trading at **$${price.toLocaleString()}** (${chgStr}), moving ${strength} ${dir} on the session.`,
-        rangeStr,
-        adxStr,
-        oiStr,
-        cvdStr,
-        bias,
-      ].filter(Boolean);
-
-      return lines.join("\n");
+      return [
+        `${name}** is at **$${price.toLocaleString()}** (${chgStr}) on the session.`,
+        rangeLine, adxLine, oiLine, cvdLine, fundLine, bias,
+      ].filter(Boolean).join("\n");
     }
 
+    const tick = findTick(q);
     let answer = "";
 
-    if (mentionedTick) {
-      answer = analyzeTick(mentionedTick);
-    } else if (q.includes("top") || q.includes("best") || q.includes("mover") || q.includes("gainer") || q.includes("pump") || q.includes("up")) {
-      const sorted = [...allTicks].sort((a, b) => b.changePercent - a.changePercent);
-      const top5 = sorted.slice(0, 5).map(t => `**${t.symbol.replace("USDT","")}** ${t.changePercent >= 0 ? "+" : ""}${t.changePercent.toFixed(2)}%`).join("  |  ");
-      const leader = sorted[0];
-      answer = `**Top Movers Today:**\n${top5}\n\n${leader ? `**${leader.symbol.replace("USDT","")}** is leading with ${leader.changePercent.toFixed(2)}% — ${leader.adx >= 25 ? "ADX confirms a real trend, not just noise." : "but ADX is low, watch for a reversal."}` : ""}`;
-    } else if (q.includes("worst") || q.includes("loser") || q.includes("bear") || q.includes("dump") || q.includes("drop") || q.includes("down") || q.includes("red")) {
-      const sorted = [...allTicks].sort((a, b) => a.changePercent - b.changePercent);
-      const bot5 = sorted.slice(0, 5).map(t => `**${t.symbol.replace("USDT","")}** ${t.changePercent.toFixed(2)}%`).join("  |  ");
-      answer = `**Biggest Losers Today:**\n${bot5}\n\nPersistent selling may reflect macro risk-off or asset-specific catalysts. Watch if BTC follows — if it does, this is a broad market move.`;
-    } else if (q.includes("futures") || q.includes("gold") || q.includes("oil") || q.includes("spx") || q.includes("sp500") || q.includes("nasdaq") || q.includes("nq") || q.includes("dow")) {
-      const futs = futuresTicks;
-      if (futs.length) {
-        const lines = futs.map(t => `**${t.symbol}** $${Number(t.price).toLocaleString()} (${t.changePercent >= 0 ? "+" : ""}${t.changePercent.toFixed(2)}%)`).join("\n");
-        const riskOn = futs.filter(t => t.changePercent > 0).length > futs.length / 2;
-        answer = `**Futures Overview:**\n${lines}\n\nOverall macro tone is **${riskOn ? "risk-on" : "risk-off"}** based on current futures positioning.`;
-      } else {
-        answer = "Futures data is loading. Check the Futures tab on your dashboard for live readings.";
-      }
-    } else if (q.includes("crypto") || q.includes("altcoin") || q.includes("alt")) {
-      const sorted = [...cryptoTicks].sort((a, b) => b.changePercent - a.changePercent);
-      const gainers = sorted.filter(t => t.changePercent > 0).length;
-      const losers = sorted.filter(t => t.changePercent < 0).length;
-      const top3 = sorted.slice(0, 3).map(t => `**${t.symbol.replace("USDT","")}** +${t.changePercent.toFixed(2)}%`).join(", ");
-      const bot3 = sorted.slice(-3).map(t => `**${t.symbol.replace("USDT","")}** ${t.changePercent.toFixed(2)}%`).join(", ");
-      answer = `**Crypto Sector:** ${gainers} coins up, ${losers} down.\n\nLeaders: ${top3}\nLaggards: ${bot3}\n\nBTC dominance sets the tone — if BTC is flat while alts pump, watch for a rotation signal.`;
-    } else if (q.includes("market") || q.includes("overview") || q.includes("summary") || q.includes("how") || q.includes("what")) {
-      const gainers = allTicks.filter(t => t.changePercent > 0).length;
-      const losers = allTicks.filter(t => t.changePercent < 0).length;
-      const sentiment = gainers > losers * 1.3 ? "strongly risk-on" : gainers > losers ? "slightly risk-on" : losers > gainers * 1.3 ? "strongly risk-off" : "mixed";
-      const btc = allTicks.find(t => t.symbol === "BTCUSDT" || t.symbol === "BTC");
-      const btcLine = btc ? `BTC at $${Number(btc.price).toLocaleString()} (${btc.changePercent >= 0 ? "+" : ""}${btc.changePercent.toFixed(2)}%) is leading the market.` : "";
-      answer = `**Market Overview:** ${gainers}/${allTicks.length} instruments are up — sentiment is **${sentiment}**.\n\n${btcLine}\n\nTop 3: ${allTicks.sort((a,b)=>b.changePercent-a.changePercent).slice(0,3).map(t=>`${t.symbol.replace("USDT","")} ${t.changePercent>=0?"+":""}${t.changePercent.toFixed(1)}%`).join(" | ")}`;
-    } else if (q.includes("sentiment") || q.includes("signal") || q.includes("confluence") || q.includes("setup")) {
-      const highConf = allTicks.filter(t => t.adx && t.adx >= 25).length;
-      answer = `**Signal Environment:** ${highConf} pairs currently show trending ADX (≥25), meaning their sentiment signals are in high-confidence mode.\n\nThe **High Confidence Signals** panel on your dashboard shows pairs where 6+ timeframes align with 75%+ confidence — those are the highest-probability institutional setups right now. Check that panel for live trade ideas.`;
+    if (tick) {
+      answer = analyzeTick(tick);
+    } else if (/top|best|gainer|pump|leader|mover/.test(q)) {
+      const top5 = [...allTicks].sort((a,b)=>b.changePercent-a.changePercent).slice(0,5);
+      answer = `**Top Movers:**\n${top5.map(t=>`• **${t.symbol.replace("USDT","")}** +${t.changePercent.toFixed(2)}% — $${Number(t.price).toLocaleString()}`).join("\n")}`;
+    } else if (/worst|loser|dump|drop|crash|sell/.test(q)) {
+      const bot5 = [...allTicks].sort((a,b)=>a.changePercent-b.changePercent).slice(0,5);
+      answer = `**Biggest Losers:**\n${bot5.map(t=>`• **${t.symbol.replace("USDT","")}** ${t.changePercent.toFixed(2)}% — $${Number(t.price).toLocaleString()}`).join("\n")}`;
+    } else if (/futures|gold|oil|sp500|spx|nasdaq|nq|dow|russell|commodity/.test(q)) {
+      answer = `**Futures & Commodities:**\n${futuresTicks.concat(oilTicks).map(t=>`• **${t.symbol}** $${Number(t.price).toLocaleString()} (${t.changePercent>=0?"+":""}${t.changePercent.toFixed(2)}%)`).join("\n")}`;
+    } else if (/stock|equit|share|nyse|nasdaq/.test(q)) {
+      answer = `**Stocks:**\n${stockTicks.slice(0,10).map(t=>`• **${t.symbol}** $${Number(t.price).toLocaleString()} (${t.changePercent>=0?"+":""}${t.changePercent.toFixed(2)}%)`).join("\n")}`;
+    } else if (/forex|fx|currency|eur|gbp|jpy|usd|cad|aud/.test(q)) {
+      answer = topForex.length
+        ? `**Forex:**\n${topForex.slice(0,10).map((t:any)=>`• **${t.symbol}** ${Number(t.price).toFixed(5)} (${t.change1d>=0?"+":""}${Number(t.change1d).toFixed(3)}%)`).join("\n")}`
+        : "Forex data loading — check the FX tab.";
+    } else if (/market|overview|summary|sentiment|how.*market|what.*market/.test(q)) {
+      const up   = allTicks.filter(t=>t.changePercent>0).length;
+      const down = allTicks.filter(t=>t.changePercent<0).length;
+      const tone = up > down*1.3 ? "risk-on" : down > up*1.3 ? "risk-off" : "mixed";
+      const top  = [...allTicks].sort((a,b)=>b.changePercent-a.changePercent)[0];
+      const btc  = allTicks.find(t=>t.symbol==="BTC"||t.symbol==="BTCUSDT");
+      answer = `**Market Overview:** ${up} up / ${down} down — overall tone is **${tone}**.\n\n${btc?`BTC: $${Number(btc.price).toLocaleString()} (${btc.changePercent>=0?"+":""}${btc.changePercent.toFixed(2)}%)\n`:""}\nLeader: **${top?.symbol.replace("USDT","")}** +${top?.changePercent.toFixed(2)}%`;
     } else {
-      // Catch-all: still give useful info using all live data
-      const gainers = allTicks.filter(t => t.changePercent > 0).length;
-      const losers = allTicks.filter(t => t.changePercent < 0).length;
-      const top = [...allTicks].sort((a,b)=>b.changePercent-a.changePercent)[0];
-      answer = `I can analyze any asset in your dashboard. Just ask me things like:\n\n• "Analyze Polygon" or "What's MATIC doing?"\n• "Top movers today"\n• "How are futures looking?"\n• "Market overview"\n• "Bitcoin analysis"\n\nRight now: **${gainers}** assets up, **${losers}** down${top ? ` — **${top.symbol.replace("USDT","")}** is the session leader at +${top.changePercent.toFixed(2)}%` : ""}.`;
+      const up  = allTicks.filter(t=>t.changePercent>0).length;
+      const btc = allTicks.find(t=>t.symbol==="BTC"||t.symbol==="BTCUSDT");
+      answer = `I can answer questions about any asset on your dashboard. Try:\n\n• **"Analyze BTC"** or **"What's ETH doing?"**\n• **"Top movers today"**\n• **"Futures overview"**\n• **"Market sentiment"**\n• **"Is gold bullish?"**\n\nRight now: **${up}** assets up. ${btc?`BTC at $${Number(btc.price).toLocaleString()} (${btc.changePercent>=0?"+":""}${btc.changePercent.toFixed(2)}%).`:""}`;
     }
 
     return res.json({ answer });
   });
 
-  app.get("/api/live/stream", (req: Request, res: Response) => {
+    app.get("/api/live/stream", (req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
