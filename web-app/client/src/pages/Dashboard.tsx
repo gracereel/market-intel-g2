@@ -1854,8 +1854,18 @@ function toTVSymbol(tick: Tick): string {
   const sym = tick.symbol;
   const cat = tick.category;
 
-  // Crypto spot/perp: BTCUSDT → BINANCE:BTCUSDT
+  // Crypto: major coins use COINBASE:XXUSD (always valid in TradingView)
+  // Smaller coins fall back to BINANCE:XXUSDT
   if (cat === "crypto" || (cat === "futures" && sym.endsWith("USDT"))) {
+    const base = sym.replace("USDT", "");
+    const coinbaseCoins = new Set([
+      "BTC","ETH","SOL","XRP","BNB","ADA","DOGE","AVAX","LINK","DOT",
+      "MATIC","UNI","LTC","BCH","ETC","ATOM","XLM","ALGO","VET","FIL",
+      "TRX","NEAR","APT","ARB","OP","SUI","PEPE","SHIB","FLOKI","INJ",
+      "TON","SEI","RENDER","FETCH","GRT","SAND","MANA","AXS","ENJ",
+      "CRV","AAVE","MKR","SNX","COMP","YFI","SUSHI","1INCH","BAT","ZRX"
+    ]);
+    if (coinbaseCoins.has(base)) return `COINBASE:${base}USD`;
     return `BINANCE:${sym}`;
   }
 
@@ -1915,28 +1925,27 @@ function TradingViewChart({ tick }: { tick: Tick }) {
     { label: "1W",  value: "W" },
   ];
 
-  // Build the widget config JSON for TradingView Advanced Chart embed
-  const widgetConfig = JSON.stringify({
+  // TradingView Advanced Chart — symbol passed via JSON fragment (official embed method)
+  const config = {
     autosize: true,
     symbol: tvSym,
     interval: tvInterval,
     timezone: "Etc/UTC",
     theme: "dark",
-    style: "3",
+    style: "1",        // candlestick (most universally supported)
     locale: "en",
-    backgroundColor: "rgba(5, 8, 15, 1)",
-    gridColor: "rgba(59, 139, 246, 0.06)",
+    backgroundColor: "rgba(5,8,15,1)",
     hide_top_toolbar: false,
-    hide_legend: true,
+    hide_legend: false,
+    hide_side_toolbar: true,
     allow_symbol_change: false,
     save_image: false,
     withdateranges: true,
     range: "3M",
-    hide_side_toolbar: true,
-    support_host: "https://www.tradingview.com"
-  });
+    support_host: "https://www.tradingview.com",
+  };
 
-  const src = `https://s.tradingview.com/embed-widget/advanced-chart/?locale=en#${encodeURIComponent(widgetConfig)}`;
+  const src = `https://s.tradingview.com/embed-widget/advanced-chart/?locale=en#${encodeURIComponent(JSON.stringify(config))}`;
 
   return (
     <div className="rounded-xl border border-[#3b8bf6]/15 bg-[#05080f] overflow-hidden">
@@ -1956,7 +1965,7 @@ function TradingViewChart({ tick }: { tick: Tick }) {
             {iv.label}
           </button>
         ))}
-        <span className="ml-auto text-[9px] font-mono text-[#3b8bf6]/25">by TradingView</span>
+        <span className="ml-auto text-[9px] font-mono text-[#3b8bf6]/25">TradingView · {tvSym}</span>
       </div>
       {/* Chart iframe */}
       <div className="relative w-full" style={{ height: 340 }}>
@@ -1972,7 +1981,6 @@ function TradingViewChart({ tick }: { tick: Tick }) {
     </div>
   );
 }
-
 // ─── Coin Detail Modal ────────────────────────────────────────────────────────
 function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: Tick; onClose: () => void; favSet?: Set<string>; toggleFav?: (t: Tick) => void; onAddPosition?: (data: { symbol: string; name: string; category: string; entryPrice: number; quantity: number; targetPrice: number | null; stopLoss: number | null; notes: string }) => void }) {
   const [newsFilter, setNewsFilter] = useState<"all" | "bullish" | "bearish" | "neutral">("all");
