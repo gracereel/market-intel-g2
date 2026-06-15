@@ -471,30 +471,50 @@ const SUBCAT_MAP: Record<string, "stocks"|"futures"|"oil"> = {
 };
 
 // Fetch ALL symbols in one batch call using Yahoo v7 quote endpoint
-async function fetchYahooBatch(syms: string[]): Promise<Record<string, any>> {
-  const symbols = syms.join(',');
+// Fetch one symbol via Yahoo v8 chart API (no auth required)
+async function fetchYahooV8(sym: string): Promise<any | null> {
+  const encoded = encodeURIComponent(sym);
   const headers = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "application/json",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://finance.yahoo.com",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Referer": "https://finance.yahoo.com/",
+    "Accept": "*/*",
   };
-  const urls = [
-    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,regularMarketDayHigh,regularMarketDayLow,regularMarketOpen`,
-    `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,regularMarketDayHigh,regularMarketDayLow,regularMarketOpen`,
-  ];
-  for (const url of urls) {
+  for (const host of ["query2", "query1"]) {
     try {
-      const r = await axios.get(url, { timeout: 10000, headers });
-      const results: any[] = r.data?.quoteResponse?.result || [];
-      const map: Record<string, any> = {};
-      for (const q of results) map[q.symbol] = q;
-      return map;
-    } catch (e: any) {
-      console.warn(`[Stocks] batch fetch failed: ${e.message}`);
-    }
+      const url = `https://${host}.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=1d`;
+      const r = await axios.get(url, { timeout: 8000, headers });
+      const meta = r.data?.chart?.result?.[0]?.meta;
+      if (meta?.regularMarketPrice) return meta;
+    } catch {}
   }
-  return {};
+  return null;
+}
+
+// Fetch all symbols in parallel via Yahoo v8 chart
+async function fetchYahooBatch(syms: string[]): Promise<Record<string, any>> {
+  const results = await Promise.allSettled(syms.map(s => fetchYahooV8(s)));
+  const map: Record<string, any> = {};
+  syms.forEach((sym, i) => {
+    const r = results[i];
+    if (r.status === "fulfilled" && r.value) {
+      // Normalize to same shape as v7 for compatibility
+      const m = r.value;
+      map[sym] = {
+        regularMarketPrice:         m.regularMarketPrice,
+        regularMarketChange:        m.regularMarketPrice - (m.chartPreviousClose ?? m.regularMarketPrice),
+        regularMarketChangePercent: m.regularMarketChangePercent ??
+          ((m.regularMarketPrice - (m.chartPreviousClose ?? m.regularMarketPrice)) / (m.chartPreviousClose || 1) * 100),
+        regularMarketVolume:        m.regularMarketVolume ?? 0,
+        regularMarketDayHigh:       m.regularMarketDayHigh ?? m.regularMarketPrice,
+        regularMarketDayLow:        m.regularMarketDayLow  ?? m.regularMarketPrice,
+        regularMarketOpen:          m.regularMarketOpen    ?? m.regularMarketPrice,
+      };
+    }
+  });
+  if (Object.keys(map).length > 0) {
+    console.log(`[Stocks] v8 chart: fetched ${Object.keys(map).length}/${syms.length} symbols`);
+  }
+  return map;
 }
 
 async function pollStocks() {
@@ -749,6 +769,9 @@ export function startLiveFeeds() {
   pollStocks();
   stockPoller = setInterval(pollStocks, 5000);
 
+  // Start forex feed (open.er-api.com, refreshes every 60s)
+  startForexFeed();
+
   console.log("[LiveFeeds] All feeds started");
 }
 
@@ -881,74 +904,82 @@ function parsePair(sym: string): { base: string; quote: string } | null {
   return { base: clean.slice(0, 3).toUpperCase(), quote: clean.slice(3, 6).toUpperCase() };
 }
 
-// Fetch all 28 major pairs in one Yahoo batch call
+// Major forex pairs to track (base currencies vs USD)
+const FOREX_BASES = ["EUR","GBP","JPY","CHF","AUD","CAD","NZD","CNY","HKD","SGD","MXN","BRL","INR","KRW","SEK","NOK","DKK","PLN","CZK","HUF","TRY","ZAR","THB","MYR","IDR","PHP","AED","SAR"];
+
+// Fetch all forex rates via open.er-api.com (free, no auth, updates hourly)
 async function fetchForexBatch(): Promise<void> {
-  const allSymbols = [...FOREX_PAIRS_28, ...FOREX_EXTENDED];
-  const symbols = allSymbols.join(',');
-  const headers = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Accept": "application/json",
-    "Referer": "https://finance.yahoo.com",
-  };
+  const now = Date.now();
+  try {
+    // Fetch USD base rates (covers all major pairs)
+    const r = await axios.get("https://open.er-api.com/v6/latest/USD", { timeout: 10000 });
+    const rates: Record<string, number> = r.data?.rates ?? {};
+    
+    if (Object.keys(rates).length === 0) throw new Error("empty rates");
 
-  const urls = [
-    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,bid,ask`,
-    `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,bid,ask`,
-  ];
-
-  for (const url of urls) {
+    // Also fetch EUR base for EUR crosses
+    let eurRates: Record<string, number> = {};
     try {
-      const r = await axios.get(url, { timeout: 12000, headers });
-      const results: any[] = r.data?.quoteResponse?.result || [];
-      const now = Date.now();
+      const r2 = await axios.get("https://open.er-api.com/v6/latest/EUR", { timeout: 8000 });
+      eurRates = r2.data?.rates ?? {};
+    } catch {}
 
-      for (const q of results) {
-        const sym: string = q.symbol || '';
-        
-        // Handle DXY separately
-        if (sym === 'DX-Y.NYB') {
-          dxyData = {
-            value: q.regularMarketPrice ?? 0,
-            change1d: q.regularMarketChangePercent ?? 0,
-            change1w: 0,
-            updatedAt: now,
-          };
-          continue;
-        }
-
-        const parsed = parsePair(sym);
-        if (!parsed) continue;
-        const { base, quote } = parsed;
-
-        const price = q.regularMarketPrice ?? 0;
-        const change1d = q.regularMarketChangePercent ?? 0;
-        // Approximate shorter timeframes from daily
-        const change1h = change1d / 8;   // ~1/8 of daily
-        const change4h = change1d / 2;   // ~1/2 of daily
-        const change1w = change1d * 3.5; // approx weekly (3.5x daily)
-        const open = q.regularMarketOpen ?? price;
-        const high = q.regularMarketDayHigh ?? price;
-        const low = q.regularMarketDayLow ?? price;
-        const bid = q.bid ?? price;
-        const ask = q.ask ?? price;
-
-        // Calculate spread in pips (JPY pairs: 2 decimal, others: 4 decimal)
-        const pipFactor = quote === 'JPY' || base === 'JPY' ? 100 : 10000;
-        const spread = price > 0 ? Math.abs(ask - bid) * pipFactor : 0;
-
-        forexStore.set(sym, { 
-          symbol: sym, base, quote, price, 
-          change1h, change4h, change1d, change1w,
-          open, high, low, bid, ask, spread,
-          updatedAt: now 
-        });
-      }
-
-      console.log(`[Forex] Updated ${results.length} pairs (${forexStore.size} in store)`);
-      return;
-    } catch (e: any) {
-      console.warn(`[Forex] batch fetch failed (${url.includes('query1') ? 'q1' : 'q2'}): ${e.message}`);
+    let count = 0;
+    
+    // Build USD/XXX pairs
+    for (const quote of FOREX_BASES) {
+      if (quote === "USD") continue;
+      const rate = rates[quote];
+      if (!rate) continue;
+      
+      // USD/XXX = how many quote per 1 USD
+      const sym = `USD${quote}=X`;
+      const price = rate;
+      const prevPrice = forexStore.get(sym)?.price ?? price;
+      const change1d = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
+      
+      forexStore.set(sym, {
+        symbol: sym, base: "USD", quote,
+        price, change1h: change1d / 8, change4h: change1d / 2,
+        change1d, change1w: change1d * 5,
+        open: prevPrice, high: Math.max(price, prevPrice), low: Math.min(price, prevPrice),
+        bid: price * 0.9998, ask: price * 1.0002,
+        spread: quote === "JPY" ? 2 : 1,
+        updatedAt: now,
+      });
+      count++;
     }
+
+    // Build EUR/XXX crosses using EUR rates
+    const eurCrosses = ["USD","GBP","JPY","CHF","AUD","CAD","NZD","SEK","NOK","DKK","PLN","CZK","HUF"];
+    for (const quote of eurCrosses) {
+      const rate = eurRates[quote];
+      if (!rate) continue;
+      const sym = `EUR${quote}=X`;
+      const price = rate;
+      const prevPrice = forexStore.get(sym)?.price ?? price;
+      const change1d = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
+      forexStore.set(sym, {
+        symbol: sym, base: "EUR", quote,
+        price, change1h: change1d / 8, change4h: change1d / 2,
+        change1d, change1w: change1d * 5,
+        open: prevPrice, high: Math.max(price, prevPrice), low: Math.min(price, prevPrice),
+        bid: price * 0.9998, ask: price * 1.0002,
+        spread: quote === "JPY" ? 2 : 1,
+        updatedAt: now,
+      });
+      count++;
+    }
+
+    // DXY approximation: 1/EUR (inverse of EUR/USD)
+    if (eurRates["USD"]) {
+      const eurUsd = eurRates["USD"];
+      dxyData = { value: 1 / eurUsd * 100, change1d: 0, change1w: 0, updatedAt: now };
+    }
+
+    console.log(`[Forex] Updated ${count} pairs via open.er-api.com (${forexStore.size} total)`);
+  } catch (e: any) {
+    console.warn(`[Forex] fetchForexBatch failed: ${e.message}`);
   }
 }
 
