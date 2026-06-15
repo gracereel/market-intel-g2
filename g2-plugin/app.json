@@ -14,8 +14,8 @@
       "name": "network",
       "desc": "Fetches live crypto prices, futures, and market news from the Market Intel server",
       "whitelist": [
-        "https://g1-market-intel-6dny4XALTBK4o2tuYJD.PQ.pplx.app",
-        "https://*.pplx.app",
+        "https://market-intel-g2-production.up.railway.app",
+        "https://*.railway.app",
         "https://data-stream.binance.vision",
         "https://fstream.binance.com"
       ]

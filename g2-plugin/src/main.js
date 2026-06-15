@@ -3,7 +3,7 @@ import { waitForEvenAppBridge } from '@evenrealities/even_hub_sdk';
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 // Production URL for the Market Intel server
 const SERVER_URL = window.MARKET_SERVER_URL
-  || 'https://g1-market-intel-6dny4XALTBK4o2tuYJD.PQ.pplx.app';
+  || 'https://market-intel-g2-production.up.railway.app';
 
 const SSE_URL    = `${SERVER_URL}/api/live/stream`;
 const NEWS_URL   = `${SERVER_URL}/api/news/latest`;
