@@ -231,6 +231,18 @@ export async function registerRoutes(_: Server, app: Express) {
     res.json({ ok: true });
   });
 
+  // ── Heatmap custom picks ─────────────────────────────────────────────────
+  let heatmapPicks: string[] = [];
+  app.get("/api/heatmap-picks", (_req, res) => {
+    res.json({ keys: heatmapPicks });
+  });
+  app.post("/api/heatmap-picks", (req, res) => {
+    const { keys } = req.body;
+    if (!Array.isArray(keys)) return res.status(400).json({ error: "keys must be array" });
+    heatmapPicks = keys.filter((k: any) => typeof k === "string");
+    res.json({ ok: true, count: heatmapPicks.length });
+  });
+
   // ── Positions (Limit Order Tracker) ──────────────────────────────────────
   app.get("/api/positions", (_req, res) => {
     res.json(storage.getPositions());

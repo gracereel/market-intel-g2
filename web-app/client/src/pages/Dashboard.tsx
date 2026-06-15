@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, KeyboardEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
   Bell, Filter, Flame, Clock, ArrowUpRight, Globe,
   Target, PlusCircle, Trash2, Edit3, CheckCircle, TrendingUp as TrendUp, ChevronDown,
   BellRing, Calendar, TrendingDown as TrendDn, LayoutGrid, Zap as ZapIcon, AlertCircle, Home,
-  MessageCircle, Send, Bot, Loader2 as Loader, ChevronDown as ChevDown, Sparkles
+  MessageCircle, Send, Bot, Loader2 as Loader, ChevronDown as ChevDown, Sparkles, Settings
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -526,7 +526,7 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
 
 // ─── Semicircle Gauge ────────────────────────────────────────────────────────
 function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; label: string; color: string; size: number }) {
-  const isFinal = size >= 90;
+  const isFinal = size >= 80;
   // Uses stroke-dasharray trick: no arc endpoint math = no clipping ever.
   // The semicircle is always the FULL track path.
   // We reveal pct% of it via dashoffset. The SVG is just a rectangle.
@@ -554,7 +554,7 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
   // ViewBox top = 0, but arc top = cy - R = W/2+2 - (W/2-sw/2-4) = sw/2+6 ≥ 11px from top
   // So the stroke (sw/2 outward from arc) top = sw/2+6 - sw/2 = 6px from top — safe.
 
-    const isSmall = size <= 60;
+    const isSmall = size <= 64;
     return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
@@ -1149,7 +1149,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div className="flex items-center overflow-x-auto scrollbar-none sm:overflow-x-hidden flex-nowrap sm:flex-1 w-full" style={{ gap:4, paddingBottom:4, paddingTop:4, justifyContent:"flex-start", WebkitOverflowScrolling:"touch" }}>
+          <div className="flex items-center overflow-x-auto scrollbar-none flex-nowrap w-full" style={{ gap:3, paddingBottom:4, paddingTop:4, justifyContent:"flex-start", WebkitOverflowScrolling:"touch" }}>
             {/* Confluence Alert Banner */}
             {selectedTick && (() => {
               const mtf = getMultiTFConfluence(selectedTick, ["5M","15M","1H","4H","12H","1D","1W"]);
@@ -1181,17 +1181,17 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               const displayPct = single ? pct : Math.round((bull / total) * 100);
               const color = displayPct >= 50 ? "#00ff88" : "#ff2233";
               const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
-              const gSize = isMobile ? 56 : 78;
+              const gSize = isMobile ? 36 : 78;
               return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={gSize} />;
             })}
             {/* Divider */}
-            <div style={{ width:1, height:60, background:"rgba(59,139,246,0.12)", flexShrink:0 }} />
+            <div style={{ width:1, height:50, background:"rgba(59,139,246,0.12)", flexShrink:0 }} />
             {/* Final */}
             {(() => {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
               const color = pct >= 50 ? "#00ff88" : "#ff2233";
               const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
-              const fSize = isMobile ? 68 : 95;
+              const fSize = isMobile ? 44 : 95;
               return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={fSize} />;
             })()}
             {/* Live price — hidden on mobile to save space */}
@@ -3376,24 +3376,60 @@ function PriceAlertsPanel({ ticks, onClose }: { ticks: Map<string, Tick>; onClos
 }
 
 // ─── Market Heatmap ───────────────────────────────────────────────────────────
-type HeatCat = "all" | "crypto" | "futures" | "stocks" | "oil";
+const HEATMAP_STORAGE_KEY = "mi_heatmap_picks_v1";
 
 function MarketHeatmap({ ticks, onSelect }: { ticks: Map<string, Tick>; onSelect: (t: Tick) => void }) {
-  const [cat, setCat] = useState<HeatCat>("all");
+  // Load saved picks from server (use React state, no localStorage)
+  const [pickedKeys, setPickedKeys] = useState<string[]>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterCat, setFilterCat] = useState<string>("all");
 
-  const all = useMemo(() => {
-    const arr = Array.from(ticks.values());
-    if (cat === "all") {
-      const cryptos = arr.filter(t => t.category === "crypto").sort((a,b) => b.quoteVolume - a.quoteVolume).slice(0, 50);
-      const others  = arr.filter(t => t.category !== "crypto");
-      return [...cryptos, ...others];
+  // Persist picks to server via API
+  const { data: savedPicks } = useQuery<{ keys: string[] }>({
+    queryKey: ["/api/heatmap-picks"],
+    queryFn: async () => {
+      try {
+        const r = await apiRequest("GET", "/api/heatmap-picks");
+        return r.json();
+      } catch { return { keys: [] }; }
+    },
+    staleTime: Infinity,
+  });
+
+  // Load saved picks on mount
+  const [loaded, setLoaded] = useState(false);
+  if (!loaded && savedPicks) {
+    if (savedPicks.keys.length > 0) setPickedKeys(savedPicks.keys);
+    else {
+      // Default: top 20 crypto by volume
+      const defaults = Array.from(ticks.values())
+        .filter(t => t.category === "crypto")
+        .sort((a,b) => b.quoteVolume - a.quoteVolume)
+        .slice(0, 20)
+        .map(t => `${t.category}:${t.symbol}`);
+      setPickedKeys(defaults);
     }
-    if (cat === "crypto") return arr.filter(t => t.category === "crypto").sort((a,b) => b.quoteVolume - a.quoteVolume);
-    if (cat === "futures") return arr.filter(t => t.category === "futures");
-    if (cat === "stocks") return arr.filter(t => t.category === "stocks");
-    if (cat === "oil") return arr.filter(t => t.category === "oil");
-    return arr;
-  }, [ticks, cat]);
+    setLoaded(true);
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: async (keys: string[]) => {
+      await apiRequest("POST", "/api/heatmap-picks", { keys });
+    },
+  });
+
+  function savePicks(keys: string[]) {
+    setPickedKeys(keys);
+    saveMutation.mutate(keys);
+  }
+
+  function togglePick(key: string) {
+    const next = pickedKeys.includes(key)
+      ? pickedKeys.filter(k => k !== key)
+      : [...pickedKeys, key];
+    savePicks(next);
+  }
 
   function heatColor(pct: number) {
     if (pct >= 5)    return { bg: "rgba(34,197,94,0.55)",  text: "#fff" };
@@ -3406,75 +3442,176 @@ function MarketHeatmap({ ticks, onSelect }: { ticks: Map<string, Tick>; onSelect
     return                  { bg: "rgba(239,68,68,0.60)",  text: "#fff" };
   }
 
-  const catTabs: { id: HeatCat; label: string }[] = [
-    { id: "all",     label: "All" },
-    { id: "crypto",  label: "Crypto" },
-    { id: "futures", label: "Futures" },
-    { id: "stocks",  label: "Stocks" },
-    { id: "oil",     label: "Oil" },
-  ];
+  // All available assets for the picker
+  const allAssets = useMemo(() => Array.from(ticks.values()), [ticks]);
+
+  // Filtered search results in edit mode
+  const searchResults = useMemo(() => {
+    let pool = allAssets;
+    if (filterCat !== "all") pool = pool.filter(t => t.category === filterCat);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      pool = pool.filter(t =>
+        t.symbol.toLowerCase().includes(q) ||
+        t.name.toLowerCase().includes(q)
+      );
+    }
+    return pool.sort((a,b) => b.quoteVolume - a.quoteVolume).slice(0, 80);
+  }, [allAssets, filterCat, search]);
+
+  // Picked ticks for display
+  const pickedTicks = useMemo(() =>
+    pickedKeys.map(k => ticks.get(k)).filter(Boolean) as Tick[]
+  , [pickedKeys, ticks]);
+
+  const cats = ["all","crypto","futures","stocks","oil"];
 
   return (
     <div className="py-3">
-      {/* Header + legend */}
-      <div className="flex items-center justify-between mb-2 px-4">
-        <span className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest">24H Change · Tap to open chart</span>
-        <div className="flex items-center gap-1 text-[9px] font-mono">
-          {[[-6,"≤-5%"],[-3,"-2%"],[-1,"flat"],[3,"+2%"],[6,"≥+5%"]].map(([v,l]) => {
-            const {bg,text} = heatColor(Number(v));
-            return <span key={String(l)} className="px-1.5 py-0.5 rounded" style={{background:bg,color:text}}>{l}</span>;
-          })}
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-3 px-4">
+        <div>
+          <div className="text-[11px] font-mono font-bold text-white">My Heatmap</div>
+          <div className="text-[9px] font-mono text-[#3b8bf6]/40">{pickedTicks.length} assets · tap tile to open chart</div>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Legend */}
+          <div className="hidden sm:flex items-center gap-1 text-[9px] font-mono">
+            {[[-6,"≤-5%"],[-3,"-2%"],[-1,"flat"],[3,"+2%"],[6,"≥+5%"]].map(([v,l]) => {
+              const {bg,text} = heatColor(Number(v));
+              return <span key={String(l)} className="px-1.5 py-0.5 rounded" style={{background:bg,color:text}}>{l}</span>;
+            })}
+          </div>
+          <button
+            onClick={() => { setEditMode(e => !e); setSearch(""); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-all ${
+              editMode
+                ? "bg-[#3b8bf6]/20 border-[#3b8bf6]/50 text-[#3b8bf6]"
+                : "bg-[#111827] border-[#3b8bf6]/25 text-[#3b8bf6]/60 hover:text-[#3b8bf6] hover:border-[#3b8bf6]/50"
+            }`}
+          >
+            <Settings className="w-3 h-3" />
+            {editMode ? "Done" : "Edit"}
+          </button>
         </div>
       </div>
 
-      {/* Category filter pills */}
-      <div className="flex gap-1.5 px-4 mb-3 overflow-x-auto scrollbar-none">
-        {catTabs.map(c => (
-          <button
-            key={c.id}
-            onClick={() => setCat(c.id)}
-            className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-mono font-bold transition-all border ${
-              cat === c.id
-                ? "bg-[#3b8bf6]/20 border-[#3b8bf6]/60 text-[#3b8bf6]"
-                : "bg-[#111827] border-[#3b8bf6]/15 text-[#3b8bf6]/45 hover:text-[#3b8bf6]/80 hover:border-[#3b8bf6]/35"
-            }`}
-          >
-            {c.label}
-            <span className="ml-1 opacity-50 text-[9px]">
-              {c.id === "all"
-                ? ticks.size
-                : Array.from(ticks.values()).filter(t => t.category === c.id).length}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Tiles grid */}
-      <div className="px-4 grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))" }}>
-        {all.map(t => {
-          const sym = t.symbol.replace("USDT","");
-          const pct = t.changePercent ?? 0;
-          const { bg, text } = heatColor(pct);
-          return (
-            <button
-              key={`${t.category}:${t.symbol}`}
-              onClick={() => onSelect(t)}
-              className="rounded-lg p-2 text-center hover:scale-105 hover:brightness-125 active:scale-95 transition-all cursor-pointer focus:outline-none"
-              style={{ background: bg, border: "1px solid rgba(255,255,255,0.08)" }}
-              title={`${t.name} — tap to open chart`}
-            >
-              <div className="text-[10px] font-bold font-mono truncate" style={{ color: text }}>{sym.slice(0,7)}</div>
-              <div className="text-[9px] font-mono mt-0.5 font-semibold" style={{ color: text, opacity: 0.9 }}>
-                {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
-              </div>
+      {/* ── EDIT MODE: asset picker ── */}
+      {editMode && (
+        <div className="mx-4 mb-4 rounded-xl border border-[#3b8bf6]/20 bg-[#0d1120] overflow-hidden">
+          <div className="p-3 border-b border-[#3b8bf6]/10">
+            <div className="text-[10px] font-mono text-[#3b8bf6]/60 mb-2">
+              Search and tap to add · tap selected tile below to remove
+            </div>
+            {/* Search input */}
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search any coin, stock, pair..."
+              className="w-full bg-[#111827] border border-[#3b8bf6]/20 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-[#3b8bf6]/30 outline-none focus:border-[#3b8bf6]/50 mb-2"
+              autoFocus
+            />
+            {/* Category filter */}
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {cats.map(c => (
+                <button key={c} onClick={() => setFilterCat(c)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-[9px] font-mono font-bold border transition-all capitalize ${
+                    filterCat === c
+                      ? "bg-[#3b8bf6]/20 border-[#3b8bf6]/50 text-[#3b8bf6]"
+                      : "border-[#3b8bf6]/15 text-[#3b8bf6]/40 hover:text-[#3b8bf6]/70"
+                  }`}
+                >{c}</button>
+              ))}
+            </div>
+          </div>
+          {/* Search results */}
+          <div className="max-h-56 overflow-y-auto divide-y divide-[#3b8bf6]/06">
+            {searchResults.map(t => {
+              const key = `${t.category}:${t.symbol}`;
+              const isPicked = pickedKeys.includes(key);
+              const sym = t.symbol.replace("USDT","");
+              const pct = t.changePercent ?? 0;
+              return (
+                <button
+                  key={key}
+                  onClick={() => togglePick(key)}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${
+                    isPicked ? "bg-[#3b8bf6]/10" : "hover:bg-[#151e30]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                      isPicked ? "bg-[#3b8bf6] border-[#3b8bf6]" : "border-[#3b8bf6]/30"
+                    }`}>
+                      {isPicked && <span className="text-white text-[8px] font-bold">✓</span>}
+                    </div>
+                    <div>
+                      <div className="text-xs font-mono font-bold text-white">{sym}</div>
+                      <div className="text-[9px] font-mono text-[#3b8bf6]/45 truncate max-w-[120px]">{t.name}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[9px] font-mono text-[#3b8bf6]/35 capitalize">{t.category}</span>
+                    <span className={`text-[10px] font-mono font-bold ${pct >= 0 ? "text-[#00ff88]" : "text-[#ff5566]"}`}>
+                      {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+            {searchResults.length === 0 && (
+              <div className="text-center text-[#3b8bf6]/35 text-xs font-mono py-6">No results for "{search}"</div>
+            )}
+          </div>
+          <div className="px-3 py-2 border-t border-[#3b8bf6]/10 flex items-center justify-between">
+            <span className="text-[9px] font-mono text-[#3b8bf6]/40">{pickedKeys.length} selected</span>
+            <button onClick={() => savePicks([])}
+              className="text-[9px] font-mono text-[#ff5566]/60 hover:text-[#ff5566] transition-colors">
+              Clear all
             </button>
-          );
-        })}
-      </div>
+          </div>
+        </div>
+      )}
 
-      {all.length === 0 && (
-        <div className="text-center text-[#3b8bf6]/35 font-mono text-xs py-10">
-          No {cat === "all" ? "" : cat} data yet — feed loading...
+      {/* ── HEATMAP TILES ── */}
+      {pickedTicks.length === 0 ? (
+        <div className="mx-4 rounded-xl border border-dashed border-[#3b8bf6]/20 py-12 text-center">
+          <div className="text-[#3b8bf6]/40 font-mono text-xs mb-2">Your heatmap is empty</div>
+          <button onClick={() => setEditMode(true)}
+            className="text-[10px] font-mono text-[#3b8bf6] border border-[#3b8bf6]/40 px-4 py-1.5 rounded-lg hover:bg-[#3b8bf6]/10 transition-colors">
+            + Add coins &amp; pairs
+          </button>
+        </div>
+      ) : (
+        <div className="px-4 grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))" }}>
+          {pickedTicks.map(t => {
+            const key = `${t.category}:${t.symbol}`;
+            const sym = t.symbol.replace("USDT","");
+            const pct = t.changePercent ?? 0;
+            const { bg, text } = heatColor(pct);
+            return (
+              <button
+                key={key}
+                onClick={() => editMode ? togglePick(key) : onSelect(t)}
+                className={`rounded-lg p-2 text-center transition-all focus:outline-none ${
+                  editMode
+                    ? "hover:opacity-60 active:scale-95 ring-2 ring-[#ff5566]/50"
+                    : "hover:scale-105 hover:brightness-125 active:scale-95 cursor-pointer"
+                }`}
+                style={{ background: bg, border: "1px solid rgba(255,255,255,0.08)" }}
+                title={editMode ? `Remove ${sym}` : `${t.name} · tap to open chart`}
+              >
+                <div className="text-[10px] font-bold font-mono truncate" style={{ color: text }}>{sym.slice(0,7)}</div>
+                <div className="text-[9px] font-mono mt-0.5 font-semibold" style={{ color: text, opacity: 0.9 }}>
+                  {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                </div>
+                {editMode && (
+                  <div className="text-[8px] mt-0.5" style={{ color: text, opacity: 0.6 }}>✕ remove</div>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
