@@ -3660,169 +3660,35 @@ function SentimentTable({ ticks }: { ticks: Map<string, Tick> }) {
 }
 
 // ─── Economic Calendar ────────────────────────────────────────────────────────
-const ECON_EVENTS: { date: string; time: string; event: string; impact: "high"|"medium"|"low"; currency: string }[] = [
-  { date:"2026-06-13",time:"08:30",event:"US CPI (YoY)",             impact:"high",  currency:"USD" },
-  { date:"2026-06-14",time:"09:00",event:"ECB Rate Decision",        impact:"high",  currency:"EUR" },
-  { date:"2026-06-16",time:"08:30",event:"US Retail Sales",          impact:"medium",currency:"USD" },
-  { date:"2026-06-17",time:"10:00",event:"US Consumer Confidence",   impact:"medium",currency:"USD" },
-  { date:"2026-06-18",time:"08:30",event:"US Jobless Claims",        impact:"medium",currency:"USD" },
-  { date:"2026-06-27",time:"08:30",event:"US PCE Inflation",         impact:"high",  currency:"USD" },
-  { date:"2026-07-01",time:"08:30",event:"US Non-Farm Payrolls",     impact:"high",  currency:"USD" },
-  { date:"2026-07-08",time:"14:00",event:"FOMC Meeting Minutes",     impact:"high",  currency:"USD" },
-  { date:"2026-07-10",time:"08:30",event:"US CPI (YoY)",             impact:"high",  currency:"USD" },
-  { date:"2026-07-22",time:"08:30",event:"US Q2 GDP (Advance)",      impact:"high",  currency:"USD" },
-  { date:"2026-07-29",time:"14:00",event:"Fed Rate Decision",        impact:"high",  currency:"USD" },
-  { date:"2026-08-05",time:"08:30",event:"US Non-Farm Payrolls",     impact:"high",  currency:"USD" },
-];
-
-function useEconAlerts() {
-  const firedRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (Notification.permission === "default") Notification.requestPermission();
-
-    function playChime(isHigh: boolean) {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const playTone = (freq: number, t: number, dur: number, vol: number) => {
-          const osc = ctx.createOscillator(); const g = ctx.createGain();
-          osc.connect(g); g.connect(ctx.destination);
-          osc.type = "sine"; osc.frequency.setValueAtTime(freq, t);
-          g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-          osc.start(t); osc.stop(t + dur);
-        };
-        const t = ctx.currentTime;
-        if (isHigh) {
-          playTone(880, t, 0.2, 0.2); playTone(1100, t+0.18, 0.18, 0.18); playTone(1320, t+0.36, 0.25, 0.22);
-        } else {
-          playTone(660, t, 0.18, 0.12); playTone(880, t+0.18, 0.22, 0.10);
-        }
-      } catch {}
-    }
-
-    function check() {
-      const now = new Date();
-      // Convert current time to ET offset (UTC-4 in summer, UTC-5 in winter)
-      const etOffset = -4; // EDT
-      const nowET = new Date(now.getTime() + (now.getTimezoneOffset() + etOffset * 60) * 60000);
-      const todayET = nowET.toISOString().slice(0,10);
-
-      ECON_EVENTS.forEach(ev => {
-        if (ev.date !== todayET) return;
-        const [hh, mm] = ev.time.split(":").map(Number);
-        const evET = new Date(nowET);
-        evET.setHours(hh, mm, 0, 0);
-        const diffMin = (evET.getTime() - nowET.getTime()) / 60000;
-
-        const fire = (label: string, key: string) => {
-          if (firedRef.current.has(key)) return;
-          firedRef.current.add(key);
-          playChime(ev.impact === "high");
-          try {
-            if (Notification.permission === "granted") {
-              new Notification(`📅 ${label}: ${ev.event}`, {
-                body: `${ev.currency} · ${ev.time} ET · Impact: ${ev.impact.toUpperCase()}`,
-                icon: "/favicon.ico",
-              });
-            }
-          } catch {}
-        };
-
-        if (diffMin >= 59 && diffMin <= 61) fire("1 Hour Warning", `${ev.date}-${ev.time}-60`);
-        if (diffMin >= 14 && diffMin <= 16) fire("15 Min Warning", `${ev.date}-${ev.time}-15`);
-        if (diffMin >= -1 && diffMin <= 1)  fire("NOW LIVE", `${ev.date}-${ev.time}-0`);
-      });
-    }
-
-    check();
-    const interval = setInterval(check, 60000);
-    return () => clearInterval(interval);
-  }, []);
-}
-
+// ─── Economic Calendar ────────────────────────────────────────────────────────
+// Uses TradingView Economic Calendar embed — always live, no API key needed
 function EconomicCalendar() {
-  useEconAlerts();
+  const config = {
+    colorTheme: "dark",
+    isTransparent: false,
+    width: "100%",
+    height: 600,
+    locale: "en",
+    importanceFilter: "-1,0,1",
+    countryFilter: "us,eu,gb,jp,cn,ca,au,ch",
+  };
+  const src = `https://s.tradingview.com/embed-widget/events/?locale=en#${encodeURIComponent(JSON.stringify(config))}`;
 
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0,10);
-  const upcoming = ECON_EVENTS.filter(e => e.date >= todayStr).slice(0,10);
-
-  // minutes until event (for today's events)
-  function minsUntil(date: string, time: string): number | null {
-    if (date !== todayStr) return null;
-    const etOffset = -4;
-    const nowET = new Date(today.getTime() + (today.getTimezoneOffset() + etOffset * 60) * 60000);
-    const [hh, mm] = time.split(":").map(Number);
-    const evET = new Date(nowET); evET.setHours(hh, mm, 0, 0);
-    return Math.round((evET.getTime() - nowET.getTime()) / 60000);
-  }
-
-  function impactDot(i: string) {
-    if (i==="high")   return { dot:"bg-red-500", badge:"bg-red-500/12 border-red-500/30 text-red-400" };
-    if (i==="medium") return { dot:"bg-[#3b8bf6]", badge:"bg-[#3b8bf6]/10 border-[#3b8bf6]/28 text-[#3b8bf6]" };
-    return                   { dot:"bg-blue-400", badge:"bg-blue-500/10 border-blue-400/28 text-blue-400" };
-  }
-  function daysUntil(d: string) {
-    const diff = Math.round((new Date(d).getTime()-today.getTime())/86400000);
-    if (diff<=0) return "TODAY"; if (diff===1) return "TOMORROW"; return `IN ${diff}D`;
-  }
-
-  let lastDate = "";
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-3.5 h-3.5 text-[#3b8bf6]" />
-          <span className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest">Economic Calendar</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[9px] font-mono text-[#3b8bf6]/38">
-          <BellRing className="w-3 h-3" />
-          Alerts: 1hr · 15min · live
-        </div>
+    <div className="px-2 py-2">
+      <div className="flex items-center gap-2 mb-2 px-2">
+        <Calendar className="w-3.5 h-3.5 text-[#3b8bf6]" />
+        <span className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest">Economic Calendar</span>
+        <span className="text-[9px] font-mono text-[#3b8bf6]/30 ml-auto">Live · All impact levels</span>
       </div>
-      <div className="space-y-1">
-        {upcoming.map((ev,i) => {
-          const { dot, badge } = impactDot(ev.impact);
-          const showDate = ev.date !== lastDate; lastDate = ev.date;
-          const isToday = ev.date === todayStr;
-          const mins = minsUntil(ev.date, ev.time);
-          const isImminent = mins !== null && mins >= 0 && mins <= 60;
-          const isLive     = mins !== null && mins >= -5 && mins <= 5;
-          return (
-            <div key={i}>
-              {showDate && (
-                <div className={`text-[9px] font-mono uppercase tracking-widest px-1 py-1 mt-2 ${isToday?"text-[#3b8bf6] font-bold":"text-[#3b8bf6]/30"}`}>
-                  {new Date(ev.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}{isToday?" — TODAY":""}
-                </div>
-              )}
-              <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
-                isLive     ? "bg-red-500/12 border-red-500/50 animate-pulse" :
-                isImminent ? "bg-[#3b8bf6]/8 border-[#3b8bf6]/35" :
-                isToday    ? "bg-[#3b8bf6]/4 border-[#3b8bf6]/15" :
-                             "bg-[#111827]/60 border-[#3b8bf6]/8 hover:border-[#3b8bf6]/20"
-              }`}>
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot} ${isLive ? "animate-ping" : ""}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-white font-medium truncate">{ev.event}</div>
-                  <div className="text-[9px] font-mono text-[#3b8bf6]/38">{ev.currency} · {ev.time} ET</div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${badge}`}>{ev.impact.toUpperCase()}</span>
-                  {isLive ? (
-                    <span className="text-[8px] font-mono font-bold text-red-400 animate-pulse">🔴 LIVE</span>
-                  ) : isImminent && mins !== null ? (
-                    <span className="text-[8px] font-mono font-bold text-[#3b8bf6]">{mins}m away</span>
-                  ) : (
-                    <span className={`text-[8px] font-mono font-bold ${isToday?"text-[#3b8bf6]":"text-[#3b8bf6]/30"}`}>{daysUntil(ev.date)}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="rounded-xl border border-[#3b8bf6]/15 overflow-hidden" style={{ height: 580 }}>
+        <iframe
+          src={src}
+          className="w-full h-full border-0"
+          allowFullScreen
+          title="Economic Calendar"
+        />
       </div>
-      <div className="text-[8px] font-mono text-[#3b8bf6]/18 mt-3 text-center">Times in ET · Alerts fire 1hr + 15min before each event</div>
     </div>
   );
 }
