@@ -1854,18 +1854,13 @@ function toTVSymbol(tick: Tick): string {
   const sym = tick.symbol;
   const cat = tick.category;
 
-  // Crypto: major coins use COINBASE:XXUSD (always valid in TradingView)
-  // Smaller coins fall back to BINANCE:XXUSDT
-  if (cat === "crypto" || (cat === "futures" && sym.endsWith("USDT"))) {
-    const base = sym.replace("USDT", "");
-    const coinbaseCoins = new Set([
-      "BTC","ETH","SOL","XRP","BNB","ADA","DOGE","AVAX","LINK","DOT",
-      "MATIC","UNI","LTC","BCH","ETC","ATOM","XLM","ALGO","VET","FIL",
-      "TRX","NEAR","APT","ARB","OP","SUI","PEPE","SHIB","FLOKI","INJ",
-      "TON","SEI","RENDER","FETCH","GRT","SAND","MANA","AXS","ENJ",
-      "CRV","AAVE","MKR","SNX","COMP","YFI","SUSHI","1INCH","BAT","ZRX"
-    ]);
-    if (coinbaseCoins.has(base)) return `COINBASE:${base}USD`;
+  // Crypto: BINANCE:XXUSDT is the most reliable source in TradingView embed
+  if (cat === "crypto") {
+    // sym is stored as base (BTC, ETH) — append USDT for Binance
+    return `BINANCE:${sym}USDT`;
+  }
+  // Perp futures stored as BTCUSDT etc.
+  if (cat === "futures" && sym.endsWith("USDT")) {
     return `BINANCE:${sym}`;
   }
 
@@ -1912,65 +1907,34 @@ function toTVSymbol(tick: Tick): string {
 
 function TradingViewChart({ tick }: { tick: Tick }) {
   const tvSym = toTVSymbol(tick);
-  const [tvInterval, setTvInterval] = useState("60"); // default 1H
 
-  const tvIntervals = [
-    { label: "1m",  value: "1" },
-    { label: "5m",  value: "5" },
-    { label: "15m", value: "15" },
-    { label: "30m", value: "30" },
-    { label: "1H",  value: "60" },
-    { label: "4H",  value: "240" },
-    { label: "1D",  value: "D" },
-    { label: "1W",  value: "W" },
-  ];
-
-  // TradingView Advanced Chart — symbol passed via JSON fragment (official embed method)
+  // TradingView mini-symbol-overview widget — matches the blue area chart style
   const config = {
-    autosize: true,
     symbol: tvSym,
-    interval: tvInterval,
-    timezone: "Etc/UTC",
-    theme: "dark",
-    style: "1",        // candlestick (most universally supported)
+    width: "100%",
+    height: 400,
     locale: "en",
-    backgroundColor: "rgba(5,8,15,1)",
-    hide_top_toolbar: false,
-    hide_legend: false,
-    hide_side_toolbar: true,
-    allow_symbol_change: false,
-    save_image: false,
-    withdateranges: true,
-    range: "3M",
-    support_host: "https://www.tradingview.com",
+    dateRange: "3M",
+    colorTheme: "dark",
+    isTransparent: false,
+    autosize: true,
+    largeChartUrl: "",
+    noTimeScale: false,
+    chartOnly: false,
+    backgroundColor: "#05080f",
+    lineColor: "#3b8bf6",
+    topColor: "rgba(59,139,246,0.25)",
+    bottomColor: "rgba(59,139,246,0.02)",
   };
 
-  const src = `https://s.tradingview.com/embed-widget/advanced-chart/?locale=en#${encodeURIComponent(JSON.stringify(config))}`;
+  const src = `https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=en#${encodeURIComponent(JSON.stringify(config))}`;
 
   return (
     <div className="rounded-xl border border-[#3b8bf6]/15 bg-[#05080f] overflow-hidden">
-      {/* Interval selector */}
-      <div className="flex items-center gap-0.5 px-3 pt-2.5 pb-1.5 border-b border-[#3b8bf6]/10">
-        <span className="text-[9px] font-mono text-[#3b8bf6]/40 uppercase tracking-widest mr-2">Chart</span>
-        {tvIntervals.map(iv => (
-          <button
-            key={iv.value}
-            onClick={() => setTvInterval(iv.value)}
-            className={`text-[10px] font-mono px-2 py-0.5 rounded transition-all ${
-              tvInterval === iv.value
-                ? "bg-[#3b8bf6]/20 text-[#3b8bf6] font-bold"
-                : "text-[#3b8bf6]/40 hover:text-[#3b8bf6]/80 hover:bg-[#3b8bf6]/10"
-            }`}
-          >
-            {iv.label}
-          </button>
-        ))}
-        <span className="ml-auto text-[9px] font-mono text-[#3b8bf6]/25">TradingView · {tvSym}</span>
-      </div>
-      {/* Chart iframe */}
-      <div className="relative w-full" style={{ height: 340 }}>
+      {/* Chart iframe — mini-symbol-overview has built-in timeframe bar */}
+      <div className="relative w-full" style={{ height: 420 }}>
         <iframe
-          key={`${tvSym}-${tvInterval}`}
+          key={tvSym}
           src={src}
           className="w-full h-full border-0"
           allowFullScreen

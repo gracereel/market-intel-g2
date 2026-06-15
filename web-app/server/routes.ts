@@ -321,6 +321,7 @@ export async function registerRoutes(_: Server, app: Express) {
     res.json(result);
   });
 
+
   // ── Crypto meta ───────────────────────────────────────────────────────────
   app.get("/api/meta/crypto", (req, res) => {
     res.json(Object.entries(CRYPTO_COINS).map(([sym, v]) => ({ symbol: sym, name: v.name, coingeckoId: v.coingeckoId })));
