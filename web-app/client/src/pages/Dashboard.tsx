@@ -1854,39 +1854,47 @@ function toTVSymbol(tick: Tick): string {
   const sym = tick.symbol;
   const cat = tick.category;
 
-  // Crypto: BTCUSDT → BINANCE:BTCUSDT (perps stay on BINANCE)
+  // Crypto spot/perp: BTCUSDT → BINANCE:BTCUSDT
   if (cat === "crypto" || (cat === "futures" && sym.endsWith("USDT"))) {
     return `BINANCE:${sym}`;
   }
 
   // Yahoo-style futures → TradingView continuous contracts
   const futMap: Record<string, string> = {
-    "ES=F": "CME_MINI:ES1!",
-    "NQ=F": "CME_MINI:NQ1!",
-    "YM=F": "CBOT_MINI:YM1!",
+    "ES=F":  "CME_MINI:ES1!",
+    "NQ=F":  "CME_MINI:NQ1!",
+    "YM=F":  "CBOT_MINI:YM1!",
     "RTY=F": "CME_MINI:RTY1!",
-    "GC=F": "COMEX:GC1!",
-    "SI=F": "COMEX:SI1!",
-    "ZB=F": "CBOT:ZB1!",
-    "CL=F": "NYMEX:CL1!",
+    "GC=F":  "COMEX:GC1!",
+    "SI=F":  "COMEX:SI1!",
+    "ZB=F":  "CBOT:ZB1!",
+    "CL=F":  "NYMEX:CL1!",
     "BTC=F": "CME:BTC1!",
+    "NG=F":  "NYMEX:NG1!",
+    "ZC=F":  "CBOT:ZC1!",
+    "ZS=F":  "CBOT:ZS1!",
   };
   if (futMap[sym]) return futMap[sym];
 
-  // Stocks: exchange-aware mapping for major names, default NASDAQ
-  const nyseStocks = new Set(["BRK-A","BRK-B","JPM","BAC","GS","MS","C","WFC","XOM","CVX","KO","PG","JNJ","WMT","V","MA","HD","UNH","DIS","NKE","MRK","ABT"]);
+  // Stocks: NYSE vs NASDAQ routing
+  const nyseStocks = new Set([
+    "JPM","BAC","GS","MS","C","WFC","BRK-B","BRK-A",
+    "XOM","CVX","KO","PG","JNJ","WMT","V","MA",
+    "HD","UNH","DIS","NKE","MRK","ABT","T","VZ"
+  ]);
   if (cat === "stocks") {
     if (nyseStocks.has(sym)) return `NYSE:${sym}`;
     return `NASDAQ:${sym}`;
   }
 
-  // Forex: EURUSD → FX:EURUSD  (strip =X Yahoo suffix if present)
-  if (cat === "currency" || sym.includes("/") || sym.endsWith("=X")) {
-    const clean = sym.replace("=X", "").replace("/", "");
-    return `FX:${clean}`;
+  // Forex: FX_IDC works reliably in the embed widget
+  // Strip Yahoo =X suffix and / separator
+  if (cat === "currency" || (sym as string).endsWith("=X") || sym.includes("/")) {
+    const clean = sym.replace("=X", "").replace("/", "").toUpperCase();
+    return `FX_IDC:${clean}`;
   }
 
-  // Oil (CL=F already caught above, but fallback)
+  // Oil fallback
   if (cat === "oil") return "NYMEX:CL1!";
 
   return sym;
@@ -1907,7 +1915,28 @@ function TradingViewChart({ tick }: { tick: Tick }) {
     { label: "1W",  value: "W" },
   ];
 
-  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart_${encodeURIComponent(tick.symbol)}&symbol=${encodeURIComponent(tvSym)}&interval=${tvInterval}&hidesidetoolbar=1&hidetoptoolbar=0&theme=dark&style=3&locale=en&withdateranges=1&range=3M&backgroundColor=%2305080f&lineColor=%233b8bf6&gridColor=%233b8bf610&candleUpColor=%2300ff88&candleDownColor=%23ff5566&allow_symbol_change=0&save_image=0`;
+  // Build the widget config JSON for TradingView Advanced Chart embed
+  const widgetConfig = JSON.stringify({
+    autosize: true,
+    symbol: tvSym,
+    interval: tvInterval,
+    timezone: "Etc/UTC",
+    theme: "dark",
+    style: "3",
+    locale: "en",
+    backgroundColor: "rgba(5, 8, 15, 1)",
+    gridColor: "rgba(59, 139, 246, 0.06)",
+    hide_top_toolbar: false,
+    hide_legend: true,
+    allow_symbol_change: false,
+    save_image: false,
+    withdateranges: true,
+    range: "3M",
+    hide_side_toolbar: true,
+    support_host: "https://www.tradingview.com"
+  });
+
+  const src = `https://s.tradingview.com/embed-widget/advanced-chart/?locale=en#${encodeURIComponent(widgetConfig)}`;
 
   return (
     <div className="rounded-xl border border-[#3b8bf6]/15 bg-[#05080f] overflow-hidden">
@@ -1930,12 +1959,13 @@ function TradingViewChart({ tick }: { tick: Tick }) {
         <span className="ml-auto text-[9px] font-mono text-[#3b8bf6]/25">by TradingView</span>
       </div>
       {/* Chart iframe */}
-      <div className="relative w-full" style={{ height: 320 }}>
+      <div className="relative w-full" style={{ height: 340 }}>
         <iframe
           key={`${tvSym}-${tvInterval}`}
           src={src}
           className="w-full h-full border-0"
           allowFullScreen
+          allow="fullscreen"
           title={`${tick.name} Chart`}
         />
       </div>
