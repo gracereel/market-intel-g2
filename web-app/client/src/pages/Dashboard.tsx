@@ -350,6 +350,17 @@ function prefetchAsset(sym: string) {
   });
 }
 
+// ─── useIsMobile hook ────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+}
+
 // ─── Coin Card ────────────────────────────────────────────────────────────────
 function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => void; atr?: { atr: number; atrPct: number } | null; starBtn?: React.ReactNode }) {
   const flash = useFlash(tick.price, tick.symbol);
@@ -362,7 +373,7 @@ function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => 
       onClick={onClick}
       onMouseEnter={() => prefetchAsset(tick.symbol)}
       className={`
-        group relative w-full text-left rounded-lg border p-3 transition-all duration-200
+        group relative w-full text-left rounded-lg border p-2 sm:p-3 transition-all duration-200
         hover:scale-[1.02] hover:shadow-lg cursor-pointer
         ${flash === "up" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/50" :
           flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/45" :
@@ -383,7 +394,7 @@ function CoinCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () => 
           <div className="text-[10px] text-[#3b8bf6]/70 truncate leading-none font-medium">{tick.name}</div>
         </div>
         <div className="text-right shrink-0">
-          <div className="font-mono text-base font-bold text-[#f0f4ff] leading-tight">
+          <div className="font-mono text-sm sm:text-base font-bold text-[#f0f4ff] leading-tight">
             ${fmtPrice(tick.price)}
           </div>
           <div className={`text-[11px] font-mono font-semibold ${isUp ? "text-[#00ff88]" : "text-[#ff5566]"}`}>
@@ -421,7 +432,7 @@ function FuturesCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () 
       onClick={onClick}
       onMouseEnter={() => prefetchAsset(tick.symbol)}
       className={`
-        group relative w-full text-left rounded-lg border p-3 transition-all duration-200
+        group relative w-full text-left rounded-lg border p-2 sm:p-3 transition-all duration-200
         hover:scale-[1.02] cursor-pointer
         ${flash === "up" ? "bg-[#3b8bf6]/10 border-[#3b8bf6]/50" :
           flash === "down" ? "bg-[#ff5566]/10 border-[#ff5566]/45" :
@@ -435,7 +446,7 @@ function FuturesCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () 
           <div className="text-[10px] text-[#3b8bf6]/70">{tick.name}</div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
+          <div className="font-mono text-sm sm:text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
           <div className={`text-[11px] font-mono ${isUp ? "text-[#00ff88]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
@@ -491,7 +502,7 @@ function StockCard({ tick, onClick, atr, starBtn }: { tick: Tick; onClick: () =>
           <div className="text-[10px] text-[#3b8bf6]/58 truncate max-w-[100px]">{tick.name}</div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
+          <div className="font-mono text-sm sm:text-base font-bold text-[#f0f4ff]">${fmtPrice(tick.price)}</div>
           <div className={`text-[11px] font-mono ${isUp ? "text-[#00ff88]" : "text-[#ff5566]"}`}>
             {isUp ? "▲" : "▼"} {Math.abs(tick.changePercent).toFixed(2)}%
           </div>
@@ -543,14 +554,18 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
   // ViewBox top = 0, but arc top = cy - R = W/2+2 - (W/2-sw/2-4) = sw/2+6 ≥ 11px from top
   // So the stroke (sw/2 outward from arc) top = sw/2+6 - sw/2 = 6px from top — safe.
 
-  return (
+    const isSmall = size <= 60;
+    return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
       background: "#0f1626",
       border: "1px solid rgba(59,139,246,0.13)",
-      borderRadius: 16,
-      paddingTop: 8, paddingBottom: 10, paddingLeft: 12, paddingRight: 12,
-      minWidth: W + 16,
+      borderRadius: isSmall ? 10 : 16,
+      paddingTop: isSmall ? 5 : 8,
+      paddingBottom: isSmall ? 6 : 10,
+      paddingLeft: isSmall ? 6 : 12,
+      paddingRight: isSmall ? 6 : 12,
+      minWidth: W + (isSmall ? 8 : 16),
       flexShrink: 0,
     }}>
       <svg width={W} height={svgH} viewBox={`0 0 ${W} ${svgH}`} style={{ display: "block", overflow: "visible" }}>
@@ -602,10 +617,10 @@ function SentGauge({ tf, pct, label, color, size }: { tf: string; pct: number; l
         })}
       </svg>
       <div style={{ textAlign: "center", marginTop: 8 }}>
-        <div style={{ fontSize: isFinal ? 26 : 18, fontWeight: 800, color: pct >= 50 ? "#ffffff" : "#ff2233", fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
-        <div style={{ fontSize: isFinal ? 11 : 9, color: "rgba(255,248,232,0.55)", marginTop: 3, fontFamily: "sans-serif" }}>{label}</div>
+        <div style={{ fontSize: isFinal ? 24 : (isSmall ? 13 : 18), fontWeight: 800, color: pct >= 50 ? "#ffffff" : "#ff2233", fontFamily: "monospace", lineHeight: 1 }}>{pct}%</div>
+        <div style={{ fontSize: isFinal ? 10 : (isSmall ? 7 : 9), color: "rgba(255,248,232,0.55)", marginTop: 2, fontFamily: "sans-serif" }}>{label}</div>
       </div>
-      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 6, fontFamily: "monospace" }}>{tf}</div>
+      <div style={{ fontSize: isSmall ? 7 : 8, color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: isSmall ? 3 : 6, fontFamily: "monospace" }}>{tf}</div>
     </div>
   );
 }
@@ -977,6 +992,7 @@ function sentBgStyle(label: string): React.CSSProperties {
 }
 
 function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
+  const isMobile = useIsMobile();
   const allTicks = Array.from(ticks.values());
   const [showModal, setShowModal] = useState(false);
   const [query, setQuery] = useState("");
@@ -1092,10 +1108,10 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
 
       {/* Bar */}
       <div style={{ background: "#060a14", borderTop: "1px solid rgba(59,139,246,0.12)", borderBottom: "1px solid rgba(59,139,246,0.12)" }}>
-        <div style={{ padding: "10px 12px 8px 12px", display:"flex", alignItems:"center", gap:8 }}>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2" style={{ padding: "8px 10px 6px 10px" }}>
 
           {/* Selector button */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#3b8bf6" }} />
             <span className="text-[9px] font-mono uppercase tracking-widest hidden sm:block" style={{ color: "rgba(59,139,246,0.45)" }}>Sentiment</span>
             {selectedTick && (() => {
@@ -1133,7 +1149,7 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
           </div>
 
           {/* Gauge row */}
-          <div style={{ display:"flex", alignItems:"center", gap:4, overflowX:"hidden", overflowY:"visible", flex:1, paddingBottom:4, paddingTop:4, flexWrap:"nowrap", justifyContent:"space-between" }}>
+          <div className="flex items-center overflow-x-auto scrollbar-none sm:overflow-x-hidden flex-nowrap sm:flex-1 w-full" style={{ gap:4, paddingBottom:4, paddingTop:4, justifyContent:"flex-start", WebkitOverflowScrolling:"touch" }}>
             {/* Confluence Alert Banner */}
             {selectedTick && (() => {
               const mtf = getMultiTFConfluence(selectedTick, ["5M","15M","1H","4H","12H","1D","1W"]);
@@ -1165,7 +1181,8 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               const displayPct = single ? pct : Math.round((bull / total) * 100);
               const color = displayPct >= 50 ? "#00ff88" : "#ff2233";
               const short = label === "Strong Bull" ? "Strongly Bullish" : label === "Strong Bear" ? "Strongly Bearish" : label;
-              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={78} />;
+              const gSize = isMobile ? 56 : 78;
+              return <SentGauge key={tf} tf={tf} pct={displayPct} label={short} color={color} size={gSize} />;
             })}
             {/* Divider */}
             <div style={{ width:1, height:60, background:"rgba(59,139,246,0.12)", flexShrink:0 }} />
@@ -1174,10 +1191,11 @@ function MarketSentimentBar({ ticks }: { ticks: Map<string, Tick> }) {
               const pct = Math.round(((avgScore + 1) / 2) * 100);
               const color = pct >= 50 ? "#00ff88" : "#ff2233";
               const short = verdict === "Strong Bull" ? "Strongly Bullish" : verdict === "Strong Bear" ? "Strongly Bearish" : verdict;
-              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={95} />;
+              const fSize = isMobile ? 68 : 95;
+              return <SentGauge tf="FINAL" pct={pct} label={short} color={color} size={fSize} />;
             })()}
-            {/* Live price */}
-            {selectedTick && (
+            {/* Live price — hidden on mobile to save space */}
+            {selectedTick && !isMobile && (
               <div className="ml-auto flex flex-col items-end justify-center shrink-0 self-center gap-1">
                 <span className="text-lg font-bold font-mono" style={{ color: "#f0f4ff" }}>
                   ${Number(selectedTick.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
@@ -3923,7 +3941,7 @@ export default function Dashboard() {
       <NewsAlertBanner />
 
       {/* Header */}
-      <header className="border-b border-[#3b8bf6]/30 px-4 py-3 flex items-center justify-between sticky top-8 z-30 bg-[#03060d]/98 backdrop-blur-md shadow-[0_1px_0_rgba(59,139,246,0.15)]" style={{ top: "32px" }}>
+      <header className="border-b border-[#3b8bf6]/30 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between sticky top-8 z-30 bg-[#03060d]/98 backdrop-blur-md shadow-[0_1px_0_rgba(59,139,246,0.15)]" style={{ top: "32px" }}>
         <div className="flex items-center gap-3">
           {/* Logo */}
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Market Intel">
@@ -3932,14 +3950,14 @@ export default function Dashboard() {
             <rect x="18" y="8" width="2.5" height="12" rx="1.25" fill="#3b8bf6" />
           </svg>
           <div>
-            <div className="text-sm font-bold text-[#f0f4ff] leading-none tracking-wide">Market Intel</div>
+            <div className="text-xs sm:text-sm font-bold text-[#f0f4ff] leading-none tracking-wide">Market Intel</div>
             <div className="text-[10px] text-[#3b8bf6]/45 font-mono leading-none mt-0.5">
               {ticks.size.toLocaleString()} ticks live
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Connection indicator */}
           <div className={`flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded border ${
             connected
@@ -3947,16 +3965,16 @@ export default function Dashboard() {
               : "border-[#3b8bf6]/38 bg-[#3b8bf6]/12 text-[#3b8bf6]"
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-[#3b8bf6] animate-pulse shadow-[0_0_6px_rgba(59,139,246,0.8)]" : "bg-[#ff5566]"}`} />
-            {connected ? "LIVE" : "CONNECTING"}
+            <span className="hidden sm:inline">{connected ? "LIVE" : "CONNECTING"}</span>
           </div>
 
           {/* Search button */}
           <button
             data-testid="open-search"
             onClick={() => setShowSearch(true)}
-            className="flex items-center gap-2 text-xs font-mono border border-[#3b8bf6]/20 px-3 py-1.5 rounded-lg text-[#3b8bf6]/68 hover:text-white hover:border-[#3b8bf6]/50 hover:bg-[#3b8bf6]/6 transition-all"
+            className="flex items-center gap-2 text-xs font-mono border border-[#3b8bf6]/20 px-2 sm:px-3 py-1.5 rounded-lg text-[#3b8bf6]/68 hover:text-white hover:border-[#3b8bf6]/50 hover:bg-[#3b8bf6]/6 transition-all"
           >
-            <Search className="w-3 h-3" />
+            <Search className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
             <span className="hidden sm:inline">Search</span>
             <kbd className="hidden sm:inline text-[9px] border border-[#3b8bf6]/20 px-1 rounded text-[#3b8bf6]/38">⌘K</kbd>
           </button>
@@ -3964,14 +3982,14 @@ export default function Dashboard() {
           {/* Price Alerts */}
           <button
             onClick={() => setShowAlerts(a => !a)}
-            className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-2 py-1 rounded transition-all ${
+            className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-1.5 sm:px-2 py-1 rounded transition-all ${
               showAlerts
                 ? "border-[#3b8bf6]/50 bg-[#3b8bf6]/10 text-[#3b8bf6]"
                 : "border-[#3b8bf6]/20 text-[#3b8bf6]/58 hover:text-white hover:border-[#3b8bf6]/35"
             }`}
             title="Price Alerts"
           >
-            <BellRing className="w-3 h-3" />
+            <BellRing className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
             <span className="hidden sm:inline">Alerts</span>
           </button>
 
@@ -3979,27 +3997,23 @@ export default function Dashboard() {
           <button
             data-testid="open-news"
             onClick={() => setShowNews(n => !n)}
-            className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-2 py-1 rounded transition-all ${
+            className={`relative flex items-center gap-1.5 text-[10px] font-mono border px-1.5 sm:px-2 py-1 rounded transition-all ${
               showNews
                 ? "border-[#3b8bf6]/50 bg-[#3b8bf6]/10 text-[#3b8bf6]"
                 : "border-[#3b8bf6]/20 text-[#3b8bf6]/58 hover:text-white hover:border-[#3b8bf6]/35"
             }`}
             title="Market News"
           >
-            <Bell className="w-3 h-3" />
+            <Bell className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
             <span className="hidden sm:inline">News</span>
           </button>
 
-          {/* G2 Glasses icon */}
-          <div className="flex items-center gap-1.5 text-[10px] font-mono border border-[#3b8bf6]/20 px-2 py-1 rounded text-[#3b8bf6]/58">
-            <Glasses className="w-3 h-3" />
-            G2
-          </div>
+
         </div>
       </header>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#3b8bf6]/20 sticky z-20 bg-[#04070f]" style={{ top: "calc(32px + 57px)" }}>
+      <div className="flex border-b border-[#3b8bf6]/20 sticky z-20 bg-[#04070f] overflow-x-auto scrollbar-none" style={{ top: "calc(32px + 49px)", WebkitOverflowScrolling: "touch" }}>
         {tabs.map(t => {
           const Icon = t.icon;
           return (
@@ -4007,7 +4021,7 @@ export default function Dashboard() {
               key={t.id}
               data-testid={`tab-${t.id}`}
               onClick={() => { setTab(t.id); setSearch(""); }}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold border-b-2 transition-all ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${
                 tab === t.id
                   ? "border-green-500 text-[#3b8bf6]"
                   : "border-transparent text-[#3b8bf6]/58 hover:text-[#3b8bf6]/88"
@@ -4029,7 +4043,7 @@ export default function Dashboard() {
       <MarketSentimentBar ticks={ticks} />
 
       {/* Search bar */}
-      {tab !== "currency" && <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+      {tab !== "currency" && <div className="px-2 sm:px-4 pt-2 sm:pt-3 pb-2 flex items-center gap-2">
         <button
           onClick={() => setShowSearch(true)}
           className="flex items-center gap-2 flex-1 max-w-sm text-left text-xs font-mono border border-[#3b8bf6]/15 rounded-lg px-3 h-8 bg-[#111827]/80 text-[#3b8bf6]/38 hover:border-[#3b8bf6]/40 hover:bg-green-500/4 hover:text-[#3b8bf6]/68 transition-all"
@@ -4090,7 +4104,7 @@ export default function Dashboard() {
       )}
 
       {/* Grid */}
-      {tab !== "currency" && tab !== "positions" && <main className="px-4 pb-8">
+      {tab !== "currency" && tab !== "positions" && <main className="px-2 sm:px-4 pb-8">
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-2">
             {Array.from({ length: 24 }).map((_, i) => (
@@ -4110,7 +4124,7 @@ export default function Dashboard() {
             </div>
           )
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5 sm:gap-2 mt-1">
             {currentTicks.map(tick => {
               const cat = tick.category;
               const base = tick.symbol.replace("USDT", "");
@@ -4164,7 +4178,7 @@ export default function Dashboard() {
       {showAlerts && <PriceAlertsPanel ticks={ticks} onClose={() => setShowAlerts(false)} />}
 
       {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-[#0d1120]/98 border-t border-[#3b8bf6]/20 backdrop-blur-md flex items-center justify-around px-2 py-2 safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-[#0d1120]/98 border-t border-[#3b8bf6]/20 backdrop-blur-md flex items-center justify-around px-2 pb-safe"  style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))", paddingTop: "8px" }}>
         {[
           { id: "crypto" as Tab,    icon: Bitcoin,     label: "Crypto" },
           { id: "favorites" as Tab, icon: Star,        label: "Watch" },

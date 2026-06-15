@@ -36,32 +36,162 @@ const loginPage = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
   <title>Market Intel — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; color: #22c55e; font-family: 'Courier New', monospace;
-           display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .box { border: 1px solid #22c55e; padding: 40px; width: 340px; }
-    h1 { font-size: 18px; margin-bottom: 8px; letter-spacing: 2px; }
-    p { font-size: 12px; color: #166534; margin-bottom: 28px; }
-    input { width: 100%; background: #000; border: 1px solid #22c55e; color: #22c55e;
-            padding: 10px 14px; font-family: monospace; font-size: 14px; margin-bottom: 16px; outline: none; }
-    button { width: 100%; background: #22c55e; color: #000; border: none; padding: 10px;
-             font-family: monospace; font-size: 14px; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
-    button:hover { background: #16a34a; }
-    .error { color: #ef4444; font-size: 12px; margin-bottom: 12px; display: none; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #05080f;
+      background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,139,246,0.18) 0%, transparent 60%);
+      color: #f0f4ff;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: rgba(13,17,32,0.95);
+      border: 1px solid rgba(59,139,246,0.25);
+      border-radius: 16px;
+      padding: 36px 28px 28px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 40px rgba(59,139,246,0.08);
+    }
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(59,139,246,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-icon svg { display: block; }
+    .logo-text h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f0f4ff;
+      letter-spacing: 0.01em;
+      line-height: 1;
+    }
+    .logo-text p {
+      font-size: 11px;
+      color: rgba(59,139,246,0.55);
+      margin-top: 3px;
+      letter-spacing: 0.02em;
+    }
+    .live-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: #00ff88;
+      border-radius: 50%;
+      margin-right: 5px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(59,139,246,0.6);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    input[type="password"] {
+      width: 100%;
+      background: rgba(59,139,246,0.06);
+      border: 1px solid rgba(59,139,246,0.28);
+      border-radius: 10px;
+      color: #f0f4ff;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: 'Inter', sans-serif;
+      margin-bottom: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    input[type="password"]:focus {
+      border-color: rgba(59,139,246,0.7);
+      background: rgba(59,139,246,0.09);
+    }
+    input[type="password"]::placeholder {
+      color: rgba(240,244,255,0.22);
+    }
+    button[type="submit"] {
+      width: 100%;
+      background: #3b8bf6;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-appearance: none;
+    }
+    button[type="submit"]:hover { background: #5599f8; }
+    button[type="submit"]:active { transform: scale(0.98); }
+    .error {
+      color: #ff5566;
+      font-size: 12px;
+      margin-bottom: 12px;
+      display: none;
+      background: rgba(255,85,102,0.08);
+      border: 1px solid rgba(255,85,102,0.25);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(59,139,246,0.25);
+    }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>MARKET INTEL</h1>
-    <p>Live crypto & market news for G2</p>
-    <div class="error" id="err">Incorrect password. Try again.</div>
+  <div class="card">
+    <div class="logo-row">
+      <div class="logo-icon">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+          <path d="M8 14a6 6 0 1 1 6 6H8v-3h4a3 3 0 1 0-3-3H8v-3z" fill="#3b8bf6"/>
+          <rect x="18" y="8" width="2.5" height="12" rx="1.25" fill="#3b8bf6"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>Market Intel</h1>
+        <p><span class="live-dot"></span>Institutional-grade market data</p>
+      </div>
+    </div>
+    <div class="error" id="err">Incorrect password. Please try again.</div>
     <form method="POST" action="/auth/login">
-      <input type="password" name="password" placeholder="Enter password" autofocus />
-      <button type="submit">ACCESS &rarr;</button>
+      <label>Access Password</label>
+      <input type="password" name="password" placeholder="Enter your password" autofocus autocomplete="current-password" />
+      <button type="submit">Access Dashboard &rarr;</button>
     </form>
+    <div class="footer">Secure · Private · Real-time</div>
   </div>
   <script>
     const u = new URLSearchParams(window.location.search);

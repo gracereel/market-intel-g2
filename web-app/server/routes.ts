@@ -406,48 +406,208 @@ ${contextLines}`;
       }
     }
 
-    // Built-in analyst: rule-based smart responses using live data
+    // Built-in analyst: smarter matching with alias map + rich analysis
     const q = message.toLowerCase();
     const allTicks = [...cryptoTicks, ...futuresTicks];
 
-    // Find mentioned ticker
-    const mentionedTick = allTicks.find(t =>
-      q.includes(t.symbol.toLowerCase()) ||
-      q.includes(t.symbol.replace("USDT","").toLowerCase()) ||
-      (t.name && q.includes(t.name.toLowerCase()))
-    );
+    // ── Alias map: common names / tickers → symbol patterns to search ──────
+    const ALIAS_MAP: Record<string, string[]> = {
+      bitcoin:   ["BTCUSDT","BTC"],
+      btc:       ["BTCUSDT","BTC"],
+      ethereum:  ["ETHUSDT","ETH"],
+      eth:       ["ETHUSDT","ETH"],
+      solana:    ["SOLUSDT","SOL"],
+      sol:       ["SOLUSDT","SOL"],
+      polygon:   ["MATICUSDT","POLUSDT","MATIC","POL"],
+      matic:     ["MATICUSDT","MATIC"],
+      pol:       ["POLUSDT","MATICUSDT","POL","MATIC"],
+      xrp:       ["XRPUSDT","XRP"],
+      ripple:    ["XRPUSDT","XRP"],
+      cardano:   ["ADAUSDT","ADA"],
+      ada:       ["ADAUSDT","ADA"],
+      dogecoin:  ["DOGEUSDT","DOGE"],
+      doge:      ["DOGEUSDT","DOGE"],
+      shiba:     ["SHIBUSDT","SHIB"],
+      shib:      ["SHIBUSDT","SHIB"],
+      avalanche: ["AVAXUSDT","AVAX"],
+      avax:      ["AVAXUSDT","AVAX"],
+      chainlink: ["LINKUSDT","LINK"],
+      link:      ["LINKUSDT","LINK"],
+      polkadot:  ["DOTUSDT","DOT"],
+      dot:       ["DOTUSDT","DOT"],
+      uniswap:   ["UNIUSDT","UNI"],
+      uni:       ["UNIUSDT","UNI"],
+      litecoin:  ["LTCUSDT","LTC"],
+      ltc:       ["LTCUSDT","LTC"],
+      bnb:       ["BNBUSDT","BNB"],
+      binance:   ["BNBUSDT","BNB"],
+      tron:      ["TRXUSDT","TRX"],
+      trx:       ["TRXUSDT","TRX"],
+      near:      ["NEARUSDT","NEAR"],
+      atom:      ["ATOMUSDT","ATOM"],
+      cosmos:    ["ATOMUSDT","ATOM"],
+      filecoin:  ["FILUSDT","FIL"],
+      fil:       ["FILUSDT","FIL"],
+      aave:      ["AAVEUSDT","AAVE"],
+      maker:     ["MKRUSDT","MKR"],
+      mkr:       ["MKRUSDT","MKR"],
+      pepe:      ["PEPEUSDT","PEPE"],
+      wif:       ["WIFUSDT","WIF"],
+      bonk:      ["BONKUSDT","BONK"],
+      aptos:     ["APTUSDT","APT"],
+      apt:       ["APTUSDT","APT"],
+      sui:       ["SUIUSDT","SUI"],
+      injective: ["INJUSDT","INJ"],
+      inj:       ["INJUSDT","INJ"],
+      arbitrum:  ["ARBUSDT","ARB"],
+      arb:       ["ARBUSDT","ARB"],
+      optimism:  ["OPUSDT","OP"],
+      // futures
+      gold:      ["GC=F","GOLD"],
+      oil:       ["CL=F","OIL","WTI"],
+      crude:     ["CL=F","OIL"],
+      wti:       ["CL=F"],
+      sp500:     ["ES=F","SPX","SPY"],
+      spx:       ["ES=F","SPX"],
+      nasdaq:    ["NQ=F","NAS100"],
+      nq:        ["NQ=F"],
+      dow:       ["YM=F","DJI"],
+      russell:   ["RTY=F","RUT"],
+      eurusd:    ["EURUSD"],
+      euro:      ["EURUSD"],
+      gbpusd:    ["GBPUSD"],
+      pound:     ["GBPUSD"],
+      usdjpy:    ["USDJPY"],
+      yen:       ["USDJPY"],
+    };
+
+    // Find tick via alias map first, then fallback to symbol/name scan
+    function findTick(query: string) {
+      // Check each alias key
+      for (const [alias, symbols] of Object.entries(ALIAS_MAP)) {
+        if (query.includes(alias)) {
+          for (const sym of symbols) {
+            const found = allTicks.find(t =>
+              t.symbol.toUpperCase() === sym.toUpperCase() ||
+              t.symbol.toUpperCase().includes(sym.toUpperCase())
+            );
+            if (found) return found;
+          }
+        }
+      }
+      // Fallback: direct symbol match or name match
+      return allTicks.find(t => {
+        const sym = t.symbol.toLowerCase();
+        const base = sym.replace("usdt","").replace("=f","");
+        return query.includes(sym) || query.includes(base) ||
+               (t.name && query.includes(t.name.toLowerCase()));
+      }) || null;
+    }
+
+    const mentionedTick = findTick(q);
+
+    // ── Rich analysis for a specific asset ──────────────────────────────────
+    function analyzeTick(t: any): string {
+      const price = Number(t.price);
+      const chgPct = Number(t.changePercent);
+      const dir = chgPct >= 0 ? "up" : "down";
+      const strength = Math.abs(chgPct) > 5 ? "sharply" : Math.abs(chgPct) > 2 ? "strongly" : Math.abs(chgPct) > 0.8 ? "moderately" : "slightly";
+      const chgStr = `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%`;
+      const displayName = t.name ? `**${t.name} (${t.symbol})**` : `**${t.symbol}**`;
+
+      // ADX regime
+      const adxStr = t.adx != null
+        ? (t.adx >= 40 ? `ADX at ${t.adx.toFixed(0)} signals a **strong trend** — high directional conviction.`
+         : t.adx >= 25 ? `ADX at ${t.adx.toFixed(0)} confirms a **trending regime** — signals are reliable.`
+         : t.adx >= 20 ? `ADX at ${t.adx.toFixed(0)} shows **weak trend** — use tighter stops.`
+         : `ADX at ${t.adx.toFixed(0)} means **ranging/choppy** conditions — breakout signals carry lower confidence.`)
+        : "";
+
+      // OI signal
+      const oiStr = t.oiSignal != null
+        ? (t.oiSignal > 0.3 ? "Open interest is **rising sharply** — new money flowing in confirms the move."
+         : t.oiSignal > 0.1 ? "Open interest is rising — the move has institutional participation."
+         : t.oiSignal < -0.3 ? "Open interest is **falling sharply** — this looks like liquidation, not a conviction move."
+         : t.oiSignal < -0.1 ? "Open interest is declining — some participants are exiting positions."
+         : "Open interest is neutral — no clear institutional bias.")
+        : "";
+
+      // CVD signal
+      const cvdStr = t.cvdSignal != null
+        ? (t.cvdSignal > 0.3 ? "CVD order flow is **bullish** — aggressive buyers are dominating."
+         : t.cvdSignal < -0.3 ? "CVD order flow is **bearish** — aggressive sellers are in control."
+         : "")
+        : "";
+
+      // Range position
+      const rangeSize = t.high - t.low;
+      const rangePos = rangeSize > 0 ? ((price - t.low) / rangeSize * 100).toFixed(0) : "50";
+      const rangeStr = `Price sits at **${rangePos}%** of today's range ($${t.low.toFixed(2)} – $${t.high.toFixed(2)}).`;
+
+      // Bias conclusion
+      const bullFactors = [chgPct > 0, t.oiSignal > 0.1, t.cvdSignal > 0.2, Number(rangePos) > 60].filter(Boolean).length;
+      const bearFactors = [chgPct < 0, t.oiSignal < -0.1, t.cvdSignal < -0.2, Number(rangePos) < 40].filter(Boolean).length;
+      const bias = bullFactors >= 3 ? "**Bias: Bullish** — multiple factors align to the upside."
+                 : bearFactors >= 3 ? "**Bias: Bearish** — multiple factors align to the downside."
+                 : "**Bias: Neutral/Mixed** — conflicting signals, wait for a clearer setup.";
+
+      const lines = [
+        `${displayName} is trading at **$${price.toLocaleString()}** (${chgStr}), moving ${strength} ${dir} on the session.`,
+        rangeStr,
+        adxStr,
+        oiStr,
+        cvdStr,
+        bias,
+      ].filter(Boolean);
+
+      return lines.join("\n");
+    }
 
     let answer = "";
 
     if (mentionedTick) {
-      const t = mentionedTick;
-      const dir = t.changePercent >= 0 ? "up" : "down";
-      const strength = Math.abs(t.changePercent) > 3 ? "strongly" : Math.abs(t.changePercent) > 1 ? "moderately" : "slightly";
-      const adxStr = t.adx ? (t.adx >= 25 ? `The ADX reading of ${t.adx.toFixed(0)} confirms a trending regime.` : `ADX at ${t.adx.toFixed(0)} suggests ranging/choppy conditions — lower signal reliability.`) : "";
-      const oiStr = t.oiSignal ? (t.oiSignal > 0.2 ? "Open interest is rising, suggesting new money is entering this move." : t.oiSignal < -0.2 ? "Open interest is declining — the move may be driven by position liquidation rather than conviction." : "") : "";
-      answer = `**${t.symbol}** is currently trading at **$${Number(t.price).toLocaleString()}**, ${strength} ${dir} ${Math.abs(t.changePercent).toFixed(2)}% on the session. ${adxStr} ${oiStr}\n\nKey levels to watch: support near $${(t.low * 0.995).toFixed(2)} and resistance at $${(t.high * 1.005).toFixed(2)} based on today's range. The 24h range spans $${(t.high - t.low).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}.`;
-    } else if (q.includes("top") || q.includes("best") || q.includes("mover") || q.includes("gainer")) {
+      answer = analyzeTick(mentionedTick);
+    } else if (q.includes("top") || q.includes("best") || q.includes("mover") || q.includes("gainer") || q.includes("pump") || q.includes("up")) {
       const sorted = [...allTicks].sort((a, b) => b.changePercent - a.changePercent);
-      const top3 = sorted.slice(0, 3).map(t => `**${t.symbol}** +${t.changePercent.toFixed(2)}%`).join(", ");
-      answer = `Today's top movers: ${top3}.\n\nStrong momentum in these names could indicate sector rotation or macro catalysts driving risk appetite. Watch for follow-through volume on the leader — sustained ADX above 25 is the key confirmation.`;
-    } else if (q.includes("worst") || q.includes("loser") || q.includes("bear") || q.includes("dump") || q.includes("drop")) {
+      const top5 = sorted.slice(0, 5).map(t => `**${t.symbol.replace("USDT","")}** ${t.changePercent >= 0 ? "+" : ""}${t.changePercent.toFixed(2)}%`).join("  |  ");
+      const leader = sorted[0];
+      answer = `**Top Movers Today:**\n${top5}\n\n${leader ? `**${leader.symbol.replace("USDT","")}** is leading with ${leader.changePercent.toFixed(2)}% — ${leader.adx >= 25 ? "ADX confirms a real trend, not just noise." : "but ADX is low, watch for a reversal."}` : ""}`;
+    } else if (q.includes("worst") || q.includes("loser") || q.includes("bear") || q.includes("dump") || q.includes("drop") || q.includes("down") || q.includes("red")) {
       const sorted = [...allTicks].sort((a, b) => a.changePercent - b.changePercent);
-      const bot3 = sorted.slice(0, 3).map(t => `**${t.symbol}** ${t.changePercent.toFixed(2)}%`).join(", ");
-      answer = `Weakest performers today: ${bot3}.\n\nPersistent selling pressure in these pairs may reflect macro risk-off sentiment or asset-specific negative catalysts. Monitor if the broader crypto market follows — a sector-wide decline suggests macro drivers rather than idiosyncratic news.`;
-    } else if (q.includes("btc") || q.includes("bitcoin")) {
-      const btc = allTicks.find(t => t.symbol === "BTCUSDT" || t.symbol === "BTC");
-      if (btc) {
-        answer = `Bitcoin is currently at **$${Number(btc.price).toLocaleString()}**, ${btc.changePercent >= 0 ? "+" : ""}${btc.changePercent.toFixed(2)}% on the day. As the market leader, BTC price action typically sets the tone for altcoin sentiment. ${btc.adx ? (btc.adx >= 25 ? `The trending ADX (${btc.adx.toFixed(0)}) suggests the current directional move has conviction.` : `A low ADX (${btc.adx.toFixed(0)}) indicates consolidation — expect range-bound price action until a breakout.`) : ""}\n\nKey institutional levels: round numbers ($${Math.round(btc.price / 1000) * 1000}k) often act as psychological support/resistance.`;
+      const bot5 = sorted.slice(0, 5).map(t => `**${t.symbol.replace("USDT","")}** ${t.changePercent.toFixed(2)}%`).join("  |  ");
+      answer = `**Biggest Losers Today:**\n${bot5}\n\nPersistent selling may reflect macro risk-off or asset-specific catalysts. Watch if BTC follows — if it does, this is a broad market move.`;
+    } else if (q.includes("futures") || q.includes("gold") || q.includes("oil") || q.includes("spx") || q.includes("sp500") || q.includes("nasdaq") || q.includes("nq") || q.includes("dow")) {
+      const futs = futuresTicks;
+      if (futs.length) {
+        const lines = futs.map(t => `**${t.symbol}** $${Number(t.price).toLocaleString()} (${t.changePercent >= 0 ? "+" : ""}${t.changePercent.toFixed(2)}%)`).join("\n");
+        const riskOn = futs.filter(t => t.changePercent > 0).length > futs.length / 2;
+        answer = `**Futures Overview:**\n${lines}\n\nOverall macro tone is **${riskOn ? "risk-on" : "risk-off"}** based on current futures positioning.`;
       } else {
-        answer = "Bitcoin data is currently loading. Check the dashboard for the latest BTC price.";
+        answer = "Futures data is loading. Check the Futures tab on your dashboard for live readings.";
       }
-    } else if (q.includes("market") || q.includes("overview") || q.includes("summary")) {
+    } else if (q.includes("crypto") || q.includes("altcoin") || q.includes("alt")) {
+      const sorted = [...cryptoTicks].sort((a, b) => b.changePercent - a.changePercent);
+      const gainers = sorted.filter(t => t.changePercent > 0).length;
+      const losers = sorted.filter(t => t.changePercent < 0).length;
+      const top3 = sorted.slice(0, 3).map(t => `**${t.symbol.replace("USDT","")}** +${t.changePercent.toFixed(2)}%`).join(", ");
+      const bot3 = sorted.slice(-3).map(t => `**${t.symbol.replace("USDT","")}** ${t.changePercent.toFixed(2)}%`).join(", ");
+      answer = `**Crypto Sector:** ${gainers} coins up, ${losers} down.\n\nLeaders: ${top3}\nLaggards: ${bot3}\n\nBTC dominance sets the tone — if BTC is flat while alts pump, watch for a rotation signal.`;
+    } else if (q.includes("market") || q.includes("overview") || q.includes("summary") || q.includes("how") || q.includes("what")) {
       const gainers = allTicks.filter(t => t.changePercent > 0).length;
       const losers = allTicks.filter(t => t.changePercent < 0).length;
-      const sentiment = gainers > losers ? "risk-on" : gainers < losers ? "risk-off" : "mixed";
-      answer = `**Market Overview:** ${gainers} assets are up, ${losers} are down — overall sentiment is **${sentiment}**.\n\nTop crypto leaders are ${allTicks.slice(0,3).map(t => `${t.symbol} (${t.changePercent >= 0 ? "+" : ""}${t.changePercent.toFixed(1)}%)`).join(", ")}. Cross-asset correlation is a key factor to monitor — if BTC, SPX futures, and gold are all moving in the same direction, macro forces are dominant.`;
+      const sentiment = gainers > losers * 1.3 ? "strongly risk-on" : gainers > losers ? "slightly risk-on" : losers > gainers * 1.3 ? "strongly risk-off" : "mixed";
+      const btc = allTicks.find(t => t.symbol === "BTCUSDT" || t.symbol === "BTC");
+      const btcLine = btc ? `BTC at $${Number(btc.price).toLocaleString()} (${btc.changePercent >= 0 ? "+" : ""}${btc.changePercent.toFixed(2)}%) is leading the market.` : "";
+      answer = `**Market Overview:** ${gainers}/${allTicks.length} instruments are up — sentiment is **${sentiment}**.\n\n${btcLine}\n\nTop 3: ${allTicks.sort((a,b)=>b.changePercent-a.changePercent).slice(0,3).map(t=>`${t.symbol.replace("USDT","")} ${t.changePercent>=0?"+":""}${t.changePercent.toFixed(1)}%`).join(" | ")}`;
+    } else if (q.includes("sentiment") || q.includes("signal") || q.includes("confluence") || q.includes("setup")) {
+      const highConf = allTicks.filter(t => t.adx && t.adx >= 25).length;
+      answer = `**Signal Environment:** ${highConf} pairs currently show trending ADX (≥25), meaning their sentiment signals are in high-confidence mode.\n\nThe **High Confidence Signals** panel on your dashboard shows pairs where 6+ timeframes align with 75%+ confidence — those are the highest-probability institutional setups right now. Check that panel for live trade ideas.`;
     } else {
-      answer = `Based on current live data across ${allTicks.length} tracked instruments, the market is showing mixed signals. To get a specific analysis, ask me about a particular asset (e.g., "What's BTC doing?"), sector (e.g., "How are futures performing?"), or condition (e.g., "Who are today's top movers?").\n\nThe High Confidence Signals panel on your dashboard highlights pairs where 5+ timeframes align — those are the highest-probability setups right now.`;
+      // Catch-all: still give useful info using all live data
+      const gainers = allTicks.filter(t => t.changePercent > 0).length;
+      const losers = allTicks.filter(t => t.changePercent < 0).length;
+      const top = [...allTicks].sort((a,b)=>b.changePercent-a.changePercent)[0];
+      answer = `I can analyze any asset in your dashboard. Just ask me things like:\n\n• "Analyze Polygon" or "What's MATIC doing?"\n• "Top movers today"\n• "How are futures looking?"\n• "Market overview"\n• "Bitcoin analysis"\n\nRight now: **${gainers}** assets up, **${losers}** down${top ? ` — **${top.symbol.replace("USDT","")}** is the session leader at +${top.changePercent.toFixed(2)}%` : ""}.`;
     }
 
     return res.json({ answer });

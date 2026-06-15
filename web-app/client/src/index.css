@@ -96,3 +96,27 @@
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
+
+/* ── Mobile utilities ──────────────────────────────────────────────── */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Mobile-first sentiment gauge row ─────────────────────────────── */
+@media (max-width: 639px) {
+  .sentiment-gauge-row {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important;
+    padding: 6px 8px !important;
+    overflow-x: visible !important;
+  }
+  .sentiment-gauge-row .gauge-item {
+    min-width: 0 !important;
+    width: auto !important;
+  }
+}
