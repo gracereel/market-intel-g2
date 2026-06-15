@@ -169,6 +169,30 @@ const loginPage = `<!DOCTYPE html>
       font-size: 11px;
       color: rgba(59,139,246,0.25);
     }
+    .home-btn {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      background: transparent;
+      border: 1px solid rgba(59,139,246,0.25);
+      border-radius: 10px;
+      color: rgba(240,244,255,0.55);
+      padding: 11px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      text-align: center;
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+      -webkit-appearance: none;
+    }
+    .home-btn:hover {
+      border-color: rgba(59,139,246,0.55);
+      color: #f0f4ff;
+      background: rgba(59,139,246,0.07);
+    }
   </style>
 </head>
 <body>
@@ -191,6 +215,7 @@ const loginPage = `<!DOCTYPE html>
       <input type="password" name="password" placeholder="Enter your password" autofocus autocomplete="current-password" />
       <button type="submit">Access Dashboard &rarr;</button>
     </form>
+    <a href="/" class="home-btn">&larr; Back to Home</a>
     <div class="footer">Secure · Private · Real-time</div>
   </div>
   <script>
