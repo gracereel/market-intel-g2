@@ -6,44 +6,39 @@ import {
 } from '@evenrealities/even_hub_sdk';
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
-// Production URL for the Market Intel server
-const SERVER_URL = window.MARKET_SERVER_URL
-  || 'https://market-intel-g2-production.up.railway.app';
-
+const SERVER_URL = 'https://market-intel-g2-production.up.railway.app';
 const SSE_URL    = `${SERVER_URL}/api/live/stream`;
-const NEWS_URL   = `${SERVER_URL}/api/news/latest`;
+const NEWS_URL   = `${SERVER_URL}/api/news?limit=15`;
 
-// G2 display canvas is 576×288px — one text container fills it all
-const CID_MAIN = 1;
+const CID = 1; // single full-screen container ID
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let bridge       = null;
 let initialized  = false;
-let coins        = [];        // array of Tick objects (category==='crypto')
-let newsQueue    = [];        // recent headlines from /api/news
-let lastNewsId   = null;      // to detect truly NEW headlines
+let coins        = [];
+let newsQueue    = [];
+let lastNewsId   = null;
 let currentPage  = 'prices'; // 'prices' | 'news' | 'alert'
 let alertActive  = false;
 let alertTimeout = null;
-let scrollIdx    = 0;         // which coin is shown in prices view
+let scrollIdx    = 0;
 let newsScrollIdx = 0;
 
-// ─── DEBUG LOG ─────────────────────────────────────────────────────────────
+// ─── DEBUG (companion browser UI) ──────────────────────────────────────────
 function log(msg) {
   console.log('[G2]', msg);
   const el = document.getElementById('log');
   if (el) el.innerHTML = `<div>${new Date().toLocaleTimeString()} ${msg}</div>` + el.innerHTML;
 }
 function setStatus(msg) {
+  console.log('[STATUS]', msg);
   const el = document.getElementById('status');
   if (el) el.textContent = msg;
-  log(msg);
 }
 
 // ─── FORMAT HELPERS ────────────────────────────────────────────────────────
 function pad(s, n)  { s = String(s ?? ''); return s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length); }
 function rpad(s, n) { s = String(s ?? ''); return s.length >= n ? s.slice(0, n) : ' '.repeat(n - s.length) + s; }
-
 function fmtPrice(p) {
   const n = parseFloat(p);
   if (isNaN(n)) return '---';
@@ -53,374 +48,255 @@ function fmtPrice(p) {
   if (n >= 0.001) return '$' + n.toFixed(4);
   return '$' + n.toFixed(6);
 }
-
 function fmtChange(c) {
   const n = parseFloat(c);
   if (isNaN(n)) return '  --  ';
   return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 }
-
-function sentLabel(s) {
-  if (!s) return 'NEUT';
-  const u = s.toUpperCase();
-  if (u.includes('BULL') || u === 'POSITIVE') return 'BULL';
-  if (u.includes('BEAR') || u === 'NEGATIVE') return 'BEAR';
-  return 'NEUT';
-}
-
-function sentBar(buyers) {
-  const pct    = Math.min(100, Math.max(0, parseInt(buyers) || 50));
-  const filled = Math.round(pct / 5);
-  return '[' + '█'.repeat(filled) + '░'.repeat(20 - filled) + '] ' + pct + '%';
-}
-
-function wrap(text, width) {
-  // Split text into lines of max `width` chars
-  const words = (text || '').split(' ');
-  const lines = [];
-  let cur = '';
-  for (const w of words) {
-    if ((cur + ' ' + w).trim().length <= width) {
-      cur = (cur + ' ' + w).trim();
-    } else {
-      if (cur) lines.push(cur);
-      cur = w.slice(0, width);
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines;
-}
-
 function truncate(s, n) {
   if (!s) return '';
-  return s.length > n ? s.slice(0, n - 1) + '…' : s;
+  return s.length > n ? s.slice(0, n - 1) + '~' : s;
 }
-
 function timestamp() {
-  return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── RENDER PRICES PAGE ────────────────────────────────────────────────────
-async function renderPricesPage() {
+// ─── PUSH TEXT TO G2 ───────────────────────────────────────────────────────
+async function pushText(content) {
+  if (!bridge || !initialized) return;
+  // Cap at 1000 chars (SDK limit for textContainerUpgrade is 2000 but keep safe)
+  const safe = content.slice(0, 900);
+  try {
+    await bridge.textContainerUpgrade({
+      containerID:   CID,
+      containerName: 'main',
+      contentOffset: 0,
+      contentLength: safe.length,
+      content:       safe,
+    });
+  } catch (e) {
+    log('pushText err: ' + e.message);
+  }
+}
+
+// ─── RENDER PRICES ─────────────────────────────────────────────────────────
+async function renderPrices() {
   if (!bridge || !initialized || currentPage !== 'prices') return;
   const coin = coins[scrollIdx];
   if (!coin) {
-    await pushText('MARKET INTEL\nNo coins loaded yet.\nCheck connection.\n\n' + timestamp());
+    await pushText('MARKET INTEL\nConnecting...\n\n' + timestamp());
     return;
   }
-
-  const sent = sentLabel(coin.sentiment);
-
-  // Line 1: symbol padded + price right-aligned
-  const symStr  = pad(coin.symbol, 7);
-  const priceStr = rpad(fmtPrice(coin.price), 14);
-  const chgStr   = rpad(fmtChange(coin.changePercent ?? coin.change), 9);
-  const line1 = symStr + ' ' + priceStr + ' ' + chgStr;  // ~32 chars
-
-  // Line 2: sentiment + buyer bar
-  const line2 = pad(sent, 5) + ' ' + sentBar(coin.buyerPressure ?? 50);
-
-  // Line 3: nav hint
-  const line3 = '[' + (scrollIdx + 1) + '/' + coins.length + '] TAP=NEXT  HOLD=NEWS  DBL=EXIT';
-
-  // Line 4: latest news headline snippet
-  const coinHl = newsQueue.find(n =>
-    n.tags && Array.isArray(n.tags) && n.tags.some(t => t.toUpperCase() === coin.symbol.toUpperCase())
-  ) || newsQueue[0];
-  const line4 = truncate(coinHl ? coinHl.title : 'No recent news', 40);
-
-  // Line 5: time + LIVE indicator
-  const line5 = 'MARKET INTEL  ' + rpad(timestamp(), 12) + '  LIVE';
-
-  await pushText([line1, line2, line3, line4, line5].join('\n'));
-  updateDebugPreview([line1, line2, line3, line4, line5], sent);
+  const arrow = parseFloat(coin.changePercent) >= 0 ? 'UP' : 'DN';
+  const l1 = pad(coin.symbol, 6) + ' ' + rpad(fmtPrice(coin.price), 12) + ' ' + arrow + ' ' + fmtChange(coin.changePercent);
+  const l2 = 'Hi:' + fmtPrice(coin.high) + '  Lo:' + fmtPrice(coin.low);
+  const l3 = 'Vol:' + rpad(String(Math.round(coin.volume || 0)), 10);
+  const hl  = newsQueue.find(n => n.tags?.some(t => t.toUpperCase() === coin.symbol.toUpperCase()));
+  const l4  = truncate(hl ? hl.title : 'No news', 40);
+  const l5  = '[' + (scrollIdx+1) + '/' + coins.length + '] TAP=NEXT HOLD=NEWS DBL=EXIT';
+  const l6  = 'MARKET INTEL  ' + timestamp() + '  LIVE';
+  await pushText([l1,l2,l3,l4,l5,l6].join('\n'));
 }
 
-// ─── RENDER NEWS PAGE ──────────────────────────────────────────────────────
-async function renderNewsPage() {
+// ─── RENDER NEWS ───────────────────────────────────────────────────────────
+async function renderNews() {
   if (!bridge || !initialized || currentPage !== 'news') return;
   const item = newsQueue[newsScrollIdx];
-  if (!item) { currentPage = 'prices'; await renderPricesPage(); return; }
-
-  const sent   = sentLabel(item.sentiment);
-  const lines  = wrap(item.title || '', 40);
-  const line1  = '── NEWS [' + (newsScrollIdx + 1) + '/' + newsQueue.length + '] ' + pad(sent, 4) + ' ──────────────';
-  const line2  = pad(lines[0] || '', 40);
-  const line3  = pad(lines[1] || '', 40);
-  const src    = truncate(item.source || item.author || '', 16);
-  const line4  = pad(src, 18) + '  TAP=NEXT  DBL=BACK';
-  const line5  = truncate(item.url || '', 40);
-
-  await pushText([line1, line2, line3, line4, line5].join('\n'));
-  updateDebugPreview([line1, line2, line3, line4, line5], sent);
+  if (!item) { currentPage = 'prices'; await renderPrices(); return; }
+  const sent  = (item.sentiment || 'neutral').toUpperCase().slice(0, 4);
+  const title = item.title || '';
+  const l1 = '--NEWS [' + (newsScrollIdx+1) + '/' + newsQueue.length + '] ' + sent + '--';
+  const l2 = truncate(title, 40);
+  const l3 = title.length > 40 ? truncate(title.slice(40), 40) : '';
+  const l4 = truncate(item.source || '', 20) + '  TAP=NEXT';
+  const l5 = 'DBL=BACK TO PRICES';
+  const l6 = 'MARKET INTEL  ' + timestamp();
+  await pushText([l1,l2,l3,l4,l5,l6].join('\n'));
 }
 
 // ─── RENDER ALERT ──────────────────────────────────────────────────────────
 async function renderAlert(item) {
   if (!bridge || !initialized) return;
-
-  alertActive  = true;
-  currentPage  = 'alert';
-
-  const sent   = sentLabel(item.sentiment);
-  const impact = sent === 'BULL' ? '▲ BULLISH ALERT' : sent === 'BEAR' ? '▼ BEARISH ALERT' : '◆ MARKET ALERT';
-  const lines  = wrap(item.title || '', 40);
-  const coin   = (item.tags && item.tags[0]) ? '[' + item.tags[0].toUpperCase() + ']' : '[MARKET]';
-
-  const line1  = '⚡ BREAKING  ' + impact;
-  const line2  = pad(lines[0] || '', 40);
-  const line3  = pad(lines[1] || '', 40);
-  const line4  = pad(coin, 10) + '  TAP=DISMISS';
-  const line5  = 'AUTO-DISMISS 10s  ' + timestamp();
-
-  await pushText([line1, line2, line3, line4, line5].join('\n'));
-  updateDebugPreview([line1, line2, line3, line4, line5], sent);
-
+  alertActive = true;
+  currentPage = 'alert';
+  const sent  = (item.sentiment || 'neutral').toUpperCase();
+  const arrow = sent.includes('BULL') ? 'UP' : sent.includes('BEAR') ? 'DN' : '--';
+  const l1 = '!! BREAKING ' + arrow + ' ' + sent + ' ALERT !!';
+  const l2 = truncate(item.title || '', 40);
+  const l3 = item.title && item.title.length > 40 ? truncate(item.title.slice(40), 40) : '';
+  const coin = item.tags?.[0] ? '[' + item.tags[0].toUpperCase() + ']' : '[MARKET]';
+  const l4 = coin + '  TAP=DISMISS';
+  const l5 = 'AUTO 10s  ' + timestamp();
+  const l6 = 'MARKET INTEL LIVE';
+  await pushText([l1,l2,l3,l4,l5,l6].join('\n'));
   if (alertTimeout) clearTimeout(alertTimeout);
   alertTimeout = setTimeout(async () => {
-    alertActive  = false;
-    currentPage  = 'prices';
-    await renderPricesPage();
+    alertActive = false;
+    currentPage = 'prices';
+    await renderPrices();
   }, 10000);
 }
 
-// ─── PUSH TEXT TO G2 ───────────────────────────────────────────────────────
-async function pushText(content) {
-  try {
-    await bridge.textContainerUpgrade({
-      containerID:   CID_MAIN,
-      containerName: 'main',
-      contentOffset: 0,
-      contentLength: content.length,
-      content,
-    });
-  } catch (e) {
-    log('pushText error: ' + e.message);
-  }
-}
-
-// ─── DEBUG PREVIEW (browser only) ──────────────────────────────────────────
-function updateDebugPreview(lines, sent) {
-  const colors = { BULL: '#22c55e', BEAR: '#ef4444', NEUT: '#f59e0b' };
-  for (let i = 0; i < 5; i++) {
-    const el = document.getElementById('line' + i);
-    if (el) {
-      el.textContent = lines[i] || '';
-      el.style.color = i === 0 ? (colors[sent] || '#22c55e') : '#22c55e';
-    }
-  }
-}
-
-// ─── SSE PARSER ────────────────────────────────────────────────────────────
-// Ticks are keyed: "crypto:BTC", "futures:BTCUSDT", "stocks:SPY", "oil:WTI"
-function tickToState(tick) {
-  return {
-    symbol:       tick.symbol,
-    name:         tick.name,
-    category:     tick.category,
-    price:        tick.price,
-    change:       tick.change,
-    changePercent: tick.changePercent,
-    volume:       tick.volume,
-    sentiment:    tick.sentiment,
-    buyerPressure: tick.buyerPressure,
-    updatedAt:    tick.updatedAt,
-  };
-}
-
-function applySnapshot(ticks) {
-  // ticks is an array of Tick objects
-  coins = ticks
-    .filter(t => t.category === 'crypto')
-    .sort((a, b) => (b.quoteVolume || 0) - (a.quoteVolume || 0));
-  log('Snapshot: ' + coins.length + ' crypto coins');
-  if (currentPage === 'prices') renderPricesPage();
-}
-
-function applyBatch(ticksMap) {
-  // ticksMap is { "crypto:BTC": Tick, ... }
-  let changed = false;
-  for (const [key, tick] of Object.entries(ticksMap)) {
-    if (!key.startsWith('crypto:')) continue;
-    const idx = coins.findIndex(c => c.symbol === tick.symbol);
-    if (idx >= 0) {
-      Object.assign(coins[idx], tickToState(tick));
-      if (idx === scrollIdx) changed = true;
-    }
-  }
-  if (changed && currentPage === 'prices') renderPricesPage();
-}
-
+// ─── SSE LIVE FEED ─────────────────────────────────────────────────────────
 function connectSSE() {
-  log('SSE → ' + SSE_URL);
+  log('Connecting SSE...');
   const es = new EventSource(SSE_URL);
-  es.onopen = () => setStatus('Live feed connected');
+  es.onopen = () => { log('SSE connected'); setStatus('Live'); };
   es.onmessage = (e) => {
     try {
-      const data = JSON.parse(e.data);
-      if (data.type === 'snapshot' && Array.isArray(data.ticks)) {
-        applySnapshot(data.ticks);
-      } else if (data.type === 'batch' && data.ticks) {
-        applyBatch(data.ticks);
+      const d = JSON.parse(e.data);
+      if (d.type === 'snapshot' && Array.isArray(d.ticks)) {
+        coins = d.ticks
+          .filter(t => t.category === 'crypto' || t.category === 'futures')
+          .sort((a,b) => (b.quoteVolume||0) - (a.quoteVolume||0));
+        log('Snapshot: ' + coins.length + ' ticks');
+        if (initialized && currentPage === 'prices') renderPrices();
+      } else if (d.type === 'batch' && d.ticks) {
+        for (const [key, tick] of Object.entries(d.ticks)) {
+          const idx = coins.findIndex(c => c.symbol === tick.symbol);
+          if (idx >= 0) Object.assign(coins[idx], tick);
+        }
+        if (initialized && currentPage === 'prices') renderPrices();
       }
     } catch (_) {}
   };
   es.onerror = () => {
-    setStatus('Feed disconnected — reconnecting...');
+    setStatus('Reconnecting...');
     es.close();
     setTimeout(connectSSE, 3000);
   };
 }
 
-// ─── BREAKING NEWS POLL ────────────────────────────────────────────────────
-async function pollBreakingNews() {
+// ─── NEWS POLL ─────────────────────────────────────────────────────────────
+async function loadNews() {
   try {
     const res = await fetch(NEWS_URL);
     if (!res.ok) return;
+    const items = await res.json();
+    if (Array.isArray(items) && items.length) {
+      newsQueue = items;
+      lastNewsId = items[0]?.id || items[0]?.title;
+      log('News loaded: ' + items.length);
+    }
+  } catch (e) { log('News err: ' + e.message); }
+}
+
+async function pollBreakingNews() {
+  try {
+    const res = await fetch(SERVER_URL + '/api/news/latest');
+    if (!res.ok) return;
     const item = await res.json();
     if (!item) return;
-
     const id = item.id || item.title;
     if (id && id !== lastNewsId) {
       if (lastNewsId !== null) {
-        // This is a genuinely NEW headline — alert the glasses
-        log('BREAKING: ' + item.title);
         newsQueue.unshift(item);
         if (newsQueue.length > 20) newsQueue.pop();
         if (!alertActive) await renderAlert(item);
       } else {
-        // First load — just store it quietly
         newsQueue.unshift(item);
       }
       lastNewsId = id;
     }
-  } catch (e) {
-    log('News poll error: ' + e.message);
-  }
+  } catch (_) {}
 }
 
-// Also load a batch of news for the news page
-async function loadNewsQueue() {
-  try {
-    const res = await fetch(`${SERVER_URL}/api/news?limit=15`);
-    if (!res.ok) return;
-    const items = await res.json();
-    if (Array.isArray(items) && items.length > 0) {
-      newsQueue = items;
-      if (!lastNewsId) lastNewsId = items[0]?.id || items[0]?.title;
-      log('Loaded ' + items.length + ' news items');
-    }
-  } catch (e) {
-    log('News load error: ' + e.message);
-  }
-}
+// ─── EVENT HANDLER ─────────────────────────────────────────────────────────
+// Per SDK: eventType is a Protobuf NUMBER. CLICK_EVENT=0 arrives as undefined → coalesce ?? 0
+// Glasses tap → sysEvent. R1 ring scroll → textEvent.
+async function handleEvent(event) {
+  log('Evt: ' + JSON.stringify(event).slice(0, 100));
 
-// ─── GESTURE HANDLER ───────────────────────────────────────────────────────
-// CRITICAL: eventType is a Protobuf enum NUMBER, not a string.
-// CLICK_EVENT = 0, so it arrives as undefined on the wire — coalesce with ?? 0.
-// Glasses tap/double-tap/long-press → sysEvent
-// R1 ring scroll/swipe → textEvent
-async function handleGesture(event) {
-  log('Event: ' + JSON.stringify(event).slice(0, 120));
-
-  // ── sysEvent (glasses touchpad + ring button) ──────────────────────────────
   if (event.sysEvent) {
     const t = event.sysEvent.eventType ?? 0;
 
-    // SINGLE TAP → next coin / next news / dismiss alert
+    // Single tap → next / dismiss
     if (t === OsEventTypeList.CLICK_EVENT || t === OsEventTypeList.SINGLE_CLICK_EVENT) {
       if (currentPage === 'alert') {
         alertActive = false; currentPage = 'prices';
-        if (alertTimeout) clearTimeout(alertTimeout);
-        await renderPricesPage();
+        clearTimeout(alertTimeout); await renderPrices();
       } else if (currentPage === 'news') {
         newsScrollIdx = (newsScrollIdx + 1) % Math.max(1, newsQueue.length);
-        await renderNewsPage();
+        await renderNews();
       } else {
         scrollIdx = (scrollIdx + 1) % Math.max(1, coins.length);
-        await renderPricesPage();
+        await renderPrices();
       }
       return;
     }
 
-    // DOUBLE TAP → exit app / go back
+    // Double tap → exit / back
     if (t === OsEventTypeList.DOUBLE_CLICK_EVENT) {
       if (currentPage === 'alert') {
         alertActive = false; currentPage = 'prices';
-        if (alertTimeout) clearTimeout(alertTimeout);
-        await renderPricesPage();
+        clearTimeout(alertTimeout); await renderPrices();
       } else if (currentPage === 'news') {
-        currentPage = 'prices'; await renderPricesPage();
+        currentPage = 'prices'; await renderPrices();
       } else {
         await bridge.shutDownPageContainer(1);
       }
       return;
     }
 
-    // LONG PRESS → toggle news page
+    // Long press → toggle news
     if (t === OsEventTypeList.LONG_PRESS_EVENT) {
       if (currentPage !== 'news') {
-        currentPage = 'news'; newsScrollIdx = 0; await renderNewsPage();
+        currentPage = 'news'; newsScrollIdx = 0; await renderNews();
       } else {
-        currentPage = 'prices'; await renderPricesPage();
+        currentPage = 'prices'; await renderPrices();
       }
       return;
     }
 
-    // SYSTEM / ABNORMAL EXIT
-    if (t === OsEventTypeList.SYSTEM_EXIT_EVENT || t === OsEventTypeList.ABNORMAL_EXIT_EVENT) {
-      return;
-    }
+    if (t === OsEventTypeList.SYSTEM_EXIT_EVENT || t === OsEventTypeList.ABNORMAL_EXIT_EVENT) return;
   }
 
-  // ── textEvent (R1 ring scroll gestures + text container taps) ──────────────
   if (event.textEvent) {
     const t = event.textEvent.eventType ?? 0;
 
-    // SCROLL UP / SWIPE UP → prev coin or prev news
+    // R1 ring swipe up → prev
     if (t === OsEventTypeList.SCROLL_UP_EVENT || t === OsEventTypeList.SWIPE_UP_EVENT) {
       if (currentPage === 'news') {
         newsScrollIdx = (newsScrollIdx - 1 + Math.max(1, newsQueue.length)) % Math.max(1, newsQueue.length);
-        await renderNewsPage();
+        await renderNews();
       } else {
         scrollIdx = (scrollIdx - 1 + Math.max(1, coins.length)) % Math.max(1, coins.length);
-        await renderPricesPage();
+        await renderPrices();
       }
       return;
     }
 
-    // SCROLL DOWN / SWIPE DOWN → next coin or next news
+    // R1 ring swipe down → next
     if (t === OsEventTypeList.SCROLL_DOWN_EVENT || t === OsEventTypeList.SWIPE_DOWN_EVENT) {
       if (currentPage === 'news') {
         newsScrollIdx = (newsScrollIdx + 1) % Math.max(1, newsQueue.length);
-        await renderNewsPage();
+        await renderNews();
       } else {
         scrollIdx = (scrollIdx + 1) % Math.max(1, coins.length);
-        await renderPricesPage();
+        await renderPrices();
       }
       return;
     }
 
-    // TAP on text container
+    // Tap on text container
     if (t === OsEventTypeList.CLICK_EVENT || t === OsEventTypeList.SINGLE_CLICK_EVENT) {
       if (currentPage === 'alert') {
         alertActive = false; currentPage = 'prices';
-        if (alertTimeout) clearTimeout(alertTimeout);
-        await renderPricesPage();
+        clearTimeout(alertTimeout); await renderPrices();
       } else if (currentPage === 'news') {
         newsScrollIdx = (newsScrollIdx + 1) % Math.max(1, newsQueue.length);
-        await renderNewsPage();
+        await renderNews();
       } else {
         scrollIdx = (scrollIdx + 1) % Math.max(1, coins.length);
-        await renderPricesPage();
+        await renderPrices();
       }
       return;
     }
 
-    // DOUBLE TAP via textEvent
+    // Double tap via text event
     if (t === OsEventTypeList.DOUBLE_CLICK_EVENT) {
       if (currentPage === 'news') {
-        currentPage = 'prices'; await renderPricesPage();
+        currentPage = 'prices'; await renderPrices();
       } else {
         await bridge.shutDownPageContainer(1);
       }
@@ -428,137 +304,89 @@ async function handleGesture(event) {
     }
   }
 
-  // ── listEvent (tap on a list item) ─────────────────────────────────────────
+  // List item tap
   if (event.listEvent) {
     const idx = coins.findIndex(c => c.symbol === event.listEvent.currentSelectItemName);
-    if (idx >= 0) { scrollIdx = idx; currentPage = 'prices'; await renderPricesPage(); }
+    if (idx >= 0) { scrollIdx = idx; currentPage = 'prices'; await renderPrices(); }
   }
 }
 
-// ─── INIT G2 BRIDGE ────────────────────────────────────────────────────────
+// ─── INIT BRIDGE ───────────────────────────────────────────────────────────
 async function initBridge() {
-  setStatus('Waiting for Even App bridge...');
+  setStatus('Waiting for bridge...');
   try {
     bridge = await waitForEvenAppBridge();
-    setStatus('Bridge ready — initializing G2 display...');
+    setStatus('Bridge ready');
+    log('Bridge connected');
 
     bridge.onDeviceStatusChanged(s => log('Device: ' + s.connectType + ' bat=' + s.batteryLevel));
 
-    // Create single full-screen text container (must use SDK classes, not plain objects)
-    const mainContainer = new TextContainerProperty({
-      containerID:    CID_MAIN,
-      containerName:  'main',
-      xPosition:      0,
-      yPosition:      0,
-      width:          576,
-      height:         288,
-      borderWidth:    0,
-      borderColor:    5,
-      paddingLength:  6,
-      content:        'MARKET INTEL\nConnecting to live feed...\n\n\nLoading...',
-      isEventCapture: 1,
+    // createStartUpPageContainer — called ONCE, plain object is fine per SDK docs
+    const result = await bridge.createStartUpPageContainer({
+      containerTotalNum: 1,
+      textObject: [{
+        containerID:   CID,
+        containerName: 'main',
+        xPosition:     0,
+        yPosition:     0,
+        width:         576,
+        height:        288,
+        borderWidth:   0,
+        paddingLength: 4,
+        content:       'MARKET INTEL\nConnecting...',
+        isEventCapture: 1,
+      }],
     });
 
-    const result = await bridge.createStartUpPageContainer(
-      new CreateStartUpPageContainer({
-        containerTotalNum: 1,
-        textObject: [mainContainer],
-      }),
-    );
+    log('createStartUpPageContainer result: ' + result);
 
     if (result === 0) {
       initialized = true;
       setStatus('G2 display active');
-
-      // Register root-level event handler
-      // Per SDK docs: CLICK_EVENT=0 arrives as undefined on the wire, coalesce ?? 0
-      bridge.onEvenHubEvent(event => {
-        handleGesture(event);
-      });
-
-      if (coins.length > 0) await renderPricesPage();
+      bridge.onEvenHubEvent(handleEvent);
+      // Render immediately if we already have coins
+      if (coins.length > 0) await renderPrices();
+      else await pushText('MARKET INTEL\nLoading live data...\n\n' + timestamp());
     } else {
-      setStatus('G2 init result: ' + result);
+      setStatus('Container init failed: ' + result);
+      log('Container create failed, result=' + result);
     }
   } catch (e) {
-    setStatus('Browser mode (no G2 connected)');
-    log('No bridge: ' + e.message);
+    setStatus('No bridge (browser mode)');
+    log('Bridge error: ' + e.message);
   }
 }
 
 // ─── MAIN ──────────────────────────────────────────────────────────────────
 (async () => {
-  // 1. Connect SSE for live prices
+  log('Plugin starting...');
+
+  // 1. Start live price feed
   connectSSE();
 
-  // 2. Restore previous state (survives phone lock / background)
-  restoreState();
+  // 2. Load news
+  await loadNews();
 
-  // 3. Load news batch and set baseline headline ID
-  await loadNewsQueue();
-
-  // 4. Initialize G2 bridge
+  // 3. Init G2 bridge
   await initBridge();
 
-  // 4. Start polling for breaking news every 20 seconds
-  setInterval(pollBreakingNews, 20000);
+  // 4. Poll breaking news every 30s
+  setInterval(pollBreakingNews, 30000);
 
-  // 5. Refresh prices display every 2s (catches SSE updates that don't trigger re-render)
+  // 5. Refresh display every 3s
   setInterval(async () => {
-    if (!initialized || alertActive || currentPage !== 'prices') return;
-    await renderPricesPage();
-  }, 2000);
+    if (!initialized || alertActive) return;
+    if (currentPage === 'prices') await renderPrices();
+  }, 3000);
 
-  log('Plugin started. Server: ' + SERVER_URL);
+  log('Plugin ready. Server: ' + SERVER_URL);
 })();
 
-// ─── BACKGROUND / LIFECYCLE SURVIVAL ───────────────────────────────────────
-// Even Hub requirement: app must survive phone lock for 5+ minutes.
-// Persist state to localStorage eagerly; rebuild on relaunch.
-// Note: Even Hub WebView supports localStorage (not blocked like our main app).
-
-function saveState() {
-  try {
-    localStorage.setItem('mkt_scrollIdx',    String(scrollIdx));
-    localStorage.setItem('mkt_newsScrollIdx', String(newsScrollIdx));
-    localStorage.setItem('mkt_page',         currentPage === 'alert' ? 'prices' : currentPage);
-    localStorage.setItem('mkt_ts',           String(Date.now()));
-  } catch (_) {}
-}
-
-function restoreState() {
-  try {
-    const saved = localStorage.getItem('mkt_scrollIdx');
-    const savedTs = parseInt(localStorage.getItem('mkt_ts') || '0');
-    // Only restore if saved within last 30 minutes (stale state = bad UX)
-    if (saved && (Date.now() - savedTs) < 1800000) {
-      scrollIdx     = parseInt(saved) || 0;
-      newsScrollIdx = parseInt(localStorage.getItem('mkt_newsScrollIdx') || '0');
-      currentPage   = localStorage.getItem('mkt_page') || 'prices';
-      log('State restored from localStorage (scrollIdx=' + scrollIdx + ')');
-      return true;
-    }
-  } catch (_) {}
-  return false;
-}
-
-// Save state every 5 seconds and on page change
-setInterval(saveState, 5000);
-
-// Visibility API — reinit display if app comes back from background
+// Visibility API — refresh when app comes back from background
 document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible') {
-    log('App resumed from background');
-    saveState();
-    if (bridge && initialized) {
-      // Re-render current page to ensure glasses display is fresh
-      if (currentPage === 'news') await renderNewsPage();
-      else await renderPricesPage();
-    } else if (!bridge) {
-      // Bridge lost — re-init
-      await initBridge();
-    }
-  } else {
-    saveState();
+  if (document.visibilityState === 'visible' && bridge && initialized) {
+    log('Resumed from background');
+    if (currentPage === 'news') await renderNews();
+    else await renderPrices();
   }
 });
