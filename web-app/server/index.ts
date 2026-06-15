@@ -257,7 +257,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     req.path.startsWith('/auth') ||
     req.path.startsWith('/assets') ||
     req.path === '/login' ||
-    req.path === '/favicon.ico';
+    req.path === '/favicon.ico' ||
+    req.path === '/' ||
+    req.path === '/index.html';
   if (isPublic) return next();
 
   const cookie = req.cookies?.[AUTH_COOKIE];
