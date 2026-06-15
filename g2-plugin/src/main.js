@@ -316,21 +316,19 @@ async function loadNewsQueue() {
 }
 
 // ─── GESTURE HANDLER ───────────────────────────────────────────────────────
+// CRITICAL: eventType is a Protobuf enum NUMBER, not a string.
+// CLICK_EVENT = 0, so it arrives as undefined on the wire — coalesce with ?? 0.
+// Glasses tap/double-tap/long-press → sysEvent
+// R1 ring scroll/swipe → textEvent
 async function handleGesture(event) {
-  log('Event: ' + JSON.stringify(event).slice(0, 80));
+  log('Event: ' + JSON.stringify(event).slice(0, 120));
 
-  // LIST: user tapped a coin in a list
-  if (event.listEvent) {
-    const idx = coins.findIndex(c => c.symbol === event.listEvent.currentSelectItemName);
-    if (idx >= 0) { scrollIdx = idx; currentPage = 'prices'; await renderPricesPage(); }
-    return;
-  }
-
+  // ── sysEvent (glasses touchpad + ring button) ──────────────────────────────
   if (event.sysEvent) {
-    const t = (event.sysEvent.eventType || '').toString().toUpperCase();
+    const t = event.sysEvent.eventType ?? 0;
 
-    // TAP / SINGLE_TAP → next item or dismiss alert
-    if (t.includes('TAP') && !t.includes('DOUBLE') && !t.includes('LONG')) {
+    // SINGLE TAP → next coin / next news / dismiss alert
+    if (t === OsEventTypeList.CLICK_EVENT || t === OsEventTypeList.SINGLE_CLICK_EVENT) {
       if (currentPage === 'alert') {
         alertActive = false; currentPage = 'prices';
         if (alertTimeout) clearTimeout(alertTimeout);
@@ -345,8 +343,8 @@ async function handleGesture(event) {
       return;
     }
 
-    // DOUBLE TAP → exit or go back
-    if (t.includes('DOUBLE') || t.includes('SYSTEM_EXIT')) {
+    // DOUBLE TAP → exit app / go back
+    if (t === OsEventTypeList.DOUBLE_CLICK_EVENT) {
       if (currentPage === 'alert') {
         alertActive = false; currentPage = 'prices';
         if (alertTimeout) clearTimeout(alertTimeout);
@@ -354,13 +352,13 @@ async function handleGesture(event) {
       } else if (currentPage === 'news') {
         currentPage = 'prices'; await renderPricesPage();
       } else {
-        await bridge.shutDownPageContainer(1); // mode 1 = system exit dialog (required by EvenHub review)
+        await bridge.shutDownPageContainer(1);
       }
       return;
     }
 
-    // LONG PRESS / HOLD → toggle news
-    if (t.includes('LONG') || t.includes('HOLD') || t.includes('PRESS')) {
+    // LONG PRESS → toggle news page
+    if (t === OsEventTypeList.LONG_PRESS_EVENT) {
       if (currentPage !== 'news') {
         currentPage = 'news'; newsScrollIdx = 0; await renderNewsPage();
       } else {
@@ -369,8 +367,18 @@ async function handleGesture(event) {
       return;
     }
 
-    // SCROLL UP (ring swipe up) → prev coin
-    if (t.includes('SCROLL_UP') || t.includes('SWIPE_UP')) {
+    // SYSTEM / ABNORMAL EXIT
+    if (t === OsEventTypeList.SYSTEM_EXIT_EVENT || t === OsEventTypeList.ABNORMAL_EXIT_EVENT) {
+      return;
+    }
+  }
+
+  // ── textEvent (R1 ring scroll gestures + text container taps) ──────────────
+  if (event.textEvent) {
+    const t = event.textEvent.eventType ?? 0;
+
+    // SCROLL UP / SWIPE UP → prev coin or prev news
+    if (t === OsEventTypeList.SCROLL_UP_EVENT || t === OsEventTypeList.SWIPE_UP_EVENT) {
       if (currentPage === 'news') {
         newsScrollIdx = (newsScrollIdx - 1 + Math.max(1, newsQueue.length)) % Math.max(1, newsQueue.length);
         await renderNewsPage();
@@ -381,8 +389,8 @@ async function handleGesture(event) {
       return;
     }
 
-    // SCROLL DOWN (ring swipe down) → next coin
-    if (t.includes('SCROLL_DOWN') || t.includes('SWIPE_DOWN')) {
+    // SCROLL DOWN / SWIPE DOWN → next coin or next news
+    if (t === OsEventTypeList.SCROLL_DOWN_EVENT || t === OsEventTypeList.SWIPE_DOWN_EVENT) {
       if (currentPage === 'news') {
         newsScrollIdx = (newsScrollIdx + 1) % Math.max(1, newsQueue.length);
         await renderNewsPage();
@@ -392,17 +400,38 @@ async function handleGesture(event) {
       }
       return;
     }
+
+    // TAP on text container
+    if (t === OsEventTypeList.CLICK_EVENT || t === OsEventTypeList.SINGLE_CLICK_EVENT) {
+      if (currentPage === 'alert') {
+        alertActive = false; currentPage = 'prices';
+        if (alertTimeout) clearTimeout(alertTimeout);
+        await renderPricesPage();
+      } else if (currentPage === 'news') {
+        newsScrollIdx = (newsScrollIdx + 1) % Math.max(1, newsQueue.length);
+        await renderNewsPage();
+      } else {
+        scrollIdx = (scrollIdx + 1) % Math.max(1, coins.length);
+        await renderPricesPage();
+      }
+      return;
+    }
+
+    // DOUBLE TAP via textEvent
+    if (t === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+      if (currentPage === 'news') {
+        currentPage = 'prices'; await renderPricesPage();
+      } else {
+        await bridge.shutDownPageContainer(1);
+      }
+      return;
+    }
   }
 
-  // TEXT EVENT fallback — tap on text container
-  if (event.textEvent) {
-    if (currentPage === 'prices') {
-      scrollIdx = (scrollIdx + 1) % Math.max(1, coins.length);
-      await renderPricesPage();
-    } else if (currentPage === 'news') {
-      newsScrollIdx = (newsScrollIdx + 1) % Math.max(1, newsQueue.length);
-      await renderNewsPage();
-    }
+  // ── listEvent (tap on a list item) ─────────────────────────────────────────
+  if (event.listEvent) {
+    const idx = coins.findIndex(c => c.symbol === event.listEvent.currentSelectItemName);
+    if (idx >= 0) { scrollIdx = idx; currentPage = 'prices'; await renderPricesPage(); }
   }
 }
 
@@ -441,33 +470,9 @@ async function initBridge() {
       initialized = true;
       setStatus('G2 display active');
 
-      // Register event handler using OsEventTypeList constants
+      // Register root-level event handler
+      // Per SDK docs: CLICK_EVENT=0 arrives as undefined on the wire, coalesce ?? 0
       bridge.onEvenHubEvent(event => {
-        // Double-tap or system exit — always handle at root level
-        const sysType = event.sysEvent?.eventType ?? null;
-        const textType = event.textEvent?.eventType ?? null;
-        if (
-          sysType === OsEventTypeList.DOUBLE_CLICK_EVENT ||
-          textType === OsEventTypeList.DOUBLE_CLICK_EVENT
-        ) {
-          if (currentPage === 'alert') {
-            alertActive = false; currentPage = 'prices';
-            if (alertTimeout) clearTimeout(alertTimeout);
-            renderPricesPage();
-          } else if (currentPage === 'news') {
-            currentPage = 'prices'; renderPricesPage();
-          } else {
-            bridge.shutDownPageContainer(1);
-          }
-          return;
-        }
-        if (
-          sysType === OsEventTypeList.SYSTEM_EXIT_EVENT ||
-          sysType === OsEventTypeList.ABNORMAL_EXIT_EVENT
-        ) {
-          return;
-        }
-        // All other events go through the full gesture handler
         handleGesture(event);
       });
 
