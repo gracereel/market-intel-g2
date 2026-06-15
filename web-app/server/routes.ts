@@ -18,6 +18,7 @@ import {
   startForexFeed,
 } from "./liveFeeds";
 import { startATRService, getAllATR, getATR } from "./atrService";
+import { computeTA } from "./technicalAnalysis";
 
 let lastFetch = 0;
 const COOLDOWN = 3 * 60 * 1000;
@@ -385,6 +386,67 @@ export async function registerRoutes(_: Server, app: Express) {
     const topStocks  = stockTicks.slice(0,20);
     const topForex   = Array.isArray(forexTicks) ? forexTicks.slice(0,20) : [];
 
+    // ── Detect if user is asking about a specific asset — fetch TA ─────────
+    const ASSET_DETECT: Record<string, string> = {
+      bitcoin:"BTC", btc:"BTC", ethereum:"ETH", eth:"ETH",
+      solana:"SOL", sol:"SOL", xrp:"XRP", ripple:"XRP",
+      cardano:"ADA", ada:"ADA", dogecoin:"DOGE", doge:"DOGE",
+      avalanche:"AVAX", avax:"AVAX", chainlink:"LINK", link:"LINK",
+      polkadot:"DOT", dot:"DOT", bnb:"BNB", binance:"BNB",
+      uniswap:"UNI", uni:"UNI", litecoin:"LTC", ltc:"LTC",
+      shiba:"SHIB", shib:"SHIB", pepe:"PEPE", wif:"WIF",
+      aptos:"APT", apt:"APT", sui:"SUI", injective:"INJ", inj:"INJ",
+      arbitrum:"ARB", arb:"ARB", optimism:"OP", polygon:"MATIC", matic:"MATIC",
+      tron:"TRX", trx:"TRX", near:"NEAR", atom:"ATOM", cosmos:"ATOM",
+      gold:"GC", silver:"SI", oil:"CL", crude:"CL", wti:"CL",
+      "sp500":"ES", spx:"ES", "s&p":"ES", nasdaq:"NQ", nq:"NQ",
+      dow:"YM", russell:"RTY",
+      apple:"AAPL", tesla:"TSLA", nvidia:"NVDA", microsoft:"MSFT",
+      amazon:"AMZN", google:"GOOGL", meta:"META", netflix:"NFLX",
+      eurusd:"EURUSD", euro:"EURUSD", gbpusd:"GBPUSD", usdjpy:"USDJPY",
+    };
+    const msgLow = message.toLowerCase();
+    let detectedSym: string | null = null;
+    for (const [kw, sym] of Object.entries(ASSET_DETECT)) {
+      if (msgLow.includes(kw)) { detectedSym = sym; break; }
+    }
+    // Also detect raw symbols like "AAPL", "ETH", "BTC" written in caps
+    if (!detectedSym) {
+      const symMatch = message.match(/\b([A-Z]{2,6})\b/);
+      if (symMatch) detectedSym = symMatch[1];
+    }
+
+    // Fetch TA for detected asset (1D + 4H in parallel, timeout 6s)
+    let taSection = "";
+    if (detectedSym) {
+      try {
+        const [ta1d, ta4h] = await Promise.race([
+          Promise.all([
+            computeTA(detectedSym, "1d"),
+            computeTA(detectedSym, "4h"),
+          ]),
+          new Promise<[null,null]>(resolve => setTimeout(() => resolve([null,null]), 6000)),
+        ]);
+        if (ta1d) {
+          taSection = [
+            "",
+            `=== TECHNICAL ANALYSIS: ${detectedSym} ==`,
+            "── Daily (1D) ──",
+            ta1d.summary,
+          ].join("\n");
+        }
+        if (ta4h) {
+          taSection += [
+            "",
+            "── 4-Hour (4H) ──",
+            ta4h.summary,
+          ].join("\n");
+        }
+      } catch (e) {
+        // TA fetch failed — continue without it
+      }
+    }
+
     const contextLines = [
       "=== LIVE MARKET DATA (streaming now) ===",
       `Timestamp: ${new Date().toUTCString()}`,
@@ -430,8 +492,11 @@ BEHAVIOR:
 - OI signal: positive=rising OI (new money in), negative=declining OI (liquidation)
 - CVD signal: positive=aggressive buying, negative=aggressive selling
 - Funding rate: positive=longs paying (overheated), negative=shorts paying (oversold)
+- When TA data is provided below, use RSI/MACD/BB/EMA/ATR/S&R levels to give precise technical analysis
+- RSI >70=overbought, <30=oversold. MACD line above signal=bullish momentum. BB squeeze=breakout imminent. Price above all EMAs=strong uptrend.
+- Always mention key support and resistance levels when they are available in the TA section
 
-${contextLines}`;
+${contextLines}${taSection}`;
 
     const apiKey = process.env.PERPLEXITY_API_KEY;
 
