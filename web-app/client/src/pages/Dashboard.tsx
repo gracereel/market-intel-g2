@@ -1405,6 +1405,7 @@ function CurrencyStrengthPanel() {
   const [timeframe, setTimeframe] = useState<"1h" | "4h" | "1d" | "1w">("1d");
   const [view, setView] = useState<"strength" | "pairs" | "heatmap">("strength");
   const [selectedCur, setSelectedCur] = useState<string | null>(null);
+  const [selectedForexPair, setSelectedForexPair] = useState<ForexPairDetail | null>(null);
 
   const { data: strengthData, isLoading } = useQuery<CurrencyStrength[]>({
     queryKey: ["/api/currency/strength"],
@@ -1487,6 +1488,7 @@ function CurrencyStrengthPanel() {
   const weakest = sorted[sorted.length - 1];
 
   return (
+    <>
     <div className="flex flex-col">
 
       {/* ── DXY Banner ── */}
@@ -1641,7 +1643,7 @@ function CurrencyStrengthPanel() {
                     const isJPY = p.quote === "JPY" || p.base === "JPY";
                     const baseColor = CUR_COLORS[p.base] || "#fff";
                     return (
-                      <tr key={p.symbol} className="border-b border-white/3 hover:bg-[#151e30] transition-colors">
+                      <tr key={p.symbol} className="border-b border-white/3 hover:bg-[#151e30] transition-colors cursor-pointer" onClick={() => setSelectedForexPair(p)}>
                         <td className="pl-2 py-2">
                           <div className="flex items-center gap-1">
                             <span style={{ color: baseColor }} className="font-bold">{p.base}</span>
@@ -1748,6 +1750,72 @@ function CurrencyStrengthPanel() {
         </div>
       )}
     </div>
+
+    {/* Forex Pair Chart Modal */}
+    {selectedForexPair && (() => {
+      const p = selectedForexPair;
+      const isJPY = p.quote === "JPY" || p.base === "JPY";
+      const isUp = p.change1d >= 0;
+      const fakeTick = {
+        symbol: p.symbol,
+        name: `${p.base}/${p.quote}`,
+        price: p.price,
+        change: 0,
+        changePercent: p.change1d,
+        high: p.price * 1.005,
+        low: p.price * 0.995,
+        open: p.price,
+        volume: 0,
+        quoteVolume: 0,
+        bid: p.price,
+        ask: p.price,
+        fundingRate: 0,
+        category: "currency" as const,
+        updatedAt: Date.now(),
+      } as unknown as Tick;
+      return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#060c18]/80" onClick={() => setSelectedForexPair(null)}>
+          <div
+            className="bg-[#0d1120] border border-[#3b8bf6]/20 rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-[#0d1120] border-b border-[#3b8bf6]/10 px-5 py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: (CUR_COLORS[p.base] || "#3b8bf6") + "22", color: CUR_COLORS[p.base] || "#3b8bf6" }}>
+                  {p.base.slice(0,2)}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white">{p.base}/{p.quote}</div>
+                  <div className="text-[10px] text-[#3b8bf6]/58 font-mono">{p.symbol} · FOREX</div>
+                </div>
+              </div>
+              <button onClick={() => setSelectedForexPair(null)} className="text-[#3b8bf6]/58 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Price row */}
+              <div className="rounded-xl border border-[#3b8bf6]/10 bg-[#111827]/80 p-4">
+                <div className="flex items-baseline gap-3">
+                  <span className="font-mono text-2xl font-bold text-white">{isJPY ? p.price.toFixed(3) : p.price.toFixed(5)}</span>
+                  <span className={`font-mono text-sm font-semibold ${isUp ? "text-[#00ff88]" : "text-[#ff5566]"}`}>
+                    {isUp ? "▲" : "▼"} {Math.abs(p.change1d).toFixed(3)}%
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-3 mt-3">
+                  <div><div className="text-[10px] text-[#3b8bf6]/45">1H%</div><div className={`text-xs font-mono ${p.change1h>=0?"text-[#00ff88]":"text-[#ff5566]"}`}>{p.change1h>=0?"+":""}{p.change1h.toFixed(3)}%</div></div>
+                  <div><div className="text-[10px] text-[#3b8bf6]/45">4H%</div><div className={`text-xs font-mono ${p.change4h>=0?"text-[#00ff88]":"text-[#ff5566]"}`}>{p.change4h>=0?"+":""}{p.change4h.toFixed(3)}%</div></div>
+                  <div><div className="text-[10px] text-[#3b8bf6]/45">1W%</div><div className={`text-xs font-mono ${p.change1w>=0?"text-[#00ff88]":"text-[#ff5566]"}`}>{p.change1w>=0?"+":""}{p.change1w.toFixed(3)}%</div></div>
+                  <div><div className="text-[10px] text-[#3b8bf6]/45">SPREAD</div><div className="text-xs font-mono text-[#3b8bf6]/78">{p.spread.toFixed(1)} pip</div></div>
+                </div>
+              </div>
+              {/* TradingView chart */}
+              <TradingViewChart tick={fakeTick} />
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+    </>
   );
 }
 
@@ -1776,6 +1844,100 @@ function G1Modal({ text, onClose }: { text: string; onClose: () => void }) {
           <div className="text-[9px] font-mono text-[#3b8bf6]/60">TAP RIGHT &nbsp;&nbsp;= Scroll DOWN</div>
           <div className="text-[9px] font-mono text-[#3b8bf6]/60">DBL TAP LEFT = EXIT app</div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TradingView Chart Widget ───────────────────────────────────────────────
+function toTVSymbol(tick: Tick): string {
+  const sym = tick.symbol;
+  const cat = tick.category;
+
+  // Crypto: BTCUSDT → BINANCE:BTCUSDT (perps stay on BINANCE)
+  if (cat === "crypto" || (cat === "futures" && sym.endsWith("USDT"))) {
+    return `BINANCE:${sym}`;
+  }
+
+  // Yahoo-style futures → TradingView continuous contracts
+  const futMap: Record<string, string> = {
+    "ES=F": "CME_MINI:ES1!",
+    "NQ=F": "CME_MINI:NQ1!",
+    "YM=F": "CBOT_MINI:YM1!",
+    "RTY=F": "CME_MINI:RTY1!",
+    "GC=F": "COMEX:GC1!",
+    "SI=F": "COMEX:SI1!",
+    "ZB=F": "CBOT:ZB1!",
+    "CL=F": "NYMEX:CL1!",
+    "BTC=F": "CME:BTC1!",
+  };
+  if (futMap[sym]) return futMap[sym];
+
+  // Stocks: exchange-aware mapping for major names, default NASDAQ
+  const nyseStocks = new Set(["BRK-A","BRK-B","JPM","BAC","GS","MS","C","WFC","XOM","CVX","KO","PG","JNJ","WMT","V","MA","HD","UNH","DIS","NKE","MRK","ABT"]);
+  if (cat === "stocks") {
+    if (nyseStocks.has(sym)) return `NYSE:${sym}`;
+    return `NASDAQ:${sym}`;
+  }
+
+  // Forex: EURUSD → FX:EURUSD  (strip =X Yahoo suffix if present)
+  if (cat === "currency" || sym.includes("/") || sym.endsWith("=X")) {
+    const clean = sym.replace("=X", "").replace("/", "");
+    return `FX:${clean}`;
+  }
+
+  // Oil (CL=F already caught above, but fallback)
+  if (cat === "oil") return "NYMEX:CL1!";
+
+  return sym;
+}
+
+function TradingViewChart({ tick }: { tick: Tick }) {
+  const tvSym = toTVSymbol(tick);
+  const [tvInterval, setTvInterval] = useState("60"); // default 1H
+
+  const tvIntervals = [
+    { label: "1m",  value: "1" },
+    { label: "5m",  value: "5" },
+    { label: "15m", value: "15" },
+    { label: "30m", value: "30" },
+    { label: "1H",  value: "60" },
+    { label: "4H",  value: "240" },
+    { label: "1D",  value: "D" },
+    { label: "1W",  value: "W" },
+  ];
+
+  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart_${encodeURIComponent(tick.symbol)}&symbol=${encodeURIComponent(tvSym)}&interval=${tvInterval}&hidesidetoolbar=1&hidetoptoolbar=0&theme=dark&style=3&locale=en&withdateranges=1&range=3M&backgroundColor=%2305080f&lineColor=%233b8bf6&gridColor=%233b8bf610&candleUpColor=%2300ff88&candleDownColor=%23ff5566&allow_symbol_change=0&save_image=0`;
+
+  return (
+    <div className="rounded-xl border border-[#3b8bf6]/15 bg-[#05080f] overflow-hidden">
+      {/* Interval selector */}
+      <div className="flex items-center gap-0.5 px-3 pt-2.5 pb-1.5 border-b border-[#3b8bf6]/10">
+        <span className="text-[9px] font-mono text-[#3b8bf6]/40 uppercase tracking-widest mr-2">Chart</span>
+        {tvIntervals.map(iv => (
+          <button
+            key={iv.value}
+            onClick={() => setTvInterval(iv.value)}
+            className={`text-[10px] font-mono px-2 py-0.5 rounded transition-all ${
+              tvInterval === iv.value
+                ? "bg-[#3b8bf6]/20 text-[#3b8bf6] font-bold"
+                : "text-[#3b8bf6]/40 hover:text-[#3b8bf6]/80 hover:bg-[#3b8bf6]/10"
+            }`}
+          >
+            {iv.label}
+          </button>
+        ))}
+        <span className="ml-auto text-[9px] font-mono text-[#3b8bf6]/25">by TradingView</span>
+      </div>
+      {/* Chart iframe */}
+      <div className="relative w-full" style={{ height: 320 }}>
+        <iframe
+          key={`${tvSym}-${tvInterval}`}
+          src={src}
+          className="w-full h-full border-0"
+          allowFullScreen
+          title={`${tick.name} Chart`}
+        />
       </div>
     </div>
   );
@@ -1989,6 +2151,9 @@ function CoinModal({ tick, onClose, favSet, toggleFav, onAddPosition }: { tick: 
               </div>
             </div>
           </div>
+
+          {/* TradingView Chart */}
+          <TradingViewChart tick={tick} />
 
           {/* Sentiment */}
           {sent && (
