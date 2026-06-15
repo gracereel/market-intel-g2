@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: './',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    target: 'esnext',
   },
   server: {
-    port: 4000,
-    host: '0.0.0.0',
+    port: 5173,
+    host: true,
   },
 });

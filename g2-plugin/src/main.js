@@ -1,4 +1,9 @@
-import { waitForEvenAppBridge } from '@evenrealities/even_hub_sdk';
+import {
+  waitForEvenAppBridge,
+  TextContainerProperty,
+  CreateStartUpPageContainer,
+  OsEventTypeList,
+} from '@evenrealities/even_hub_sdk';
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 // Production URL for the Market Intel server
@@ -410,27 +415,62 @@ async function initBridge() {
 
     bridge.onDeviceStatusChanged(s => log('Device: ' + s.connectType + ' bat=' + s.batteryLevel));
 
-    // Create single full-screen text container
-    const result = await bridge.createStartUpPageContainer({
-      containerTotalNum: 1,
-      textObject: [{
-        containerID:    CID_MAIN,
-        containerName:  'main',
-        xPosition:      0,
-        yPosition:      0,
-        width:          576,
-        height:         288,
-        borderWidth:    0,
-        paddingLength:  6,
-        content:        'MARKET INTEL\nConnecting to live feed...\n\n\nLoading...',
-        isEventCapture: 1,
-      }],
+    // Create single full-screen text container (must use SDK classes, not plain objects)
+    const mainContainer = new TextContainerProperty({
+      containerID:    CID_MAIN,
+      containerName:  'main',
+      xPosition:      0,
+      yPosition:      0,
+      width:          576,
+      height:         288,
+      borderWidth:    0,
+      borderColor:    5,
+      paddingLength:  6,
+      content:        'MARKET INTEL\nConnecting to live feed...\n\n\nLoading...',
+      isEventCapture: 1,
     });
+
+    const result = await bridge.createStartUpPageContainer(
+      new CreateStartUpPageContainer({
+        containerTotalNum: 1,
+        textObject: [mainContainer],
+      }),
+    );
 
     if (result === 0) {
       initialized = true;
       setStatus('G2 display active');
-      bridge.onEvenHubEvent(handleGesture);
+
+      // Register event handler using OsEventTypeList constants
+      bridge.onEvenHubEvent(event => {
+        // Double-tap or system exit — always handle at root level
+        const sysType = event.sysEvent?.eventType ?? null;
+        const textType = event.textEvent?.eventType ?? null;
+        if (
+          sysType === OsEventTypeList.DOUBLE_CLICK_EVENT ||
+          textType === OsEventTypeList.DOUBLE_CLICK_EVENT
+        ) {
+          if (currentPage === 'alert') {
+            alertActive = false; currentPage = 'prices';
+            if (alertTimeout) clearTimeout(alertTimeout);
+            renderPricesPage();
+          } else if (currentPage === 'news') {
+            currentPage = 'prices'; renderPricesPage();
+          } else {
+            bridge.shutDownPageContainer(1);
+          }
+          return;
+        }
+        if (
+          sysType === OsEventTypeList.SYSTEM_EXIT_EVENT ||
+          sysType === OsEventTypeList.ABNORMAL_EXIT_EVENT
+        ) {
+          return;
+        }
+        // All other events go through the full gesture handler
+        handleGesture(event);
+      });
+
       if (coins.length > 0) await renderPricesPage();
     } else {
       setStatus('G2 init result: ' + result);
