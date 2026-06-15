@@ -3368,28 +3368,49 @@ function PriceAlertsPanel({ ticks, onClose }: { ticks: Map<string, Tick>; onClos
 }
 
 // ─── Market Heatmap ───────────────────────────────────────────────────────────
-function MarketHeatmap({ ticks }: { ticks: Map<string, Tick> }) {
+type HeatCat = "all" | "crypto" | "futures" | "stocks" | "oil";
+
+function MarketHeatmap({ ticks, onSelect }: { ticks: Map<string, Tick>; onSelect: (t: Tick) => void }) {
+  const [cat, setCat] = useState<HeatCat>("all");
+
   const all = useMemo(() => {
-    const cryptos = Array.from(ticks.values()).filter(t => t.category === "crypto").sort((a,b) => b.quoteVolume - a.quoteVolume).slice(0,30);
-    const others  = Array.from(ticks.values()).filter(t => t.category !== "crypto");
-    return [...cryptos, ...others];
-  }, [ticks]);
+    const arr = Array.from(ticks.values());
+    if (cat === "all") {
+      const cryptos = arr.filter(t => t.category === "crypto").sort((a,b) => b.quoteVolume - a.quoteVolume).slice(0, 50);
+      const others  = arr.filter(t => t.category !== "crypto");
+      return [...cryptos, ...others];
+    }
+    if (cat === "crypto") return arr.filter(t => t.category === "crypto").sort((a,b) => b.quoteVolume - a.quoteVolume);
+    if (cat === "futures") return arr.filter(t => t.category === "futures");
+    if (cat === "stocks") return arr.filter(t => t.category === "stocks");
+    if (cat === "oil") return arr.filter(t => t.category === "oil");
+    return arr;
+  }, [ticks, cat]);
 
   function heatColor(pct: number) {
-    if (pct >= 5)    return { bg: "rgba(34,197,94,0.55)", text: "#fff" };
-    if (pct >= 2)    return { bg: "rgba(34,197,94,0.35)", text: "#86efac" };
-    if (pct >= 0.5)  return { bg: "rgba(34,197,94,0.18)", text: "#86efac" };
-    if (pct >= 0)    return { bg: "rgba(34,197,94,0.08)", text: "rgba(134,239,172,0.7)" };
-    if (pct >= -0.5) return { bg: "rgba(239,68,68,0.08)", text: "rgba(252,165,165,0.7)" };
-    if (pct >= -2)   return { bg: "rgba(239,68,68,0.18)", text: "#fca5a5" };
-    if (pct >= -5)   return { bg: "rgba(239,68,68,0.35)", text: "#fca5a5" };
-    return                  { bg: "rgba(239,68,68,0.6)",  text: "#fff" };
+    if (pct >= 5)    return { bg: "rgba(34,197,94,0.55)",  text: "#fff" };
+    if (pct >= 2)    return { bg: "rgba(34,197,94,0.35)",  text: "#86efac" };
+    if (pct >= 0.5)  return { bg: "rgba(34,197,94,0.18)",  text: "#86efac" };
+    if (pct >= 0)    return { bg: "rgba(34,197,94,0.08)",  text: "rgba(134,239,172,0.7)" };
+    if (pct >= -0.5) return { bg: "rgba(239,68,68,0.08)",  text: "rgba(252,165,165,0.7)" };
+    if (pct >= -2)   return { bg: "rgba(239,68,68,0.18)",  text: "#fca5a5" };
+    if (pct >= -5)   return { bg: "rgba(239,68,68,0.35)",  text: "#fca5a5" };
+    return                  { bg: "rgba(239,68,68,0.60)",  text: "#fff" };
   }
 
+  const catTabs: { id: HeatCat; label: string }[] = [
+    { id: "all",     label: "All" },
+    { id: "crypto",  label: "Crypto" },
+    { id: "futures", label: "Futures" },
+    { id: "stocks",  label: "Stocks" },
+    { id: "oil",     label: "Oil" },
+  ];
+
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest">24H Change Heatmap</span>
+    <div className="py-3">
+      {/* Header + legend */}
+      <div className="flex items-center justify-between mb-2 px-4">
+        <span className="text-[10px] font-mono text-[#3b8bf6]/45 uppercase tracking-widest">24H Change · Tap to open chart</span>
         <div className="flex items-center gap-1 text-[9px] font-mono">
           {[[-6,"≤-5%"],[-3,"-2%"],[-1,"flat"],[3,"+2%"],[6,"≥+5%"]].map(([v,l]) => {
             const {bg,text} = heatColor(Number(v));
@@ -3397,25 +3418,57 @@ function MarketHeatmap({ ticks }: { ticks: Map<string, Tick> }) {
           })}
         </div>
       </div>
-      <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))" }}>
+
+      {/* Category filter pills */}
+      <div className="flex gap-1.5 px-4 mb-3 overflow-x-auto scrollbar-none">
+        {catTabs.map(c => (
+          <button
+            key={c.id}
+            onClick={() => setCat(c.id)}
+            className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-mono font-bold transition-all border ${
+              cat === c.id
+                ? "bg-[#3b8bf6]/20 border-[#3b8bf6]/60 text-[#3b8bf6]"
+                : "bg-[#111827] border-[#3b8bf6]/15 text-[#3b8bf6]/45 hover:text-[#3b8bf6]/80 hover:border-[#3b8bf6]/35"
+            }`}
+          >
+            {c.label}
+            <span className="ml-1 opacity-50 text-[9px]">
+              {c.id === "all"
+                ? ticks.size
+                : Array.from(ticks.values()).filter(t => t.category === c.id).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tiles grid */}
+      <div className="px-4 grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))" }}>
         {all.map(t => {
           const sym = t.symbol.replace("USDT","");
           const pct = t.changePercent ?? 0;
           const { bg, text } = heatColor(pct);
           return (
-            <div key={`${t.category}:${t.symbol}`}
-              className="rounded-lg p-2 text-center hover:scale-105 transition-transform cursor-default"
-              style={{ background: bg, border: "1px solid rgba(255,255,255,0.06)" }}
-              title={`${t.name} — ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`}
+            <button
+              key={`${t.category}:${t.symbol}`}
+              onClick={() => onSelect(t)}
+              className="rounded-lg p-2 text-center hover:scale-105 hover:brightness-125 active:scale-95 transition-all cursor-pointer focus:outline-none"
+              style={{ background: bg, border: "1px solid rgba(255,255,255,0.08)" }}
+              title={`${t.name} — tap to open chart`}
             >
-              <div className="text-[10px] font-bold font-mono" style={{ color: text }}>{sym.slice(0,6)}</div>
-              <div className="text-[9px] font-mono mt-0.5" style={{ color: text, opacity: 0.85 }}>
+              <div className="text-[10px] font-bold font-mono truncate" style={{ color: text }}>{sym.slice(0,7)}</div>
+              <div className="text-[9px] font-mono mt-0.5 font-semibold" style={{ color: text, opacity: 0.9 }}>
                 {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
+
+      {all.length === 0 && (
+        <div className="text-center text-[#3b8bf6]/35 font-mono text-xs py-10">
+          No {cat === "all" ? "" : cat} data yet — feed loading...
+        </div>
+      )}
     </div>
   );
 }
@@ -4266,7 +4319,7 @@ export default function Dashboard() {
       {/* Heatmap Panel */}
       {tab === "heatmap" && (
         <main className="pb-8">
-          <MarketHeatmap ticks={ticks} />
+          <MarketHeatmap ticks={ticks} onSelect={(t) => setSelectedTick(t)} />
         </main>
       )}
 
